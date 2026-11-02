@@ -33,25 +33,25 @@ input int     InputMagicJual   = 2864385;
 
 input group "== Pengaturan Lot & Pengganda =="
 input double    InputLotAwal         = 0.01;
-input double    InputPenggandaLot   = 1.2;
-input double    InputLotMaksimal          = 5.0;
+input double    InputPenggandaLot   = 1.5;
+input double    InputLotMaksimal          = 15;
 input int       InputLangkahLayer       = 5;
-input int       InputJarakGrid        = 100;
-input int       InputJarakTrailingPending = 50;
+input int       InputJarakGrid        = 1000;
+input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
 input double    InputBatasKerugian    = 10000.0;
-input double    InputTargetHarian = 2000.0;
+input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
 input group "== Pengaturan Trailing (POIN) =="
 input ENUM_TS_MODE InputModeTrailing   = MODE_GLOBAL_PER_ARAH;
-input int        InputMulaiTrailingPoin = 150;
-input int        InputKunciProfitPoin    = 50;
-input int        InputLangkahTrailingPoin  = 5;
+input int        InputMulaiTrailingPoin = 1500;
+input int        InputKunciProfitPoin    = 1000;
+input int        InputLangkahTrailingPoin  = 500;
 
 // Runtime values mirrored from the MT5 inputs and optionally updated from the dashboard.
 ENUM_TRADE_MODE ModePerdagangan = InputModePerdagangan;
