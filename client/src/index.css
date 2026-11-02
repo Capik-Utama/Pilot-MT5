@@ -616,8 +616,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-panel-buttons button, .pilot-reset-row button { min-width: 0; min-height: 21px; padding: 0 3px; border: 1px solid rgba(152,164,214,.55); border-radius: 0; color: #ffffff; background: #20283f; font: 700 12px "IBM Plex Mono",ui-monospace,monospace; letter-spacing: .025em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }
 .pilot-panel-buttons button:hover:not(:disabled), .pilot-reset-row button:hover:not(:disabled) { filter: brightness(1.22); }
 .pilot-panel-buttons button:disabled, .pilot-reset-row button:disabled { opacity: .4; cursor: not-allowed; }
-.pilot-panel-buttons .mode.selected { color: #f6f8ff; background: #242e49; border-color: #7f8cbb; }
-.pilot-panel-buttons .mode.selected:not(:first-child) { color: #000000; background: #00ff00; border-color: #00ff00; }
+.pilot-panel-buttons .mode.selected { color: #000000; background: #00ff00; border-color: #00ff00; }
 .pilot-panel-buttons .trade-sell { background: #ed1010; border-color: #ff4141; }
 .pilot-panel-buttons .trade-buy { background: #0873ee; border-color: #3291ff; }
 .pilot-panel-buttons .close-sell { background: #67324f; border-color: #95617c; }

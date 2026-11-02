@@ -472,8 +472,7 @@ export default function Home() {
         <div className="pilot-account-list">
           {filteredAccounts.map((account) => {
             const online = account.connection_status === "online";
-            const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
-            const disabled = !canUseCardActions || !online || !account.telemetry_received || Boolean(active) || busyAccountIds.has(account.id);
+            const disabled = !canUseCardActions || !online || !account.telemetry_received;
             const displayMode = currencyModes[account.id] ?? account.display_currency ?? "USD";
             return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity"><span className={`pilot-identity-led ${online ? "online" : "offline"}`} aria-label={online ? "Online" : "Offline"} /><span>{account.label} - {account.broker_account_name || "Menunggu nama akun dari EA"}</span></div><article className="pilot-account-card">
               <div className="pilot-account-header">{canWrite ? <button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span><h3>*Grid_By_Capik*</h3></span></button> : <div className="pilot-account-title pilot-edit-title pilot-staff-card-title"><span><h3>*Grid_By_Capik*</h3></span></div>}</div>
