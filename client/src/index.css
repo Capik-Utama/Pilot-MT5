@@ -731,3 +731,18 @@ h1, h2, h3, p { margin: 0; }
   .pilot-header-controls { width: 100%; flex-wrap: wrap; }
   .pilot-account-identity { margin: 0 2px 3px; font-size: 9px; }
 }
+
+/* Larger, higher-contrast MT5 Pilot branding. */
+.pilot-brand { gap: 13px; }
+.pilot-brand-mark { width: 46px; height: 46px; border-radius: 11px; }
+.pilot-brand-mark svg { width: 23px; height: 23px; }
+.pilot-brand > span:last-child { gap: 4px; }
+.pilot-brand strong { font-size: clamp(16px, 1.35vw, 20px); line-height: 1; }
+.pilot-brand small { color: #a9bdcf; font-size: 10px; font-weight: 500; letter-spacing: .16em; line-height: 1.1; text-shadow: 0 0 10px rgba(169,189,207,.16); }
+@media (max-width: 650px) {
+  .pilot-brand { gap: 9px; }
+  .pilot-brand-mark { width: 40px; height: 40px; border-radius: 10px; }
+  .pilot-brand-mark svg { width: 21px; height: 21px; }
+  .pilot-brand strong { font-size: 16px; }
+  .pilot-brand small { font-size: 8px; letter-spacing: .13em; }
+}
