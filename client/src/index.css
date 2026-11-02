@@ -643,6 +643,10 @@ h1, h2, h3, p { margin: 0; }
 .pilot-command-history { padding: 10px 14px; }
 .pilot-account-footer { padding: 8px 14px 10px; }
 .pilot-panel-metrics > div:last-child { grid-column: auto; }
+.pilot-dashboard-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 10px 2px 2px; border-top: 1px solid rgba(143,170,201,.15); }
+.pilot-footer-status { display: inline-flex; align-items: center; gap: 8px; color: #78daba; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 9px; letter-spacing: .06em; }
+.pilot-footer-status > span { width: 7px; height: 7px; border-radius: 50%; background: #e2ad69; }
+.pilot-footer-status > span.is-live { background: #58d5a5; box-shadow: 0 0 10px rgba(82,223,172,.6); }
 @media (min-width: 1200px) {
   .pilot-account-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   .pilot-account-header { min-height: 46px; padding: 6px 20px; }
@@ -692,4 +696,6 @@ h1, h2, h3, p { margin: 0; }
   .pilot-command-history { padding: 6px; }
   .pilot-command-history > div { grid-template-columns: 1fr auto; gap: 4px; font-size: 7px; }
   .pilot-command-history small { grid-column: 1 / -1; }
+  .pilot-dashboard-footer { margin-top: 10px; padding-top: 8px; }
+  .pilot-footer-status { font-size: 8px; }
 }
