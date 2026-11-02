@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Express } from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { publicPlatformScript } from "./publicConfig";
@@ -7,8 +7,7 @@ import { createContext } from "./context";
 import { registerMt5Routes } from "../mt5";
 
 /** Build the request handler without binding a network port. */
-export function createApp() {
-  const app = express();
+export function createApp(app: Express = express()) {
   app.use(express.json({ limit: "32kb" }));
   app.use(express.urlencoded({ limit: "16kb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "express",
   "buildCommand": "pnpm build:vercel",
-  "outputDirectory": "public",
   "headers": [
     {
       "source": "/api/platform/config.js",
