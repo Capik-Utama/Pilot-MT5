@@ -191,28 +191,25 @@ export default function Home() {
             const displayMode = currencyModes[account.id] ?? "USD";
             const showMoney = (value: number) => account.telemetry_received ? currency(Number(value), account.currency, displayMode) : "—";
             return <article className="pilot-account-card" key={account.id}>
-              <div className="pilot-account-header"><div className="pilot-account-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><div><h3>{account.label}</h3><p>{account.broker_account_name || "Menunggu nama akun dari EA"}{account.mt5_login ? ` · #${account.mt5_login}` : ""}{account.server_name ? ` · ${account.server_name}` : ""}</p></div></div><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
-              <div className="pilot-account-tags"><span className={account.is_demo ? "demo" : "live"}><ShieldCheck size={12} />{account.is_demo ? "AKUN DEMO" : "AKUN LIVE · KONTROL TERKUNCI"}</span><span className="pilot-mode"><Cpu size={12} /> MODE {account.ea_mode.toUpperCase()}</span><span className="pilot-running"><span className={account.running ? "run" : "stop"} />{account.running ? "RUNNING" : "STOPPED / MANUAL"}</span><span><Signal size={12} />{online && account.latency_ms !== null ? `${account.latency_ms} ms` : "RTT —"}</span><span><CircleDot size={12} />{age(account.last_seen_at)}</span></div>
-              <div className="pilot-metrics pilot-panel-metrics">
-                <div><span><Wallet size={13} /> SALDO</span><strong>{showMoney(account.balance)}</strong></div>
-                <div><span><Activity size={13} /> EQUITY</span><strong>{showMoney(account.equity)}</strong></div>
-                <div className="dd-buy"><span><ArrowDownRight size={13} /> MAX FLOAT BUY</span><strong>{showMoney(account.max_float_buy)}</strong></div>
-                <div className="dd-sell"><span><ArrowUpRight size={13} /> MAX FLOAT SELL</span><strong>{showMoney(account.max_float_sell)}</strong></div>
-                <div><span>Basket SL Set</span><strong>{account.basket_sl_type === "percent" ? `-${Number(account.basket_sl_set).toFixed(1)}%` : `-${showMoney(account.basket_sl_set)}`}</strong></div>
-                <div><span>Daily Target Set</span><strong>{showMoney(account.daily_target_set)}</strong></div>
-                <div className="profit"><span><Zap size={13} /> PROFIT</span><strong>{showMoney(account.profit)}</strong><small>floating {showMoney(account.running_float)}</small></div>
-                <div><span>Running · posisi terbuka</span><strong>{showMoney(account.running_float)} · {account.open_positions ?? 0}</strong></div>
-                <div className="pilot-ea-status"><span>Status</span><strong>{account.ea_status || (account.running ? "ACTIVE" : "MANUAL")}</strong></div>
+              <div className="pilot-account-header"><div className="pilot-account-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><div><h3>*Grid_By_Capik*</h3><p>{account.label} · {account.broker_account_name || "Menunggu nama akun dari EA"}{account.mt5_login ? ` · #${account.mt5_login}` : ""}{account.server_name ? ` · ${account.server_name}` : ""}</p></div></div><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
+              <div className="pilot-panel-buttons">
+                <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
+                <div className="pilot-button-row"><button className="trade-sell" disabled={disabled} onClick={() => void sendAction(account, "sell")}>SELL</button><button className="trade-buy" disabled={disabled} onClick={() => void sendAction(account, "buy")}>BUY</button></div>
+                <div className="pilot-button-row"><button className="close-sell" disabled={disabled} onClick={() => void sendAction(account, "close_sell")}>Close Sell</button><button className="close-buy" disabled={disabled} onClick={() => void sendAction(account, "close_buy")}>Close Buy</button></div>
+                <button className="close-all" disabled={disabled} onClick={() => void sendAction(account, "close_all")}>CLOSE ALL</button>
+                <div className="pilot-currency-row" aria-label="Mata uang tampilan">{(["USD", "IDR", "CENT"] as const).map((mode) => <button key={mode} className={displayMode === mode ? "selected" : ""} onClick={() => setCurrencyModes((current) => ({ ...current, [account.id]: mode }))}>{mode}</button>)}</div>
               </div>
-              <div className="pilot-control-box"><div className="pilot-control-title"><span><Radio size={13} /> KONTROL EA</span><span className={active ? "pending" : "ready"}>{active ? statusLabel(active.status) : online ? "SIAP" : "MENUNGGU EA"}</span></div>
-                <div className="pilot-panel-buttons">
-                  <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
-                  <div className="pilot-button-row"><button className="trade-buy" disabled={disabled} onClick={() => void sendAction(account, "buy")}>BUY</button><button className="trade-sell" disabled={disabled} onClick={() => void sendAction(account, "sell")}>SELL</button></div>
-                  <div className="pilot-button-row"><button className="close" disabled={disabled} onClick={() => void sendAction(account, "close_buy")}>Close Buy</button><button className="close" disabled={disabled} onClick={() => void sendAction(account, "close_sell")}>Close Sell</button></div>
-                  <button className="close-all" disabled={disabled} onClick={() => void sendAction(account, "close_all")}>CLOSE ALL</button>
-                  <div className="pilot-currency-row" aria-label="Mata uang tampilan">{(["USD", "IDR", "CENT"] as const).map((mode) => <button key={mode} className={displayMode === mode ? "selected" : ""} onClick={() => setCurrencyModes((current) => ({ ...current, [account.id]: mode }))}>{mode}</button>)}</div>
-                  <button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button>
-                </div>{!account.is_demo && <small className="pilot-lock-note"><AlertTriangle size={13} /> Kontrol hanya tersedia untuk akun demo.</small>}</div>
+              <div className="pilot-metrics pilot-panel-metrics">
+                <div className="metric-sl"><span>Basket SL Set</span><strong>{account.telemetry_received ? account.basket_sl_type === "percent" ? `-${Number(account.basket_sl_set).toFixed(1)}%` : `-${showMoney(account.basket_sl_set)}` : "Basket SL Set: —"}</strong></div>
+                <div className="metric-target"><span>Daily Target Set</span><strong>{account.telemetry_received ? showMoney(account.daily_target_set) : "—"}</strong></div>
+                <div className="metric-float-buy"><span>Max Float Buy</span><strong>{showMoney(account.max_float_buy)}</strong></div>
+                <div className="metric-float-sell"><span>Max Float Sell</span><strong>{showMoney(account.max_float_sell)}</strong></div>
+                <div className="metric-running"><span>Running</span><strong>{showMoney(account.running_float)}</strong></div>
+                <div className="metric-profit"><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
+                <div className="metric-status"><span>Status</span><strong>{account.telemetry_received ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL") : "MENUNGGU EA"}</strong></div>
+              </div>
+              <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>
+              {!account.is_demo && <small className="pilot-lock-note"><AlertTriangle size={13} /> Kontrol hanya tersedia untuk akun demo.</small>}
               {account.commands.length > 0 && <div className="pilot-command-history"><span>PERINTAH TERAKHIR</span>{account.commands.slice(0, 3).map((command) => <div key={command.id}><b>{actionLabel[command.action] ?? command.action}</b><span className={`status-${command.status}`}>{statusLabel(command.status)}</span><small>{command.result_message ?? new Date(command.created_at).toLocaleTimeString("id-ID")}</small></div>)}</div>}
               <footer className="pilot-account-footer"><span>Token EA •••• {account.token_hint}</span><span>{account.is_demo ? "Akun demo" : "Read-only"}</span></footer>
             </article>;
