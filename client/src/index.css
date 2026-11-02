@@ -620,7 +620,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-tags { display: none; }
 .pilot-panel-buttons { display: grid; gap: 4px; padding: 6px 7px 4px; }
 .pilot-button-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4px; }
-.pilot-panel-buttons button, .pilot-reset-row button { min-width: 0; min-height: 27px; padding: 0 3px; border: 1px solid rgba(152,164,214,.55); border-radius: 0; color: #ffffff; background: #20283f; font: 700 8px "IBM Plex Mono",ui-monospace,monospace; letter-spacing: .025em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }
+.pilot-panel-buttons button, .pilot-reset-row button { min-width: 0; min-height: 23px; padding: 0 3px; border: 1px solid rgba(152,164,214,.55); border-radius: 0; color: #ffffff; background: #20283f; font: 700 8px "IBM Plex Mono",ui-monospace,monospace; letter-spacing: .025em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }
 .pilot-panel-buttons button:hover:not(:disabled), .pilot-reset-row button:hover:not(:disabled) { filter: brightness(1.22); }
 .pilot-panel-buttons button:disabled, .pilot-reset-row button:disabled { opacity: .4; cursor: not-allowed; }
 .pilot-panel-buttons .mode.selected { color: #f6f8ff; background: #242e49; border-color: #7f8cbb; }
@@ -631,7 +631,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-panel-buttons .close-buy { background: #283475; border-color: #5365bf; }
 .pilot-panel-buttons .close-all { width: 100%; background: #00a800; border-color: #45ff15; }
 .pilot-currency-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 4px; }
-.pilot-panel-buttons .pilot-currency-row button { min-height: 23px; color: #ffffff; background: #26324e; }
+.pilot-panel-buttons .pilot-currency-row button { min-height: 19px; color: #ffffff; background: #26324e; }
 .pilot-panel-buttons .pilot-currency-row button:nth-child(2) { background: #1cab00; border-color: #5aff37; }
 .pilot-panel-buttons .pilot-currency-row button.selected { color: #000000; background: #00ff00; border-color: #9cff77; }
 .pilot-panel-metrics { display: grid; grid-template-columns: 1fr; gap: 0; padding: 3px 8px 2px; }
@@ -648,7 +648,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-panel-metrics .metric-profit.profit-negative > span, .pilot-panel-metrics .metric-profit.profit-negative strong { color: #ff0000; }
 .pilot-panel-metrics .metric-status > span, .pilot-panel-metrics .metric-status strong { color: #ffffff; }
 .pilot-reset-row { padding: 5px 7px 7px; }
-.pilot-reset-row .reset-all { width: 100%; min-height: 30px; background: #0874ef; border-color: #3391ff; font-size: 10px; }
+.pilot-reset-row .reset-all { width: 100%; min-height: 26px; background: #0874ef; border-color: #3391ff; font-size: 10px; }
 .pilot-control-title { margin: 0; }
 .pilot-command-history { padding: 10px 14px; }
 .pilot-account-footer { padding: 8px 14px 10px; }
@@ -659,15 +659,15 @@ h1, h2, h3, p { margin: 0; }
   .pilot-account-title h3 { font-size: 20px; }
   .pilot-panel-buttons { gap: 3px; padding: 5px 6px 3px; }
   .pilot-button-row { gap: 3px; }
-  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 28px; font-size: 14px; }
-  .pilot-panel-buttons .pilot-currency-row button { min-height: 20px; }
+  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 24px; font-size: 14px; }
+  .pilot-panel-buttons .pilot-currency-row button { min-height: 16px; }
   .pilot-panel-metrics { padding: 2px 6px 1px; }
   .pilot-panel-metrics > div { min-height: 19px; }
   .pilot-panel-metrics > div > span { font-size: 12px; }
   .pilot-panel-metrics strong { font-size: 12px; }
   .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 14px; }
   .pilot-reset-row { padding: 4px 6px 6px; }
-  .pilot-reset-row .reset-all { min-height: 30px; font-size: 14px; }
+  .pilot-reset-row .reset-all { min-height: 26px; font-size: 14px; }
 }
 @media (min-width: 900px) and (max-width: 1199px) {
   .pilot-account-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -702,15 +702,15 @@ h1, h2, h3, p { margin: 0; }
   .pilot-account-header .pilot-led { top: 7px; left: 6px; width: 5px; height: 5px; }
   .pilot-panel-buttons { gap: 3px; padding: 4px 4px 2px; }
   .pilot-button-row { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 3px; }
-  .pilot-panel-buttons button { min-height: 28px; padding: 0 2px; font-size: 12px; letter-spacing: 0; }
-  .pilot-panel-buttons .pilot-currency-row button { min-height: 20px; }
+  .pilot-panel-buttons button { min-height: 24px; padding: 0 2px; font-size: 12px; letter-spacing: 0; }
+  .pilot-panel-buttons .pilot-currency-row button { min-height: 16px; }
   .pilot-panel-metrics { padding: 2px 5px 1px; }
   .pilot-panel-metrics > div { min-height: 18px; gap: 2px; }
   .pilot-panel-metrics > div > span { font-size: 10px; }
   .pilot-panel-metrics strong { font-size: 10px; }
   .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 12px; }
   .pilot-reset-row { padding: 3px 4px 5px; }
-  .pilot-reset-row .reset-all { min-height: 28px; font-size: 12px; }
+  .pilot-reset-row .reset-all { min-height: 24px; font-size: 12px; }
   .pilot-account-footer { gap: 4px; padding: 5px 6px; font-size: 5px; }
   .pilot-command-history { padding: 6px; }
   .pilot-command-history > div { grid-template-columns: 1fr auto; gap: 4px; font-size: 7px; }
