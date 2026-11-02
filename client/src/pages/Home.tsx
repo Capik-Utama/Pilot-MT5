@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -56,6 +56,7 @@ export default function Home() {
   const [currencyModes, setCurrencyModes] = useState<Record<string, DisplayCurrency>>({});
   const [accountSearch, setAccountSearch] = useState("");
   const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -194,9 +195,15 @@ export default function Home() {
     <main className="pilot-dashboard">
       <header className="pilot-topbar">
         <a className="pilot-brand" href="/"><span className="pilot-brand-mark"><Activity size={19} /></span><span><strong>MT5 <i>PILOT</i></strong><small>PRIVATE EA WORKSPACE</small></span></a>
-        <div className="pilot-top-actions"><div className="pilot-header-controls"><label className="pilot-header-search pilot-search-box"><Search size={13} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select><div className="pilot-header-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong></div><button className="pilot-icon-button pilot-header-refresh" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={13} className={loadingAccounts ? "pilot-spin" : ""} /></button><button className="pilot-add-button pilot-header-add" onClick={() => setShowAdd(true)}><Plus size={15} /> Tambah EA</button></div><div className="pilot-user-actions"><span className="pilot-owner-pill"><ShieldCheck size={14} /> LOGIN TERVERIFIKASI</span><button className="pilot-icon-button" title="Keluar" aria-label="Keluar" onClick={() => void supabase.auth.signOut()}><LogOut size={16} /></button></div></div>
+        <button className="pilot-menu-button pilot-icon-button" title="Buka menu" aria-label="Buka menu" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={19} /></button>
       </header>
-
+      {sidebarOpen && <button className="pilot-sidebar-backdrop" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`pilot-sidebar ${sidebarOpen ? "open" : ""}`} aria-hidden={!sidebarOpen}>
+        <div className="pilot-sidebar-head"><div><span className="pilot-kicker"><span /> MENU PANEL</span><strong>MT5 PILOT</strong></div><button className="pilot-icon-button" title="Tutup menu" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)}><X size={17} /></button></div>
+        <div className="pilot-sidebar-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong><button className="pilot-icon-button" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={14} className={loadingAccounts ? "pilot-spin" : ""} /></button></div>
+        <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select><button className="pilot-add-button pilot-sidebar-add" onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button></div>
+        <div className="pilot-sidebar-account"><span className="pilot-owner-pill"><ShieldCheck size={14} /> LOGIN TERVERIFIKASI</span><button className="pilot-sidebar-logout" onClick={() => void supabase.auth.signOut()}><LogOut size={15} /> Keluar</button></div>
+      </aside>
       <section className="pilot-main">
         {accounts.length === 0 && !loadingAccounts ? (
           <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA Fast-Grid</h2><p>Buat token koneksi untuk akun MT5. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>

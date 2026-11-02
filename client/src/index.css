@@ -746,3 +746,29 @@ h1, h2, h3, p { margin: 0; }
   .pilot-brand strong { font-size: 16px; }
   .pilot-brand small { font-size: 8px; letter-spacing: .13em; }
 }
+
+/* Header actions are grouped in a slide-in sidebar. */
+.pilot-menu-button { width: 40px; height: 40px; color: #b8c8d8; }
+.pilot-menu-button:hover { color: var(--p-cyan); }
+.pilot-sidebar-backdrop { position: fixed; z-index: 40; inset: 0; border: 0; background: rgba(1, 7, 15, .58); cursor: pointer; }
+.pilot-sidebar { position: fixed; z-index: 50; top: 0; right: 0; display: flex; width: min(360px, calc(100vw - 28px)); height: 100vh; flex-direction: column; gap: 18px; padding: 22px; border-left: 1px solid rgba(85,214,200,.22); background: linear-gradient(160deg, #0d1c2e, #07111f 72%); box-shadow: -18px 0 55px rgba(0,0,0,.38); transform: translateX(105%); transition: transform .22s ease; }
+.pilot-sidebar.open { transform: translateX(0); }
+.pilot-sidebar-head, .pilot-sidebar-status, .pilot-sidebar-account { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pilot-sidebar-head strong { display: block; margin-top: 7px; color: #eff7fb; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 18px; letter-spacing: .1em; }
+.pilot-sidebar-head .pilot-kicker { font-size: 8px; }
+.pilot-sidebar-status { padding: 12px; border: 1px solid var(--p-line); border-radius: 8px; color: #c4d1de; background: rgba(85,214,200,.045); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; }
+.pilot-sidebar-status > span { width: 7px; height: 7px; margin-right: -3px; border-radius: 50%; background: #d29a61; }
+.pilot-sidebar-status > span.is-live { background: #58d5a5; box-shadow: 0 0 10px rgba(82,223,172,.6); }
+.pilot-sidebar-section { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--p-line); border-bottom: 1px solid var(--p-line); }
+.pilot-sidebar-search { width: 100%; height: 38px; }
+.pilot-sidebar-search input { font-size: 10px; }
+.pilot-sidebar-filter { width: 100%; height: 38px; }
+.pilot-sidebar-add { width: 100%; min-height: 40px; }
+.pilot-sidebar-account { align-items: stretch; flex-direction: column; }
+.pilot-sidebar-account .pilot-owner-pill { justify-content: center; padding: 10px 12px; font-size: 9px; }
+.pilot-sidebar-logout { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(240,120,120,.25); border-radius: 6px; color: #f2aaa5; background: rgba(240,120,120,.06); cursor: pointer; font: 10px "IBM Plex Mono", ui-monospace, monospace; }
+.pilot-sidebar-logout:hover { border-color: rgba(240,120,120,.5); background: rgba(240,120,120,.12); }
+@media (max-width: 650px) {
+  .pilot-menu-button { width: 36px; height: 36px; }
+  .pilot-sidebar { width: min(330px, calc(100vw - 18px)); padding: 18px; }
+}
