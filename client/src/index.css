@@ -978,3 +978,14 @@ h1, h2, h3, p { margin: 0; }
   .pilot-config-telemetry { padding: 6px 8px 3px; }
   .pilot-config-footer { padding: 7px 8px 9px; }
 }
+
+.pilot-card-summary .metric-profit > span { font-size: clamp(15px, calc(.62vw + 8px), 17px); }
+.pilot-card-summary .metric-profit strong { font-size: clamp(15px, calc(.68vw + 8px), 18px); }
+@media (min-width: 1200px) {
+  .pilot-card-summary .metric-profit > span,
+  .pilot-card-summary .metric-profit strong { font-size: 22px; }
+}
+@media (max-width: 650px) {
+  .pilot-card-summary .metric-profit > span,
+  .pilot-card-summary .metric-profit strong { font-size: 20px; }
+}
