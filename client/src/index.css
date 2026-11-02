@@ -257,3 +257,167 @@ h1, h2, h3, p { margin: 0; }
   .modal-card { padding: 23px 18px; }
   .empty-foot { font-size: 7px; }
 }
+
+
+/* Beranda tahap awal MT5 Pilot */
+.landing-page {
+  --landing-bg: #08111f;
+  --landing-panel: #0b1725;
+  --landing-line: rgba(146, 171, 196, .14);
+  --landing-muted: #8494a8;
+  --landing-bright: #e8f0f7;
+  --landing-accent: #55d6c8;
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--landing-bright);
+  background: radial-gradient(ellipse 44% 31% at 77% 20%, rgba(45, 212, 191, .095), transparent 72%), var(--landing-bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.landing-page::before { position: absolute; inset: 0; z-index: 0; background-image: linear-gradient(rgba(139, 165, 189, .027) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 165, 189, .027) 1px, transparent 1px); background-size: 46px 46px; content: ""; pointer-events: none; mask-image: linear-gradient(to bottom, #000 0%, transparent 70%); }
+.landing-page a { color: inherit; text-decoration: none; }
+.landing-container, .landing-header { position: relative; z-index: 1; width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
+.landing-header { display: flex; height: 78px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--landing-line); }
+.landing-brand { display: inline-flex; align-items: center; gap: 11px; }
+.landing-brand-mark { display: grid; width: 37px; height: 37px; place-items: center; border: 1px solid rgba(85, 214, 200, .31); border-radius: 9px; color: var(--landing-accent); background: rgba(85, 214, 200, .07); box-shadow: 0 0 24px rgba(85, 214, 200, .08); }
+.landing-brand-copy { display: grid; gap: 3px; }
+.landing-brand-copy strong { color: #f0f5f8; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 14px; letter-spacing: .11em; }
+.landing-brand-copy strong i, .landing-footer-brand i { color: var(--landing-accent); font-style: normal; }
+.landing-brand-copy small { color: #65778c; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 8px; letter-spacing: .15em; }
+.landing-nav { display: flex; align-items: center; gap: 29px; color: #a1afbe; font-size: 12px; }
+.landing-nav a { transition: color .18s ease; }
+.landing-nav a:hover, .landing-secondary-link:hover { color: var(--landing-accent); }
+.landing-nav .landing-nav-cta { display: inline-flex; min-height: 37px; align-items: center; gap: 8px; padding: 0 13px; border: 1px solid var(--landing-line); border-radius: 6px; color: #dbe6ed; background: rgba(255,255,255,.025); }
+.landing-nav .landing-nav-cta:hover { border-color: rgba(85, 214, 200, .4); color: var(--landing-accent); }
+.landing-hero { display: grid; min-height: 552px; grid-template-columns: 1.03fr .97fr; align-items: center; gap: 40px; padding-top: 34px; padding-bottom: 50px; }
+.landing-hero-copy { position: relative; z-index: 2; padding: 20px 0 31px; }
+.landing-eyebrow, .landing-section-label { display: flex; align-items: center; gap: 10px; color: #8c9caf; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: .15em; }
+.landing-eyebrow-line { width: 21px; height: 1px; background: var(--landing-accent); box-shadow: 0 0 9px rgba(85, 214, 200, .45); }
+.landing-eyebrow-divider { color: #45576a; }
+.landing-hero h1 { margin-top: 22px; color: #f0f5f8; font-size: clamp(39px, 5vw, 62px); font-weight: 550; letter-spacing: -.065em; line-height: 1.07; }
+.landing-hero h1 span { color: #8d9bad; font-weight: 450; }
+.landing-intro { max-width: 470px; margin-top: 21px; color: #a0adbb; font-size: 15px; line-height: 1.8; }
+.landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin-top: 29px; }
+.landing-primary-button { display: inline-flex; min-height: 45px; align-items: center; justify-content: center; gap: 12px; padding: 0 16px; border: 1px solid rgba(85, 214, 200, .46); border-radius: 6px; color: #06201f !important; background: var(--landing-accent); font-size: 12px; font-weight: 650; transition: .18s ease; }
+.landing-primary-button:hover { background: #7ce6db; box-shadow: 0 8px 30px rgba(85, 214, 200, .17); transform: translateY(-1px); }
+.landing-secondary-link { display: inline-flex; align-items: center; gap: 7px; color: #aeb9c4; font-size: 12px; transition: color .18s ease; }
+.landing-assurance { display: flex; align-items: center; gap: 8px; margin-top: 34px; color: #7e91a2; font-size: 10px; }
+.landing-assurance svg { color: var(--landing-accent); }
+.landing-visual { position: relative; min-height: 405px; overflow: hidden; border: 1px solid rgba(135, 165, 190, .14); border-radius: 12px; background: radial-gradient(ellipse 70% 55% at 49% 48%, rgba(24, 71, 78, .27), transparent 78%), linear-gradient(150deg, rgba(13, 28, 43, .82), rgba(8, 18, 31, .86)); box-shadow: 0 25px 85px rgba(0, 0, 0, .18); }
+.landing-visual-grid { position: absolute; inset: 0; opacity: .55; background-image: linear-gradient(rgba(127, 158, 180, .09) 1px, transparent 1px), linear-gradient(90deg, rgba(127, 158, 180, .09) 1px, transparent 1px); background-size: 35px 35px; mask-image: linear-gradient(to bottom, #000 0%, transparent 86%); }
+.visual-orbit { position: absolute; top: 57px; left: 50%; border: 1px solid rgba(85, 214, 200, .11); border-radius: 50%; transform: translateX(-50%); }
+.orbit-outer { width: 272px; height: 272px; }
+.orbit-inner { top: 86px; width: 214px; height: 214px; border-color: rgba(85, 214, 200, .16); }
+.visual-signal { position: absolute; z-index: 1; top: 180px; left: 50%; width: 8px; height: 8px; border: 2px solid #95f0df; border-radius: 50%; background: #36bfb5; box-shadow: 0 0 18px rgba(85, 214, 200, .78); }
+.signal-one { margin-left: -110px; }
+.signal-two { top: 119px; margin-left: 100px; width: 6px; height: 6px; opacity: .7; }
+.visual-wave { position: absolute; top: 105px; left: 0; width: 100%; opacity: .77; }
+.visual-card { position: absolute; z-index: 2; top: 50%; left: 50%; width: min(340px, calc(100% - 45px)); padding: 17px 18px 14px; border: 1px solid rgba(158, 184, 205, .2); border-radius: 8px; background: rgba(8, 19, 31, .91); box-shadow: 0 17px 55px rgba(0, 0, 0, .35), 0 0 38px rgba(45, 212, 191, .055); transform: translate(-50%, -34%); backdrop-filter: blur(12px); }
+.visual-card-top, .visual-progress-label, .visual-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.visual-card-label { display: inline-flex; align-items: center; gap: 7px; color: #acbdc9; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: .08em; }
+.visual-card-label svg { color: var(--landing-accent); }
+.visual-live { display: inline-flex; align-items: center; gap: 6px; color: #94c9bd; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 7px; letter-spacing: .1em; }
+.visual-live i, .landing-feature-status span { width: 5px; height: 5px; border-radius: 50%; background: var(--landing-accent); box-shadow: 0 0 8px rgba(85, 214, 200, .48); }
+.visual-card-title { margin-top: 21px; color: #ebf2f6; font-size: 17px; font-weight: 550; letter-spacing: -.03em; }
+.visual-card-subtitle { margin-top: 6px; color: #8496a7; font-size: 10px; line-height: 1.6; }
+.visual-divider { height: 1px; margin: 16px 0 13px; background: rgba(146, 171, 196, .14); }
+.visual-progress-label { color: #92a5b5; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 8px; letter-spacing: .1em; }
+.visual-progress-label span:last-child { color: var(--landing-accent); }
+.visual-progress { height: 3px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: rgba(134, 162, 184, .15); }
+.visual-progress span { display: block; width: 32%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #328f91, #77e3d4); box-shadow: 0 0 9px rgba(85, 214, 200, .45); }
+.visual-card-footer { justify-content: flex-start; gap: 7px; margin-top: 15px; color: #798da0; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 7px; letter-spacing: .09em; }
+.visual-card-footer svg { color: #80bdb4; }
+.visual-index { position: absolute; right: 18px; bottom: 16px; display: flex; gap: 9px; color: #92a2b2; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 8px; letter-spacing: .09em; }
+.visual-index span { color: #5e7387; }
+.visual-decoration { position: absolute; color: rgba(143, 175, 195, .2); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: .14em; }
+.visual-decoration-a { top: 20px; right: 22px; }
+.visual-decoration-b { bottom: 18px; left: 19px; color: rgba(85, 214, 200, .32); }
+.landing-about { display: grid; grid-template-columns: .75fr 1.25fr; gap: 50px; padding-top: 70px; padding-bottom: 74px; border-top: 1px solid var(--landing-line); }
+.landing-section-label { align-self: start; color: #73879b; font-size: 8px; white-space: nowrap; }
+.landing-section-label > span:first-child { color: var(--landing-accent); }
+.landing-section-rule { display: inline-block; width: 19px; height: 1px; background: rgba(85, 214, 200, .45); }
+.landing-about-content { display: grid; grid-template-columns: 1fr .85fr; align-items: start; gap: 30px; }
+.landing-about h2, .landing-roadmap-heading h2 { color: #e9f0f5; font-size: clamp(24px, 3vw, 34px); font-weight: 500; letter-spacing: -.055em; line-height: 1.24; }
+.landing-about h2 em { color: #8e9eae; font-style: normal; }
+.landing-about-content p, .landing-roadmap-heading > p { color: #8798aa; font-size: 12px; line-height: 1.85; }
+.landing-roadmap { padding-top: 37px; padding-bottom: 77px; border-top: 1px solid var(--landing-line); }
+.landing-roadmap-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 26px; }
+.landing-roadmap-heading > div { display: grid; gap: 19px; }
+.landing-roadmap-heading h2 span { color: #8797a8; }
+.landing-roadmap-heading > p { max-width: 350px; margin-bottom: 3px; }
+.landing-feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+.landing-feature-card { min-height: 194px; padding: 18px; border: 1px solid var(--landing-line); border-radius: 8px; background: linear-gradient(140deg, rgba(14, 29, 44, .83), rgba(9, 20, 33, .73)); transition: border-color .18s ease, transform .18s ease; }
+.landing-feature-card:hover { border-color: rgba(85, 214, 200, .27); transform: translateY(-2px); }
+.landing-feature-top { display: flex; align-items: center; justify-content: space-between; color: #708399; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 9px; }
+.landing-feature-top svg { color: #79cfc4; }
+.landing-feature-card h3 { margin-top: 21px; color: #dce6ed; font-size: 14px; font-weight: 550; }
+.landing-feature-card p { min-height: 42px; margin-top: 7px; color: #7f91a4; font-size: 10px; line-height: 1.7; }
+.landing-feature-status { display: flex; align-items: center; gap: 7px; margin-top: 15px; color: #98b9b2; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 7px; letter-spacing: .13em; }
+.landing-feature-status span { width: 4px; height: 4px; opacity: .8; }
+.landing-footer { display: flex; min-height: 73px; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--landing-line); color: #65788b; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 8px; letter-spacing: .09em; }
+.landing-footer-brand, .landing-back-top { display: inline-flex; align-items: center; gap: 7px; }
+.landing-footer-brand { color: #b3c0cc !important; }
+.landing-footer-brand svg { color: var(--landing-accent); }
+.landing-back-top { color: #94a5b4 !important; }
+.landing-back-top:hover { color: var(--landing-accent) !important; }
+
+@media (max-width: 800px) {
+  .landing-container, .landing-header { width: min(100% - 42px, 650px); }
+  .landing-header { height: 68px; }
+  .landing-nav { gap: 18px; font-size: 11px; }
+  .landing-nav .landing-nav-cta { min-height: 34px; padding-inline: 10px; }
+  .landing-hero { min-height: auto; grid-template-columns: 1fr; gap: 20px; padding-top: 42px; padding-bottom: 48px; }
+  .landing-hero-copy { padding: 13px 0 4px; }
+  .landing-hero h1 { font-size: clamp(42px, 8vw, 58px); }
+  .landing-visual { min-height: 370px; }
+  .landing-about { grid-template-columns: 1fr; gap: 24px; padding-top: 48px; padding-bottom: 52px; }
+  .landing-roadmap { padding-top: 34px; padding-bottom: 55px; }
+}
+@media (max-width: 560px) {
+  .landing-container, .landing-header { width: calc(100% - 36px); }
+  .landing-header { height: 65px; }
+  .landing-brand-mark { width: 33px; height: 33px; }
+  .landing-brand-copy strong { font-size: 12px; }
+  .landing-brand-copy small { font-size: 7px; }
+  .landing-nav { gap: 13px; }
+  .landing-nav > a:first-child { display: none; }
+  .landing-nav > a:nth-child(2) { font-size: 10px; }
+  .landing-nav .landing-nav-cta { width: 35px; min-height: 35px; justify-content: center; overflow: hidden; padding: 0; font-size: 0; }
+  .landing-nav-cta svg { flex: 0 0 auto; }
+  .landing-hero { gap: 12px; padding-top: 34px; padding-bottom: 37px; }
+  .landing-hero h1 { margin-top: 18px; font-size: clamp(37px, 10vw, 48px); }
+  .landing-intro { margin-top: 16px; font-size: 13px; line-height: 1.75; }
+  .landing-actions { gap: 17px; margin-top: 22px; }
+  .landing-primary-button { min-height: 42px; font-size: 11px; }
+  .landing-secondary-link { font-size: 11px; }
+  .landing-assurance { margin-top: 25px; font-size: 9px; }
+  .landing-visual { min-height: 310px; border-radius: 9px; }
+  .visual-orbit { top: 26px; }
+  .orbit-outer { width: 230px; height: 230px; }
+  .orbit-inner { top: 55px; width: 175px; height: 175px; }
+  .visual-wave { top: 75px; }
+  .visual-signal { top: 142px; }
+  .signal-two { top: 86px; }
+  .visual-card { width: calc(100% - 34px); padding: 15px; transform: translate(-50%, -38%); }
+  .visual-card-title { margin-top: 16px; font-size: 15px; }
+  .visual-index { right: 12px; bottom: 12px; font-size: 7px; }
+  .visual-decoration-a { top: 13px; right: 14px; }
+  .visual-decoration-b { bottom: 14px; left: 14px; }
+  .landing-about { gap: 18px; padding-top: 38px; padding-bottom: 42px; }
+  .landing-about-content { grid-template-columns: 1fr; gap: 13px; }
+  .landing-about h2, .landing-roadmap-heading h2 { font-size: 25px; }
+  .landing-about-content p, .landing-roadmap-heading > p { font-size: 11px; }
+  .landing-roadmap { padding-top: 28px; padding-bottom: 42px; }
+  .landing-roadmap-heading { align-items: flex-start; flex-direction: column; gap: 13px; margin-bottom: 19px; }
+  .landing-roadmap-heading > div { gap: 14px; }
+  .landing-feature-grid { grid-template-columns: 1fr; gap: 9px; }
+  .landing-feature-card { min-height: 0; padding: 15px; }
+  .landing-feature-card h3 { margin-top: 13px; }
+  .landing-feature-card p { min-height: auto; }
+  .landing-feature-status { margin-top: 11px; }
+  .landing-footer { min-height: 68px; flex-wrap: wrap; justify-content: space-between; padding: 14px 0; font-size: 7px; }
+  .landing-footer > span { order: 3; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-page *, .landing-page *::before, .landing-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}

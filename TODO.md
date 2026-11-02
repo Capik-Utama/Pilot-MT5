@@ -1,22 +1,26 @@
 # TODO — MT5 Pilot
 
-Status ruang lingkup saat ini: kerangka dashboard, skema, endpoint EA, antrean perintah, audit, dan UI responsif sudah dibuat. Integrasi dengan file EA milik pengguna serta pengaturan identitas owner masih menunggu langkah lanjutan. Tidak ada angka/simulasi akun yang diada-adakan.
+## Tahap sekarang: beranda saja
+- [x] Beranda statis berbahasa Indonesia tersedia di `/`; halaman menjelaskan tujuan proyek dan memberi gambaran fitur berikutnya tanpa membuat klaim data akun atau koneksi EA yang belum ada.
+- [x] Beranda tidak meminta autentikasi atau memanggil API dashboard, sehingga tampilan awal tidak bergantung pada database, OAuth, atau konfigurasi server.
+- [x] Vercel menggunakan build Vite statis untuk tahap ini agar halaman utama disajikan sebagai HTML, bukan melewati fungsi Express yang sebelumnya menghasilkan error.
 
-## 1. Privasi pemilik dan keamanan koneksi
-- [ ] “untuk saya pribadi. tidak akan saya kasih ke orang lain.” Aplikasi hanya dapat digunakan pemilik; layar serta kontrol mengharuskan autentikasi pemilik. Identitas pemilik yang belum dikonfigurasi harus gagal tertutup. Koneksi EA memerlukan autentikasi token per akun; token tersimpan sebagai hash dan token broker/password trading tidak diminta atau disimpan. Mekanisme fail-closed dan token sudah dibuat; `OWNER_OPEN_ID` belum diatur sehingga kontrol owner tetap terkunci sampai identitas pemilik ditetapkan dan visibilitas proyek dipastikan owner-only.
+## Pekerjaan tahap berikutnya — belum diaktifkan pada beranda
 
-## 2. Pemantauan beberapa akun dan status koneksi
-- [x] “memantau beberapa akun MT5 yang terkoneksi ke EA.” Tampilkan beberapa akun dalam satu dashboard dengan identitas dan kondisi koneksi masing-masing. “yang di tampilkan adalah: saldo, equity, max DD buy, max DD sell, Running.” Tampilkan kelima nilai/status tersebut dari telemetry EA, termasuk waktu pembaruan terakhir, kesehatan/latensi koneksi, serta penanda visual saat data basi atau akun offline. Jangan tampilkan angka contoh seolah-olah berasal dari akun nyata. Kerangka endpoint telemetry dan tampilan nilai per akun tersedia; sebelum heartbeat pertama metrik tetap `—`.
+### 1. Privasi pemilik dan keamanan koneksi
+- [ ] “untuk saya pribadi. tidak akan saya kasih ke orang lain.” Aplikasi hanya dapat digunakan pemilik; layar serta kontrol mengharuskan autentikasi pemilik. Identitas pemilik yang belum dikonfigurasi harus gagal tertutup. Koneksi EA memerlukan autentikasi token per akun; token tersimpan sebagai hash dan token broker/password trading tidak diminta atau disimpan. Tetapkan visibilitas proyek owner-only sebelum fitur privat ini dipakai.
 
-## 3. Kontrol EA per akun dan pelacakan hasil
-- [x] “saya juga ingin bisa mengontrol EA” dan “beberapa tombol. di antaranya: Auto, Manual, close buy, close sell, close all.” Sediakan kontrol Auto dan Manual serta aksi Close Buy, Close Sell, dan Close All yang ditargetkan ke akun tertentu. Aksi penutupan memerlukan konfirmasi; kontrol dinonaktifkan saat akun offline. Tunjukkan status perintah dikirim, diterima EA, berhasil, gagal, atau kedaluwarsa agar pemilik dapat mengetahui hasilnya dan mengurangi pengiriman ganda. Simpan jejak audit perintah. Kerangka UI/API, locking antrean per akun, acknowledgement, dan event audit tersedia; keberhasilan transaksi broker baru dapat dilaporkan EA setelah integrasi dan pengujian.
+### 2. Pemantauan beberapa akun dan status koneksi
+- [ ] “memantau beberapa akun MT5 yang terkoneksi ke EA.” Tampilkan beberapa akun dalam satu dashboard dengan identitas dan kondisi koneksi masing-masing. “yang di tampilkan adalah: saldo, equity, max DD buy, max DD sell, Running.” Tampilkan kelima nilai/status tersebut dari telemetry EA, termasuk waktu pembaruan terakhir, kesehatan/latensi koneksi, serta penanda visual saat data basi atau akun offline. Jangan tampilkan angka contoh seolah-olah berasal dari akun nyata.
 
-## 4. Integrasi dua arah dan pembaruan cepat
-- [ ] “sangat realtime. karna saya juga akan kontrol dari tombol-tombol itu.” UI menerima pembaruan akun dan status perintah secara berkala dengan cepat; EA dapat mengirim telemetry/heartbeat, menarik perintah dashboard, dan mengirim acknowledgement dengan hasil. Tandai umur data dan status offline dengan jelas. Jelaskan bahwa latensi aktual tergantung interval EA, koneksi, server, dan broker. Integrasikan EA yang sudah dimiliki pengguna pada langkah berikutnya; aplikasi tidak boleh mengaku sudah terhubung sebelum EA benar-benar mengirim data. API serta kontrak protokol sudah disiapkan, tetapi EA pengguna belum diberikan atau diuji terhadapnya.
+### 3. Kontrol EA per akun dan pelacakan hasil
+- [ ] “saya juga ingin bisa mengontrol EA” dan “beberapa tombol. di antaranya: Auto, Manual, close buy, close sell, close all.” Sediakan kontrol Auto dan Manual serta aksi Close Buy, Close Sell, dan Close All yang ditargetkan ke akun tertentu. Aksi penutupan memerlukan konfirmasi; kontrol dinonaktifkan saat akun offline. Tunjukkan status perintah dikirim, diterima EA, berhasil, gagal, atau kedaluwarsa agar pemilik dapat mengetahui hasilnya dan mengurangi pengiriman ganda. Simpan jejak audit perintah. Pengiriman perintah bukan bukti bahwa broker telah mengeksekusinya.
 
-## 5. Tampilan desktop dan mobile
-- [x] “untuk saya pribadi” dan tombol digunakan untuk pemantauan serta kontrol langsung. Antarmuka harus mudah dibaca dan digunakan di desktop maupun mobile, dengan target akun yang jelas, keadaan kosong untuk saat belum ada koneksi, status mode EA, dan umpan balik visual perintah. Breakpoint responsif dan keadaan kosong sudah diterapkan.
+### 4. Integrasi dua arah dan pembaruan cepat
+- [ ] “sangat realtime. karna saya juga akan kontrol dari tombol-tombol itu.” UI menerima pembaruan akun dan status perintah secara berkala dengan cepat; EA dapat mengirim telemetry/heartbeat, menarik perintah dashboard, dan mengirim acknowledgement dengan hasil. Tandai umur data dan status offline dengan jelas. Jelaskan bahwa latensi aktual tergantung interval EA, koneksi, server, dan broker. Aplikasi tidak boleh mengaku sudah terhubung sebelum EA benar-benar mengirim data.
 
+### 5. Autentikasi, backend, dan deployment fitur
+- [ ] Beranda statis tetap dapat dibuka tanpa backend. Sebelum mengaktifkan halaman dashboard, pilih hosting backend yang sesuai, verifikasi database MySQL, migrasi skema, Manus OAuth/callback, `OWNER_OPEN_ID`, dan perlindungan owner-only. Jangan masukkan secret/env file ke Git. Uji endpoint API dan akses pemilik secara terpisah dari build beranda.
 
-## 6. Migrasi GitHub dan kesiapan deploy Vercel
-- [ ] “migrasi repo yang ada di manus ke github. lalu lanjutkan deploy sampai siap terbit dan bisa di akses via vercel.” Source lengkap harus berada pada branch yang benar dan PR perubahan harus terpisah dari `main` sampai diperiksa. Build Vercel harus menyajikan dashboard sebagai `text/html`, endpoint API serverless, file statis, health route, serta manifest halaman yang benar; respons root bukan JavaScript bundle. Jangan masukkan secret/env file ke Git. Dokumentasikan kebutuhan database MySQL yang dapat dijangkau Vercel, migrasi skema, Manus OAuth/callback, `OWNER_OPEN_ID`, dan perlindungan owner-only. PR source GitHub telah dibuka; perbaikan Vercel sedang disiapkan. Pemeriksaan sebelumnya menemukan root Vercel mengembalikan JavaScript (`application/javascript`), bukan HTML. Vercel OAuth connector belum terotorisasi dan environment variable/database produksi belum diverifikasi; jangan menganggap siap rilis atau mempromosikan production sampai akses owner, autentikasi, database dan respons UI/API terverifikasi.
+### 6. Tampilan desktop dan mobile
+- [ ] “untuk saya pribadi” dan tombol digunakan untuk pemantauan serta kontrol langsung. Antarmuka fitur harus mudah dibaca dan digunakan di desktop maupun mobile, dengan target akun yang jelas, keadaan kosong saat belum ada koneksi, status mode EA, dan umpan balik visual perintah.
