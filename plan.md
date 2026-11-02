@@ -1,10 +1,10 @@
 # MT5 Pilot — Rencana implementasi
 
 ## Ruang lingkup
-Aplikasi dashboard web privat untuk pemilik, mengelola beberapa akun MT5 yang akan mengirim telemetry melalui EA, menampilkan status akun, dan mengantrikan perintah kontrol untuk diambil serta diakui oleh EA. Tidak ada koneksi langsung dari browser ke MT5 dan tidak menyimpan kata sandi broker. Sampai EA dipasang dan mengirim data, aplikasi harus memperlihatkan keadaan belum terhubung, bukan angka simulasi. Tombol kontrol harus nonaktif ketika akun belum online.
+Tahap yang dikerjakan sekarang hanya beranda statis berbahasa Indonesia. Beranda memperkenalkan MT5 Pilot dan menunjukkan arah pengembangan berikutnya tanpa meminta login, memanggil API, menampilkan data trading, atau menawarkan kontrol yang belum siap. Pemantauan beberapa akun, telemetry EA, dan kontrol tetap menjadi arah pengembangan berikutnya; semuanya harus menggunakan data aktual, bukan angka simulasi. Aplikasi tidak terhubung langsung dari browser ke MT5 dan tidak meminta atau menyimpan kata sandi broker.
 
 ## Arsitektur implementasi
-- **Frontend:** React/Vite yang sudah tersedia di `client/`. Satu halaman dashboard responsif menggunakan komponen panel akun, ringkasan konektivitas, status mode EA, timestamp pembaruan, indikator data basi, dan tombol tindakan per akun. Pembaruan UI melalui query berkala singkat agar cocok dengan backend dan database terkelola.
+- **Frontend:** React/Vite yang sudah tersedia di `client/`. Tahap sekarang menyajikan satu beranda informasional yang responsif, tanpa query autentikasi atau data dashboard. Rancangan layar pemantauan dan kontrol dipertahankan sebagai pekerjaan tahap lanjutan.
 - **Backend:** Express/tRPC yang tersedia di `server/`. Prosedur aplikasi dibatasi ke identitas pemilik yang telah login; endpoint HTTP terpisah untuk EA menerima telemetry, menawarkan antrian perintah, dan menerima acknowledgement. Endpoint EA memakai token acak per akun, diverifikasi dengan hash yang disimpan di database. Token penuh tidak pernah dikirim ke frontend kecuali sekali ketika akun dibuat.
 - **Persistensi:** MySQL/Drizzle bawaan. Tabel akun menyimpan label, identitas nonrahasia, hash token, penanda telemetry pertama, status EA, dan snapshot terbaru; tabel perintah menyimpan target akun, jenis tindakan, ID unik, waktu, status, hasil, dan kedaluwarsa. Tabel event perintah mencatat transisi status secara append-only melalui aplikasi. Perubahan skema dibuat sebagai migrasi aditif. Tidak ada password trading yang disimpan.
 - **Alur kontrol:** UI mengirim perintah terikat pada akun spesifik; tindakan penutupan meminta konfirmasi. Perintah memiliki ID unik dan tenggat, tidak dieksekusi oleh server. EA mengambil perintah melalui polling HTTP dan mengirim acknowledgement untuk status diterima/selesai/gagal. Dashboard menyajikan siklus antrean, pengiriman, konfirmasi, kegagalan, dan kedaluwarsa. Pengiriman perintah bukan bukti bahwa broker telah mengeksekusinya.
@@ -12,16 +12,14 @@ Aplikasi dashboard web privat untuk pemilik, mengelola beberapa akun MT5 yang ak
 - **Privasi:** Manus OAuth yang disediakan starter menjadi login aplikasi. Prosedur dashboard harus menolak identitas selain pemilik yang dikonfigurasi, gagal tertutup jika identitas pemilik belum diatur, dan menyembunyikan kontrol sampai sesi sah. Visibilitas proyek harus tetap owner-only sebelum dipakai; visibilitas proyek adalah pengaturan platform terpisah dari login aplikasi.
 
 ## Target deployment via Vercel
-- Vercel saat ini menerima commit GitHub, tetapi respons domain yang diperiksa adalah JavaScript (`application/javascript`) alih-alih HTML halaman dashboard; check sukses saja belum membuktikan situs siap diakses.
-- Vite menghasilkan UI sebagai aset statis ke direktori root `public/` pada perintah build khusus Vercel. Direktori itu menjadi output CDN Vercel; `express.static()` tidak dipakai untuk menyajikan UI di Vercel.
-- `vercel.json` memaksa framework preset Express agar Vercel tidak mengabaikan root Express app ketika juga mendeteksi Vite. Root `index.ts` mengekspor app sebagai default tanpa membuka port; `server/_core/app.ts` berbagi registrasi middleware dan API; `server/_core/index.ts` tetap menjadi listener development/Docker.
-- `vercel.json` menetapkan `buildCommand` dan `outputDirectory`; aset Vite tetap dilayani dari `public/`, sedangkan route HTTP EA, OAuth, tRPC, dan health ditangani satu Express Function. Tidak menambahkan rewrite catch-all yang dapat menimpa endpoint API/platform.
-- Vercel memerlukan environment variable runtime yang sesuai untuk database MySQL, Manus OAuth/sesi, dan `OWNER_OPEN_ID`; file `.env`, URL database, token, atau key tidak masuk Git. Manus managed `DATABASE_URL` tidak diasumsikan dapat dijangkau Vercel; ketersediaan jaringan/TLS, migrasi skema, region, dan backup perlu dipastikan sebelum trafik produksi.
-- Jangan mempromosikan build produksi sebelum halaman root menyajikan `text/html`, API health aktif, akses owner-only teruji, login OAuth sesuai host Vercel, dan database eksternal siap. Vercel connector/OAuth belum terotorisasi pada sesi ini; branch Preview dapat memberi bukti build tanpa menggantikan pemeriksaan variabel rahasia/privasi produksi.
+- Tahap awal memilih framework Vite dan hanya menerbitkan beranda statis dari direktori root `public/`; halaman root harus menyajikan `text/html` tanpa memanggil fungsi Express yang menghasilkan error 500.
+- Server Express, rute OAuth, tRPC, health, dan endpoint EA tetap ada di source untuk pekerjaan berikutnya, tetapi tidak dipublikasikan sebagai backend Vercel pada tahap beranda ini. Sebelum fitur dashboard diaktifkan, tentukan hosting backend dan verifikasi environment variable, database, OAuth, serta akses owner-only.
+- File `.env`, URL database, token, atau key tidak masuk Git. Manus managed `DATABASE_URL` tidak diasumsikan dapat dijangkau Vercel; ketersediaan jaringan/TLS, migrasi skema, region, dan backup perlu dipastikan sebelum backend digunakan.
+- Jangan menganggap fitur dashboard siap produksi hanya karena beranda statis berhasil dibangun. Pemeriksaan untuk backend, autentikasi owner-only, database, dan deployment produksinya dilakukan pada tahap fitur terkait.
 
 ## Struktur proyek
-- `client/src/pages/Home.tsx`: layar dashboard, keadaan kosong, daftar akun, dan dialog konfirmasi/perintah.
-- `client/src/index.css`: sistem warna terminal gelap, tipografi monospasi, status warna, dan responsivitas.
+- `client/src/pages/Home.tsx`: beranda tahap awal dan pengantar rencana fitur berikutnya; tanpa permintaan API.
+- `client/src/index.css`: sistem warna terminal gelap, tipografi, dan gaya responsif beranda.
 - `index.ts` (baru): default export Express app untuk serverless Function Vercel; tidak memanggil `listen()`.
 - `server/_core/app.ts` (baru): konfigurasi middleware dan route Express yang dipakai bersama.
 - `server/routers.ts`: API owner untuk membaca akun, membuat koneksi/token, dan membuat perintah.

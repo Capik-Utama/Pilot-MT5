@@ -1,40 +1,24 @@
 # Deploy MT5 Pilot ke Vercel
 
-Panduan ini menyiapkan source untuk Vercel. Deploy belum dianggap siap dipakai untuk mengendalikan akun sampai autentikasi pemilik, database yang dapat dijangkau Vercel, EA, dan semua route diverifikasi.
+## Tahap saat ini: beranda statis
 
-## Build dan routing
+Pada tahap ini Vercel hanya menerbitkan beranda informasional. Proyek memakai preset Vite, menjalankan `pnpm build:vercel`, lalu menyajikan folder output `public/` sebagai aset statis. Impor repository pada root repository; jangan memilih subfolder `client`.
 
-Impor repository GitHub pada root repository (jangan memilih subfolder `client`). `vercel.json` memaksa framework `express` dan menjalankan `pnpm build:vercel`. Jangan set `outputDirectory`: Express adapter harus menemukan root `index.ts` sebagai entrypoint function, sedangkan Vite membangun file statis ke `public/` untuk disajikan melalui CDN. Root `index.ts` mengekspor aplikasi Express sebagai satu Node.js Function, sedangkan `server/_core/index.ts` tetap menjadi listener development/Docker. Kode server tidak menjalankan `listen()` saat diekspor oleh root handler.
+Beranda `/` tidak memanggil OAuth, database, tRPC, atau API akun MT5. API Express yang masih berada di source belum diterbitkan sebagai backend pada tahap ini. Dengan demikian, halaman awal tetap dapat dibuka tanpa konfigurasi server dan tidak melewati fungsi Express yang sebelumnya menghasilkan error.
 
-Saat ini dashboard hanya memiliki page route `/`, sehingga tidak dibutuhkan SPA catch-all rewrite. Hindari rewrite `/(.*)` karena bisa mengalihkan route `/api/*` atau route milik platform ke HTML. API dashboard, OAuth, telemetry EA, command polling/ack, dan health diharapkan ditangani Express Function; `express.static()` tidak dipakai untuk menyajikan UI di Vercel.
+## Periksa hasil deployment beranda
 
-## Variabel environment
+- Pastikan URL root mengembalikan `200` dengan `Content-Type: text/html` dan menampilkan beranda MT5 Pilot.
+- Pastikan `/manus-routes.json` tetap mengembalikan JSON yang mendeklarasikan `/`.
+- Jangan menambahkan rewrite yang mengarahkan semua path ke Express atau file JavaScript.
+- Build ini tidak menjalankan migrasi database dan tidak mengaktifkan kontrol trading.
 
-Atur pada Vercel Project Settings untuk environment yang diperlukan (Preview/Production). Jangan menaruh nilai sebenarnya di Git, issue, PR, log, atau chat. `.env.example` hanya berisi nama variabel kosong.
+## Sebelum fitur dashboard diaktifkan
 
-Pisahkan **build-time** dan **runtime**. Plugin frontend membangun `api/platform/config.js` saat build dan hanya menyalin whitelist `MANUS_PROJECT_ID`, `MANUS_OAUTH_PORTAL_URL`, `MANUS_API_URL`, serta `MANUS_API_BROWSER_KEY` ke bundle publik. Nilai-nilai publik itu harus tersedia pada Build Environment Vercel untuk setiap Preview/Production build yang memakainya; jangan pernah menaruh credential rahasia di sini. Environment runtime Function harus tersedia untuk requests: `MANUS_PROJECT_ID`, `MANUS_OAUTH_API_URL`, `MANUS_JWT_SECRET`, `MANUS_API_URL`, `MANUS_API_KEY`, `OWNER_OPEN_ID`, dan `DATABASE_URL`. `MANUS_PROJECT_ID` serta `MANUS_API_URL` muncul di kedua daftar karena digunakan bersama oleh browser dan backend; keduanya bukan pengganti secret API key.
+Server Express, OAuth, tRPC, telemetry EA, antrean perintah, dan skema database masih disiapkan di source untuk tahap lanjutan. Sebelum fitur tersebut dipublikasikan, pilih hosting backend yang sesuai dan pastikan semua route bekerja terpisah dari beranda statis.
 
-| Variabel | Kegunaan |
-|---|---|
-| `DATABASE_URL` | URL MySQL untuk session/user, akun MT5, telemetry, command, dan audit. Gunakan database khusus yang dapat dijangkau dari Vercel; jangan asumsikan URL Manus managed DB dapat dipakai dari luar. |
-| `MANUS_PROJECT_ID` | Identitas aplikasi untuk validasi sesi/OAuth backend; juga whitelisted pada konfigurasi browser saat build. Sediakan untuk build dan runtime. |
-| `MANUS_OAUTH_API_URL` | Base URL API OAuth Manus yang dipakai backend. Redirect callback harus menerima host/domain Vercel yang dipakai. |
-| `MANUS_JWT_SECRET` | Secret sesi server; buat nilai acak yang kuat dan unik untuk deployment Vercel. Jangan salin ke frontend atau Git. |
-| `MANUS_API_URL` | Base URL Manus API; bukan secret, dipakai backend dan masuk whitelist browser saat build. Sediakan pada build dan runtime. |
-| `MANUS_API_KEY` | Credential server-side yang dipakai backend saat menyelaraskan user. Runtime saja; jangan pernah dimasukkan ke whitelist frontend. |
-| `OWNER_OPEN_ID` | Open ID akun pemilik yang tepat. Bila kosong atau tidak cocok, akses owner harus tetap ditolak (fail-closed). |
-| `MANUS_OAUTH_PORTAL_URL` / `MANUS_API_BROWSER_KEY` | Nilai publik whitelisted untuk alur login browser; tersedia saat build Preview/Production agar masuk ke file config frontend. Jangan masukkan secret server ke field publik. |
+Jangan masukkan file `.env`, URL database, token, atau key ke Git. Untuk backend di masa mendatang, environment runtime yang perlu ditinjau meliputi `DATABASE_URL`, `MANUS_PROJECT_ID`, `MANUS_OAUTH_API_URL`, `MANUS_JWT_SECRET`, `MANUS_API_URL`, `MANUS_API_KEY`, dan `OWNER_OPEN_ID`. Nilai variabel aktual harus diatur lewat pengelola secret di hosting backend, bukan pada source code. Identitas pemilik harus gagal tertutup jika belum dikonfigurasi; project dan deployment privat harus tetap owner-only.
 
-## Database
+Gunakan database MySQL yang memang dapat dijangkau oleh hosting backend, tinjau jaringan/TLS dan backup, serta jalankan migrasi secara terencana. Jangan menjalankan migrasi pada database yang berisi data produksi tanpa persetujuan dan backup. Sebelum pemantauan/kontrol trading digunakan, validasi autentikasi owner-only, endpoint EA dan token, callback OAuth, serta seluruh alur pada akun demo.
 
-Buat database MySQL terpisah untuk deployment Vercel, pastikan TLS/network access dan lokasi/region sesuai, kemudian jalankan migrasi SQL yang sudah ada secara berurutan terhadap database tersebut. Jangan menjalankan `pnpm db:migrate` dengan URL database Manus atau database lain yang berisi data produksi tanpa persetujuan dan backup. Build Vercel tidak menjalankan migrasi.
-
-## Privasi dan OAuth
-
-Pastikan project Vercel dan Preview deployments dibatasi bagi pemilik sebelum menggunakan UI. Perlindungan deployment Vercel dan owner gate aplikasi adalah dua lapis berbeda. Konfigurasikan `OWNER_OPEN_ID` setelah memastikan nilai persis milik akun pemilik. Daftarkan callback production yang tepat (`/api/oauth/callback`) dan uji login di origin Vercel. Akses dashboard/aksi trading tidak boleh dibuka kepada pengguna lain hanya karena mereka dapat membuka URL.
-
-## Pemeriksaan sebelum rilis
-
-Pastikan URL root mengembalikan `200` dengan `Content-Type: text/html` dan menampilkan dashboard, bukan file JavaScript. Pastikan `GET /api/health` mengembalikan JSON sukses; route `/api/trpc` hanya memberi akses sesuai sesi owner; endpoint EA menolak token invalid; login/cookie bekerja pada domain Vercel; pembacaan dan penulisan terkontrol bekerja pada database Vercel; manifest `/manus-routes.json` tetap JSON; dan kontrol tetap terkunci ketika owner belum terkonfigurasi atau akun EA offline. Setelah itu hubungkan EA milik pengguna, uji pada akun demo, lalu minta persetujuan pemilik sebelum promosi production.
-
-Vercel secara resmi menjalankan Express sebagai Function dan menyajikan file statis dari `public/`; lihat [Express on Vercel](https://vercel.com/docs/frameworks/backend/express), [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite), [Node.js Functions](https://vercel.com/docs/functions/runtimes/node-js), dan [vercel.json](https://vercel.com/docs/project-configuration/vercel-json).
+Dokumentasi Vercel: [Vite](https://vercel.com/docs/frameworks/frontend/vite), [Express](https://vercel.com/docs/frameworks/backend/express), [Node.js Functions](https://vercel.com/docs/functions/runtimes/node-js), dan [vercel.json](https://vercel.com/docs/project-configuration/vercel-json).
