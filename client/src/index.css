@@ -930,3 +930,14 @@ h1, h2, h3, p { margin: 0; }
 .pilot-auth-page[data-theme="blue-black"] .pilot-auth-card { border-color:var(--p-line); background:rgba(11,29,53,.94); }
 .pilot-auth-page[data-theme="blue-black"] .pilot-auth-card input { color:var(--p-text); border-color:var(--p-line); background:#09192e; }
 .pilot-auth-page[data-theme="blue-black"] .pilot-brand small { color:var(--p-muted); }
+
+/* EA identity and edit label colors requested for the dashboard. */
+.pilot-dashboard[data-theme] .pilot-account-title h3 { color: #b7ff9f; text-shadow: 0 0 10px rgba(48,255,0,.35); }
+.pilot-edit-title small { color: #fff; }
+.pilot-config-account { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 0 0 14px; padding: 11px 12px; border: 1px solid rgba(143,170,201,.16); border-radius: 6px; background: rgba(5,13,23,.35); }
+.pilot-config-account span { display: grid; gap: 4px; color: #aebdcb; font-size: 10px; overflow-wrap: anywhere; }
+.pilot-config-account strong { color: #7f92a7; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 8px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.pilot-dashboard[data-theme="light"] .pilot-config-account, .pilot-dashboard[data-theme="blue-white"] .pilot-config-account { border-color: var(--p-line); background: rgba(225,235,247,.45); }
+.pilot-dashboard[data-theme="light"] .pilot-config-account span, .pilot-dashboard[data-theme="blue-white"] .pilot-config-account span { color: var(--p-text); }
+.pilot-dashboard[data-theme="light"] .pilot-config-account strong, .pilot-dashboard[data-theme="blue-white"] .pilot-config-account strong { color: var(--p-muted); }
+@media (max-width: 520px) { .pilot-config-account { grid-template-columns: 1fr; } }
