@@ -25,7 +25,7 @@ input ENUM_TRADE_MODE InputModePerdagangan = MODE_BELI_JUAL;
 
 input group "== Mata Uang Tampilan =="
 input ENUM_DISPLAY_CURRENCY InputMataUangTampilan = MATA_IDR;
-input double    InputKursUSD_IDR        = 17000.0;
+input double    InputKursUSD_IDR        = 18000.0;
 
 input group "== Identitas Arah Perdagangan =="
 input int     InputMagicBeli    = 2864384;
