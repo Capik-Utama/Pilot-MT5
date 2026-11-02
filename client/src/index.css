@@ -646,17 +646,18 @@ h1, h2, h3, p { margin: 0; }
 @media (min-width: 1200px) {
   .pilot-account-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   .pilot-account-header { min-height: 46px; padding: 6px 20px; }
-  .pilot-account-title h3 { font-size: clamp(12px, 1.1vw, 18px); }
+  .pilot-account-title h3 { font-size: 18px; }
   .pilot-panel-buttons { gap: 3px; padding: 5px 6px 3px; }
   .pilot-button-row { gap: 3px; }
-  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 28px; font-size: clamp(6px, .52vw, 8px); }
+  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 28px; font-size: 12px; }
   .pilot-panel-buttons .pilot-currency-row button { min-height: 24px; }
   .pilot-panel-metrics { padding: 2px 6px 1px; }
   .pilot-panel-metrics > div { min-height: 19px; }
-  .pilot-panel-metrics > div > span { font-size: clamp(7px, .56vw, 9px); }
-  .pilot-panel-metrics strong { font-size: clamp(7px, .6vw, 9px); }
+  .pilot-panel-metrics > div > span { font-size: 10px; }
+  .pilot-panel-metrics strong { font-size: 10px; }
+  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 12px; }
   .pilot-reset-row { padding: 4px 6px 6px; }
-  .pilot-reset-row .reset-all { min-height: 30px; font-size: clamp(8px, .65vw, 10px); }
+  .pilot-reset-row .reset-all { min-height: 30px; font-size: 12px; }
 }
 @media (min-width: 900px) and (max-width: 1199px) {
   .pilot-account-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -672,20 +673,21 @@ h1, h2, h3, p { margin: 0; }
   .pilot-account-list { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
   .pilot-account-card { border-width: 1px; }
   .pilot-account-header { min-height: 43px; padding: 6px 18px; }
-  .pilot-account-title h3 { font-size: clamp(9px, 3.2vw, 13px); }
+  .pilot-account-title h3 { font-size: 15px; }
   .pilot-account-title p { overflow: hidden; max-width: 100%; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
   .pilot-account-header .pilot-connection { top: 3px; right: 3px; gap: 2px; padding: 2px 3px; font-size: 5px; }
   .pilot-account-header .pilot-led { top: 7px; left: 6px; width: 5px; height: 5px; }
   .pilot-panel-buttons { gap: 3px; padding: 4px 4px 2px; }
   .pilot-button-row { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 3px; }
-  .pilot-panel-buttons button { min-height: 28px; padding: 0 2px; font-size: clamp(6px, 1.9vw, 8px); letter-spacing: 0; }
+  .pilot-panel-buttons button { min-height: 28px; padding: 0 2px; font-size: 10px; letter-spacing: 0; }
   .pilot-panel-buttons .pilot-currency-row button { min-height: 24px; }
   .pilot-panel-metrics { padding: 2px 5px 1px; }
   .pilot-panel-metrics > div { min-height: 18px; gap: 2px; }
-  .pilot-panel-metrics > div > span { font-size: clamp(5px, 1.75vw, 7px); }
-  .pilot-panel-metrics strong { font-size: clamp(5px, 1.75vw, 7px); }
+  .pilot-panel-metrics > div > span { font-size: 8px; }
+  .pilot-panel-metrics strong { font-size: 8px; }
+  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 10px; }
   .pilot-reset-row { padding: 3px 4px 5px; }
-  .pilot-reset-row .reset-all { min-height: 27px; font-size: 7px; }
+  .pilot-reset-row .reset-all { min-height: 27px; font-size: 10px; }
   .pilot-account-footer { gap: 4px; padding: 5px 6px; font-size: 5px; }
   .pilot-command-history { padding: 6px; }
   .pilot-command-history > div { grid-template-columns: 1fr auto; gap: 4px; font-size: 7px; }
