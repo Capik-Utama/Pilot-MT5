@@ -21,6 +21,10 @@ type ConnectionToken = { label: string; token: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 
 type DisplayCurrency = "USD" | "CENT" | "IDR";
+function finiteNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
 function currency(value: number, accountCurrency: string, mode: DisplayCurrency = "USD") {
   const centsAccount = /USC|CENT/i.test(accountCurrency);
   const usdValue = centsAccount ? value / 100 : value;
@@ -192,7 +196,15 @@ export default function Home() {
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
             const disabled = !online || !account.telemetry_received || !account.is_demo || Boolean(active) || busyAction !== null;
             const displayMode = currencyModes[account.id] ?? "USD";
-            const showMoney = (value: number) => account.telemetry_received ? currency(Number(value), account.currency, displayMode) : "—";
+            const showMoney = (value: unknown) => {
+              if (!account.telemetry_received) return "—";
+              const parsed = finiteNumber(value);
+              return parsed === null ? "INVALID" : currency(parsed, account.currency, displayMode);
+            };
+            const basketSlValue = finiteNumber(account.basket_sl_set);
+            const basketSlDisplay = !account.telemetry_received ? "Basket SL Set: —" : account.basket_sl_type === "percent"
+              ? basketSlValue === null ? "INVALID" : `-${basketSlValue.toFixed(1)}%`
+              : `-${showMoney(account.basket_sl_set)}`;
             return <article className="pilot-account-card" key={account.id}>
               <div className="pilot-account-header"><div className="pilot-account-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><div><h3>*Grid_By_Capik*</h3><p>{account.label} · {account.broker_account_name || "Menunggu nama akun dari EA"}{account.mt5_login ? ` · #${account.mt5_login}` : ""}{account.server_name ? ` · ${account.server_name}` : ""}</p></div></div><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
               <div className="pilot-panel-buttons">
@@ -203,7 +215,7 @@ export default function Home() {
                 <div className="pilot-currency-row" aria-label="Mata uang tampilan">{(["USD", "IDR", "CENT"] as const).map((mode) => <button key={mode} className={displayMode === mode ? "selected" : ""} onClick={() => setCurrencyModes((current) => ({ ...current, [account.id]: mode }))}>{mode}</button>)}</div>
               </div>
               <div className="pilot-metrics pilot-panel-metrics">
-                <div className="metric-sl"><span>Basket SL Set</span><strong>{account.telemetry_received ? account.basket_sl_type === "percent" ? `-${Number(account.basket_sl_set).toFixed(1)}%` : `-${showMoney(account.basket_sl_set)}` : "Basket SL Set: —"}</strong></div>
+                <div className="metric-sl"><span>Basket SL Set</span><strong>{basketSlDisplay}</strong></div>
                 <div className="metric-target"><span>Daily Target Set</span><strong>{account.telemetry_received ? showMoney(account.daily_target_set) : "—"}</strong></div>
                 <div className="metric-float-buy"><span>Max Float Buy</span><strong>{showMoney(account.max_float_buy)}</strong></div>
                 <div className="metric-float-sell"><span>Max Float Sell</span><strong>{showMoney(account.max_float_sell)}</strong></div>

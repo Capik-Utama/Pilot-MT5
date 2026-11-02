@@ -180,10 +180,10 @@ async function handleEa(req: Request, path: string) {
     const requiredNumbers = ["balance", "equity", "maxDdBuy", "maxDdSell", "profit", "floatingProfit"] as const;
     const panelNumbers = ["basketSlSet", "dailyTargetSet", "maxFloatBuy", "maxFloatSell", "runningFloat"] as const;
     if (!body || requiredNumbers.some((key) => !finite(body[key], -1e12, 1e15)) ||
-      panelNumbers.some((key) => body[key] !== undefined && !finite(body[key], -1e12, 1e15)) ||
+      panelNumbers.some((key) => !finite(body[key], -1e12, 1e15)) ||
       (body.openPositions !== undefined && (!Number.isInteger(body.openPositions) || Number(body.openPositions) < 0 || Number(body.openPositions) > 1e6)) ||
       (body.eaStatus !== undefined && (typeof body.eaStatus !== "string" || body.eaStatus.length > 80)) ||
-      (body.basketSlType !== undefined && !["money", "percent"].includes(String(body.basketSlType))) ||
+      (typeof body.basketSlType !== "string" || !["money", "percent"].includes(body.basketSlType)) ||
       typeof body.running !== "boolean" || typeof body.isDemo !== "boolean" ||
       !["auto", "manual"].includes(String(body.eaMode)) ||
       typeof body.currency !== "string" || !/^[A-Z]{3,8}$/.test(body.currency) ||
@@ -204,12 +204,12 @@ async function handleEa(req: Request, path: string) {
       equity: body.equity,
       max_dd_buy: body.maxDdBuy,
       max_dd_sell: body.maxDdSell,
-      basket_sl_set: body.basketSlSet ?? 0,
-      basket_sl_type: body.basketSlType ?? "money",
-      daily_target_set: body.dailyTargetSet ?? 0,
-      max_float_buy: body.maxFloatBuy ?? 0,
-      max_float_sell: body.maxFloatSell ?? 0,
-      running_float: body.runningFloat ?? 0,
+      basket_sl_set: body.basketSlSet,
+      basket_sl_type: body.basketSlType,
+      daily_target_set: body.dailyTargetSet,
+      max_float_buy: body.maxFloatBuy,
+      max_float_sell: body.maxFloatSell,
+      running_float: body.runningFloat,
       open_positions: body.openPositions ?? 0,
       ea_status: body.eaStatus ?? (body.running ? "ACTIVE" : "MANUAL"),
       running: body.running,

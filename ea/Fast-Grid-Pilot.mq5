@@ -548,6 +548,7 @@ double PilotFloatingProfit() {
    return total;
 }
 
+// Match the chart panel's Profit row: closed deals only. Open-position P/L is reported separately as Running.
 double PilotDailyProfit() {
    double total = 0.0;
    if(HistorySelect(ResetTime, TimeCurrent())) {
@@ -559,7 +560,7 @@ double PilotDailyProfit() {
             total += HistoryDealGetDouble(deal, DEAL_PROFIT) + HistoryDealGetDouble(deal, DEAL_COMMISSION) + HistoryDealGetDouble(deal, DEAL_SWAP);
       }
    }
-   return total + PilotFloatingProfit();
+   return total;
 }
 
 void PilotSendTelemetry() {
