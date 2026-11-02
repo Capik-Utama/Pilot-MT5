@@ -123,7 +123,7 @@ void RefreshDashboardUI();
 void DeleteTrailingOrders();
 void BulkCloseAll();
 void BulkCloseDirection(int m);
-void OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic);
+bool OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic);
 void CheckStopLossPerDirection();
 bool CheckDailyTarget();
 void ApplyGlobalTrailingPoints();
@@ -567,6 +567,19 @@ void PilotSendTelemetry() {
    double floating = PilotFloatingProfit();
    bool demo = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO);
    string mode = isAutoTradingActive ? "auto" : "manual";
+   string eaStatus = "ACTIVE";
+   if(IsStoppedByTarget) eaStatus = "TARGET HIT";
+   else if(!IsInsideTradingTime()) eaStatus = "OUT OF TIME";
+   else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) eaStatus = "TS PER ARAH";
+   else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) eaStatus = StringFormat("TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
+   int openPositions = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      int magic = (int)PositionGetInteger(POSITION_MAGIC);
+      if(magic == MagicBeli || magic == MagicJual) openPositions++;
+   }
    string body = "{\"accountName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_NAME)) +
       "\",\"login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) +
       ",\"serverName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER)) +
@@ -574,6 +587,14 @@ void PilotSendTelemetry() {
       ",\"equity\":" + DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2) +
       ",\"maxDdBuy\":" + DoubleToString(MathAbs(MaxDrawdownBuy), 2) +
       ",\"maxDdSell\":" + DoubleToString(MathAbs(MaxDrawdownSell), 2) +
+      ",\"basketSlSet\":" + DoubleToString(BatasKerugian, 2) +
+      ",\"basketSlType\":\"" + (JenisBatasRugi == CL_NILAI_UANG ? "money" : "percent") + "\"" +
+      ",\"dailyTargetSet\":" + DoubleToString(TargetHarian, 2) +
+      ",\"maxFloatBuy\":" + DoubleToString(MaxFloatBuy, 2) +
+      ",\"maxFloatSell\":" + DoubleToString(MaxFloatSell, 2) +
+      ",\"runningFloat\":" + DoubleToString(floating, 2) +
+      ",\"openPositions\":" + IntegerToString(openPositions) +
+      ",\"eaStatus\":\"" + PilotJsonEscape(eaStatus) + "\"" +
       ",\"profit\":" + DoubleToString(PilotDailyProfit(), 2) +
       ",\"floatingProfit\":" + DoubleToString(floating, 2) +
       ",\"running\":" + (isAutoTradingActive && !IsStoppedByTarget ? "true" : "false") +
@@ -644,6 +665,37 @@ void PilotPollCommands() {
          isAutoTradingActive = true;
          success = true;
          result = "Mode Auto aktif pada akun demo.";
+      }
+   } else if(action == "buy" || action == "sell") {
+      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
+         result = "Order manual ditolak: EA hanya mengizinkan akun demo.";
+      } else {
+         bool isBuy = action == "buy";
+         success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
+         result = success ? StringFormat("Order %s dikirim dengan lot awal %.2f.", isBuy ? "BUY" : "SELL", LotAwal) : "Order ditolak broker; periksa log MT5.";
+      }
+   } else if(action == "reset") {
+      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
+         result = "Reset ditolak: EA hanya mengizinkan akun demo.";
+      } else {
+         IsStoppedByTarget = false;
+         ResetTime = TimeCurrent();
+         LastDayReset = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
+         MaxFloatBuy = 0;
+         MaxFloatSell = 0;
+         MaxCombinedProfitPoints = 0;
+         VSL_BuyPrice = 0;
+         VSL_SellPrice = 0;
+         PendingTrail_BuyPrice = 0;
+         PendingTrail_SellPrice = 0;
+         DeleteTrailingOrders();
+         ObjectDelete(0, UIPrefix + "LineBuyTS");
+         ObjectDelete(0, UIPrefix + "LineSellTS");
+         ObjectDelete(0, UIPrefix + "LinePendingBuy");
+         ObjectDelete(0, UIPrefix + "LinePendingSell");
+         if(isAutoTradingActive && IsInsideTradingTime()) CheckInitialEntry();
+         success = true;
+         result = "Statistik harian dan state trailing direset.";
       }
    } else if(action == "close_buy" || action == "close_sell" || action == "close_all") {
       if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
@@ -1016,7 +1068,7 @@ void BulkCloseDirection(int m) {
    DeleteTrailingOrders();
 }
 
-void OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic) {
+bool OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic) {
    double p = (type == ORDER_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
    lot = NormalizeDouble(MathMax(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), MathMin(LotMaksimal, MathMin(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX), lot))), 2);
@@ -1026,7 +1078,9 @@ void OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic) {
    if(!sent) {
       PrintFormat("Fast-Grid: order failed. type=%d magic=%d retcode=%d (%s)",
                   (int)type, magic, trade.ResultRetcode(), trade.ResultRetcodeDescription());
+      return false;
    }
+   return trade.ResultRetcode() == TRADE_RETCODE_DONE || trade.ResultRetcode() == TRADE_RETCODE_PLACED;
 }
 
 void UpdateFloatingStats() {

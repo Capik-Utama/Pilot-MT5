@@ -33,7 +33,7 @@ create table public.mt5_commands (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.mt5_accounts(id) on delete cascade,
   owner_id uuid not null references auth.users(id) on delete cascade,
-  action text not null check (action in ('auto', 'manual', 'close_buy', 'close_sell', 'close_all')),
+  action text not null check (action in ('auto', 'manual', 'buy', 'sell', 'close_buy', 'close_sell', 'close_all', 'reset')),
   status text not null default 'queued' check (status in ('queued', 'delivered', 'accepted', 'succeeded', 'failed', 'expired')),
   result_message text check (result_message is null or char_length(result_message) <= 500),
   created_at timestamptz not null default now(),

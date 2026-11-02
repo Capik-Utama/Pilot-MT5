@@ -66,7 +66,7 @@ export const mt5Commands = mysqlTable(
     id: varchar("id", { length: 32 }).primaryKey(),
     accountId: varchar("accountId", { length: 32 }).notNull(),
     ownerOpenId: varchar("ownerOpenId", { length: 64 }).notNull(),
-    action: mysqlEnum("action", ["auto", "manual", "close_buy", "close_sell", "close_all"]).notNull(),
+    action: mysqlEnum("action", ["auto", "manual", "buy", "sell", "close_buy", "close_sell", "close_all", "reset"]).notNull(),
     status: mysqlEnum("status", ["queued", "delivered", "accepted", "succeeded", "failed", "expired"]).default("queued").notNull(),
     resultMessage: varchar("resultMessage", { length: 500 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

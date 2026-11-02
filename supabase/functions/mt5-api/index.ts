@@ -16,7 +16,7 @@ const corsHeaders = {
 };
 const ONLINE_WINDOW_MS = 20_000;
 const COMMAND_TTL_MS = 45_000;
-const actions = new Set(["auto", "manual", "close_buy", "close_sell", "close_all"]);
+const actions = new Set(["auto", "manual", "buy", "sell", "close_buy", "close_sell", "close_all", "reset"]);
 const activeStatuses = ["queued", "delivered", "accepted"];
 
 type Json = Record<string, unknown>;
@@ -93,7 +93,7 @@ async function handleDashboard(req: Request, path: string) {
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
     const { data: accounts, error } = await admin.from("mt5_accounts").select(
-      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at",
+      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at",
     ).eq("owner_id", user.id).order("created_at", { ascending: true }).limit(25);
     if (error) return respond(500, { error: "Data akun gagal dibaca." });
     const accountIds = (accounts ?? []).map((account) => account.id);
@@ -178,7 +178,12 @@ async function handleEa(req: Request, path: string) {
   if (path === "/telemetry" && req.method === "POST") {
     const body = await jsonBody(req);
     const requiredNumbers = ["balance", "equity", "maxDdBuy", "maxDdSell", "profit", "floatingProfit"] as const;
+    const panelNumbers = ["basketSlSet", "dailyTargetSet", "maxFloatBuy", "maxFloatSell", "runningFloat"] as const;
     if (!body || requiredNumbers.some((key) => !finite(body[key], -1e12, 1e15)) ||
+      panelNumbers.some((key) => body[key] !== undefined && !finite(body[key], -1e12, 1e15)) ||
+      (body.openPositions !== undefined && (!Number.isInteger(body.openPositions) || Number(body.openPositions) < 0 || Number(body.openPositions) > 1e6)) ||
+      (body.eaStatus !== undefined && (typeof body.eaStatus !== "string" || body.eaStatus.length > 80)) ||
+      (body.basketSlType !== undefined && !["money", "percent"].includes(String(body.basketSlType))) ||
       typeof body.running !== "boolean" || typeof body.isDemo !== "boolean" ||
       !["auto", "manual"].includes(String(body.eaMode)) ||
       typeof body.currency !== "string" || !/^[A-Z]{3,8}$/.test(body.currency) ||
@@ -199,6 +204,14 @@ async function handleEa(req: Request, path: string) {
       equity: body.equity,
       max_dd_buy: body.maxDdBuy,
       max_dd_sell: body.maxDdSell,
+      basket_sl_set: body.basketSlSet ?? 0,
+      basket_sl_type: body.basketSlType ?? "money",
+      daily_target_set: body.dailyTargetSet ?? 0,
+      max_float_buy: body.maxFloatBuy ?? 0,
+      max_float_sell: body.maxFloatSell ?? 0,
+      running_float: body.runningFloat ?? 0,
+      open_positions: body.openPositions ?? 0,
+      ea_status: body.eaStatus ?? (body.running ? "ACTIVE" : "MANUAL"),
       running: body.running,
       ea_mode: body.eaMode,
       profit: body.profit,

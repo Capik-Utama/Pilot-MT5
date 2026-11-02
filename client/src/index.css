@@ -591,3 +591,25 @@ h1, h2, h3, p { margin: 0; }
  .pilot-auth-card { padding:23px 19px; }
  .pilot-modal { padding:23px 17px; }
 }
+
+
+/* MT5 chart-panel controls: responsive mirror of the EA dashboard. */
+.pilot-panel-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pilot-panel-metrics > div { min-width: 0; }
+.pilot-panel-metrics strong { overflow-wrap: anywhere; }
+.pilot-ea-status strong { color: #f2d879; }
+.pilot-panel-buttons { display: grid; gap: 8px; }
+.pilot-button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pilot-panel-buttons button { min-height: 36px; border: 1px solid rgba(143,170,201,.18); border-radius: 5px; color: #eff6fc; background: #15263a; font: 600 10px "IBM Plex Mono",ui-monospace,monospace; cursor: pointer; transition: filter .15s ease, border-color .15s ease; }
+.pilot-panel-buttons button:hover:not(:disabled) { filter: brightness(1.2); border-color: rgba(143,170,201,.38); }
+.pilot-panel-buttons button:disabled { opacity: .42; cursor: not-allowed; }
+.pilot-panel-buttons .trade-buy { background: #174c93; border-color: #2777d0; }
+.pilot-panel-buttons .trade-sell { background: #a32735; border-color: #db4654; }
+.pilot-panel-buttons .close-all { width: 100%; background: #075b3b; border-color: #168555; }
+.pilot-panel-buttons .reset-all { width: 100%; background: #1452a1; border-color: #2e73cb; }
+.pilot-currency-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pilot-panel-buttons .pilot-currency-row button { min-height: 31px; color: #9eacba; background: #172438; }
+.pilot-panel-buttons .pilot-currency-row button.selected { color: #08130d; background: #9bdc4e; border-color: #b5ee6b; }
+@media (max-width: 650px) {
+  .pilot-panel-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

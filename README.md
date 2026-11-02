@@ -2,7 +2,7 @@
 
 MT5 Pilot menampilkan dashboard privat untuk source `Fast-Grid` yang dilampirkan pemilik. Frontend React/Vite diterbitkan statis di Vercel; Supabase Auth menangani akun login, sedangkan Edge Function `mt5-api` memvalidasi sesi browser atau token EA sebelum membaca/menulis database. Koneksi EA menggunakan HTTPS WebRequest dari MT5.
 
-Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. EA membatasi Auto dan perintah tutup ke akun demo.
+Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. Auto, BUY/SELL manual, RESET, dan perintah tutup yang dikirim melalui dashboard dibatasi ke akun demo.
 
 ## Uji EA
 
@@ -10,9 +10,9 @@ Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat 
 2. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang di chart akun demo.
 3. Masukkan token pada input `EAConnectionToken`.
 4. Izinkan WebRequest untuk `https://qqdsultliybypiuvihli.supabase.co` pada Tools → Options → Expert Advisors.
-5. Pastikan EA menunjukkan mode Manual dan heartbeat online sebelum menguji Auto atau kontrol penutupan.
+5. Pastikan EA menunjukkan mode Manual dan heartbeat online sebelum menguji kontrol dashboard. BUY/SELL manual menggunakan lot awal yang dikonfigurasi di EA dan meminta konfirmasi di beranda.
 
-EA versi ini menolak inisialisasi pada akun real, memulai dalam Manual, dan mengalihkan ke Manual sebelum menutup posisi. Lihat [panduan integrasi Fast-Grid](docs/mt5-ea-api.md) untuk arti setiap metrik dan batas kontrol. MetaEditor tidak tersedia di sandbox, jadi file MQL5 perlu dikompilasi dan dijalankan di terminal MT5 milik pengguna.
+EA versi ini menolak inisialisasi pada akun real dan memulai dalam Manual. Setelah menerapkan pembaruan, jalankan migrasi Supabase `20261102160000_mt5_dashboard_panel.sql`, deploy ulang Edge Function `mt5-api`, lalu compile dan pasang ulang file EA agar telemetri panel dan seluruh tombol remote berfungsi. Perintah tutup dan reset meminta konfirmasi di beranda; reset saat Auto aktif dapat langsung memulai basket baru. Lihat [panduan integrasi Fast-Grid](docs/mt5-ea-api.md) untuk arti setiap metrik dan batas kontrol. MetaEditor tidak tersedia di sandbox, jadi file MQL5 perlu dikompilasi dan dijalankan di terminal MT5 milik pengguna.
 
 ## Pengembangan
 

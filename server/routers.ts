@@ -31,7 +31,7 @@ export const appRouter = router({
     }).strict()).mutation(({ ctx, input }) => createAccountForOwner(ctx.user.openId, input)),
     command: ownerProcedure.input(z.object({
       accountId: z.string().regex(/^[a-f0-9]{32}$/i),
-      action: z.enum(["auto", "manual", "close_buy", "close_sell", "close_all"]),
+      action: z.enum(["auto", "manual", "buy", "sell", "close_buy", "close_sell", "close_all", "reset"]),
     }).strict()).mutation(async ({ ctx, input }) => {
       try {
         return await queueCommandForOwner(ctx.user.openId, input.accountId, input.action);

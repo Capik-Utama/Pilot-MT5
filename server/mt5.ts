@@ -25,7 +25,7 @@ const ackSchema = z.object({
   message: z.string().trim().max(500).optional(),
 }).strict();
 
-type CommandAction = "auto" | "manual" | "close_buy" | "close_sell" | "close_all";
+type CommandAction = "auto" | "manual" | "buy" | "sell" | "close_buy" | "close_sell" | "close_all" | "reset";
 type CommandStatus = "queued" | "delivered" | "accepted" | "succeeded" | "failed" | "expired";
 
 function hashToken(token: string) {
