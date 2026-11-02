@@ -595,6 +595,9 @@ void PilotSendTelemetry() {
       ",\"floatingProfit\":" + DoubleToString(floating, 2) +
       ",\"running\":" + (isAutoTradingActive && !IsStoppedByTarget ? "true" : "false") +
       ",\"isDemo\":" + (demo ? "true" : "false") +
+      ",\"isCentAccount\":" + (IsCentAccount() ? "true" : "false") +
+      ",\"displayCurrency\":\"" + (CurrentCurrencyMode == 1 ? "CENT" : CurrentCurrencyMode == 2 ? "IDR" : "USD") + "\"" +
+      ",\"displayRate\":" + DoubleToString(InpUsdToIdr, 2) +
       ",\"eaMode\":\"" + mode + "\",\"currency\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) +
       "\",\"latencyMs\":" + IntegerToString(LastPilotLatencyMs) + "}";
    string response = "";

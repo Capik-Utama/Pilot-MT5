@@ -93,7 +93,7 @@ async function handleDashboard(req: Request, path: string) {
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
     const { data: accounts, error } = await admin.from("mt5_accounts").select(
-      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at",
+      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at",
     ).eq("owner_id", user.id).order("created_at", { ascending: true }).limit(25);
     if (error) return respond(500, { error: "Data akun gagal dibaca." });
     const accountIds = (accounts ?? []).map((account) => account.id);
@@ -184,6 +184,9 @@ async function handleEa(req: Request, path: string) {
       (body.eaStatus !== undefined && (typeof body.eaStatus !== "string" || body.eaStatus.length > 80)) ||
       (typeof body.basketSlType !== "string" || !["money", "percent"].includes(body.basketSlType)) ||
       typeof body.running !== "boolean" || typeof body.isDemo !== "boolean" ||
+      typeof body.isCentAccount !== "boolean" ||
+      typeof body.displayCurrency !== "string" || !["USD", "CENT", "IDR"].includes(body.displayCurrency) ||
+      !finite(body.displayRate, 0.0001, 1e9) ||
       !["auto", "manual"].includes(String(body.eaMode)) ||
       typeof body.currency !== "string" || !/^[A-Z]{3,8}$/.test(body.currency) ||
       typeof body.accountName !== "string" || body.accountName.length > 120 ||
@@ -198,6 +201,9 @@ async function handleEa(req: Request, path: string) {
       mt5_login: body.login ?? null,
       server_name: body.serverName ?? null,
       is_demo: body.isDemo,
+      is_cent_account: body.isCentAccount,
+      display_currency: body.displayCurrency,
+      display_rate: body.displayRate,
       telemetry_received: true,
       balance: body.balance,
       equity: body.equity,

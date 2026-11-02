@@ -9,6 +9,7 @@ type Action = "auto" | "manual" | "buy" | "sell" | "close_buy" | "close_sell" | 
 type Account = {
   id: string; label: string; broker_account_name: string | null; mt5_login: number | null;
   server_name: string | null; currency: string; token_hint: string; is_demo: boolean;
+  is_cent_account: boolean; display_currency: DisplayCurrency; display_rate: number;
   telemetry_received: boolean; balance: number; equity: number; max_dd_buy: number; max_dd_sell: number;
   basket_sl_set: number; basket_sl_type: "money" | "percent"; daily_target_set: number; max_float_buy: number; max_float_sell: number;
   running_float: number; open_positions: number; ea_status: string;
@@ -25,11 +26,11 @@ function finiteNumber(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
-function currency(value: number, accountCurrency: string, mode: DisplayCurrency = "USD") {
-  const centsAccount = /USC|CENT/i.test(accountCurrency);
+function currency(value: number, accountCurrency: string, mode: DisplayCurrency = "USD", displayRate = 17000, isCentAccount = false) {
+  const centsAccount = isCentAccount || /USC|CENT/i.test(accountCurrency);
   const usdValue = centsAccount ? value / 100 : value;
   if (mode === "CENT") return `${new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usdValue * 100)} USC`;
-  if (mode === "IDR") return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(usdValue * 18000)} IDR`;
+  if (mode === "IDR") return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(usdValue * displayRate)} IDR`;
   return `${new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usdValue)} USD`;
 }
 function age(value: string | null) {
@@ -194,11 +195,11 @@ export default function Home() {
             const online = account.connection_status === "online";
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
             const disabled = !online || !account.telemetry_received || Boolean(active) || busyAction !== null;
-            const displayMode = currencyModes[account.id] ?? "USD";
+            const displayMode = currencyModes[account.id] ?? account.display_currency ?? "USD";
             const showMoney = (value: unknown) => {
               if (!account.telemetry_received) return "—";
               const parsed = finiteNumber(value);
-              return parsed === null ? "INVALID" : currency(parsed, account.currency, displayMode);
+              return parsed === null ? "INVALID" : currency(parsed, account.currency, displayMode, account.display_rate, account.is_cent_account);
             };
             const basketSlValue = finiteNumber(account.basket_sl_set);
             const basketSlDisplay = !account.telemetry_received ? "Basket SL Set: —" : account.basket_sl_type === "percent"
@@ -219,7 +220,7 @@ export default function Home() {
                 <div className="metric-float-buy"><span>Max Float Buy</span><strong>{showMoney(account.max_float_buy)}</strong></div>
                 <div className="metric-float-sell"><span>Max Float Sell</span><strong>{showMoney(account.max_float_sell)}</strong></div>
                 <div className="metric-running"><span>Running</span><strong>{showMoney(account.running_float)}</strong></div>
-                <div className="metric-profit"><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
+                <div className={`metric-profit ${account.profit >= 0 ? "profit-positive" : "profit-negative"}`}><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
                 <div className="metric-status"><span>Status</span><strong>{account.telemetry_received ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL") : "MENUNGGU EA"}</strong></div>
               </div>
               <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>

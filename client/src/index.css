@@ -642,7 +642,9 @@ h1, h2, h3, p { margin: 0; }
 .pilot-panel-metrics .metric-sl strong, .pilot-panel-metrics .metric-target strong, .pilot-panel-metrics .metric-running strong { color: #e6ed5b; }
 .pilot-panel-metrics .metric-float-buy > span, .pilot-panel-metrics .metric-float-buy strong { color: #52ff24; }
 .pilot-panel-metrics .metric-float-sell > span, .pilot-panel-metrics .metric-float-sell strong { color: #58b3ff; }
-.pilot-panel-metrics .metric-running > span, .pilot-panel-metrics .metric-running strong, .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { color: #f0d83d; }
+.pilot-panel-metrics .metric-running > span, .pilot-panel-metrics .metric-running strong { color: #f0d83d; }
+.pilot-panel-metrics .metric-profit.profit-positive > span, .pilot-panel-metrics .metric-profit.profit-positive strong { color: #b7ff39; }
+.pilot-panel-metrics .metric-profit.profit-negative > span, .pilot-panel-metrics .metric-profit.profit-negative strong { color: #ff5b61; }
 .pilot-panel-metrics .metric-status > span { color: #52ff24; }
 .pilot-panel-metrics .metric-status strong { color: #f1f5fb; }
 .pilot-reset-row { padding: 5px 7px 7px; }
