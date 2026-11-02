@@ -4,7 +4,7 @@ Panduan ini menyiapkan source untuk Vercel. Deploy belum dianggap siap dipakai u
 
 ## Build dan routing
 
-Impor repository GitHub pada root repository (jangan memilih subfolder `client`). `vercel.json` menetapkan build command `pnpm build:vercel` dan output directory `public`. Script tersebut membangun React/Vite ke `public/`; Vercel menyajikan UI dan aset statis dari CDN. Root `index.ts` mengekspor aplikasi Express sebagai satu Node.js Function, sedangkan `server/_core/index.ts` tetap menjadi listener untuk development/Docker. Kode server tidak menjalankan `listen()` saat diekspor oleh root handler.
+Impor repository GitHub pada root repository (jangan memilih subfolder `client`). Preview sebelumnya memperlihatkan UI statis tetapi mengembalikan `index.html` untuk `/api/health`: Vercel memilih preset Vite dan tidak mendaftarkan Express API. Karena itu `vercel.json` secara eksplisit memaksa framework preset `express`, menetapkan build command `pnpm build:vercel`, dan output directory `public`. Script membangun React/Vite ke `public/`; UI/aset disajikan dari CDN. Root `index.ts` mengekspor aplikasi Express sebagai satu Node.js Function, sedangkan `server/_core/index.ts` tetap menjadi listener development/Docker. Kode server tidak menjalankan `listen()` saat diekspor oleh root handler.
 
 Saat ini dashboard hanya memiliki page route `/`, sehingga tidak dibutuhkan SPA catch-all rewrite. Hindari rewrite `/(.*)` karena bisa mengalihkan route `/api/*` atau route milik platform ke HTML. API dashboard, OAuth, telemetry EA, command polling/ack, dan health diharapkan ditangani Express Function; `express.static()` tidak dipakai untuk menyajikan UI di Vercel.
 
