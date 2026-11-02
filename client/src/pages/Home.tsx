@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -134,10 +134,9 @@ export default function Home() {
   };
 
   const sendAction = async (account: Account, action: Action) => {
-    if (!account.is_demo) { toast.error("Kontrol web hanya tersedia untuk akun demo."); return; }
     if (account.connection_status !== "online") { toast.error("EA harus online untuk menerima perintah."); return; }
-    if (action.startsWith("close_") && !window.confirm(`Kirim ${actionLabel[action]} ke EA “${account.label}” pada akun demo? Perintah akan menutup posisi Fast-Grid pada simbol chart ini.`)) return;
-    if ((action === "buy" || action === "sell") && !window.confirm(`Kirim order ${actionLabel[action]} manual ke ${account.label} (${account.broker_account_name ?? "akun demo"})? EA akan menggunakan lot awal yang dikonfigurasi di MT5.`)) return;
+    if (action.startsWith("close_") && !window.confirm(`Kirim ${actionLabel[action]} ke EA “${account.label}”? Perintah akan menutup posisi Fast-Grid pada simbol chart ini.`)) return;
+    if ((action === "buy" || action === "sell") && !window.confirm(`Kirim order ${actionLabel[action]} manual ke ${account.label} (${account.broker_account_name ?? "akun MT5"})? EA akan menggunakan lot awal yang dikonfigurasi di MT5.`)) return;
     if (action === "reset" && !window.confirm(`Reset semua status target, statistik harian, dan trailing EA untuk ${account.label}? Jika Auto aktif dan waktu trading valid, EA dapat langsung membuka basket baru.`)) return;
     setBusyAction(`${account.id}:${action}`);
     try {
@@ -172,7 +171,7 @@ export default function Home() {
         <button className="pilot-auth-switch" onClick={() => { setRegister(!register); setAuthMessage(""); }}>{register ? "Sudah punya akun? Masuk" : "Belum ada akun? Buat akun"}</button>
         <div className="pilot-security"><ShieldCheck size={15} /> Token service-role tidak dikirim ke browser.</div>
       </section>
-      <footer className="pilot-auth-footer">MT5 PILOT <span>·</span> KONEKSI AKUN DEMO SAJA</footer>
+      <footer className="pilot-auth-footer">MT5 PILOT <span>·</span> KONEKSI AKUN MT5</footer>
     </main>
   );
 
@@ -187,14 +186,14 @@ export default function Home() {
         <div className="pilot-toolbar"><div><h2>Akun EA <b>{String(accounts.length).padStart(2, "0")}</b></h2></div><div className="pilot-toolbar-actions"><label className="pilot-search-box"><Search size={13} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select></div></div>
 
         {accounts.length === 0 && !loadingAccounts ? (
-          <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA Fast-Grid</h2><p>Buat token koneksi untuk akun demo. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>
+          <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA Fast-Grid</h2><p>Buat token koneksi untuk akun MT5. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>
         ) : null}
 
         <div className="pilot-account-list">
           {filteredAccounts.map((account) => {
             const online = account.connection_status === "online";
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
-            const disabled = !online || !account.telemetry_received || !account.is_demo || Boolean(active) || busyAction !== null;
+            const disabled = !online || !account.telemetry_received || Boolean(active) || busyAction !== null;
             const displayMode = currencyModes[account.id] ?? "USD";
             const showMoney = (value: unknown) => {
               if (!account.telemetry_received) return "—";
@@ -224,16 +223,15 @@ export default function Home() {
                 <div className="metric-status"><span>Status</span><strong>{account.telemetry_received ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL") : "MENUNGGU EA"}</strong></div>
               </div>
               <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>
-              {!account.is_demo && <small className="pilot-lock-note"><AlertTriangle size={13} /> Kontrol hanya tersedia untuk akun demo.</small>}
-              <footer className="pilot-account-footer"><span>Token EA •••• {account.token_hint}</span><span>{account.is_demo ? "Akun demo" : "Read-only"}</span></footer>
+              <footer className="pilot-account-footer"><span>Token EA •••• {account.token_hint}</span><span>{account.is_demo ? "Akun demo" : "Akun real"}</span></footer>
             </article>;
           })}
         </div>
         {accounts.length > 0 && filteredAccounts.length === 0 && <div className="pilot-search-empty"><span>Tidak ada panel EA yang cocok dengan pencarian atau filter.</span><button onClick={() => { setAccountSearch(""); setConnectionFilter("all"); }}>Hapus filter</button></div>}
-        <section className="pilot-info"><ShieldCheck size={16} /><p>Mode Manual menghentikan pembukaan posisi otomatis; pengaman SL/trailing EA tetap berjalan. Perintah tutup hanya memproses posisi Fast-Grid pada simbol chart EA ini. Uji di demo terlebih dahulu.</p></section>
+        <section className="pilot-info"><ShieldCheck size={16} /><p>Mode Manual menghentikan pembukaan posisi otomatis; pengaman SL/trailing EA tetap berjalan. Perintah tutup hanya memproses posisi Fast-Grid pada simbol chart EA ini. Pastikan pengaturan risiko sesuai sebelum mengirim perintah.</p></section>
       </section>
 
-      {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU · DEMO SAJA</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid Demo 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}
+      {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid MT5 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}
 
       {tokenModal && <div className="pilot-modal-backdrop"><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-token-title"><div className="pilot-success"><Check size={19} /></div><div className="pilot-kicker">KONEKSI DIBUAT</div><h2 id="pilot-token-title">Masukkan token ini ke EA</h2><p>Token untuk <b>{tokenModal.label}</b> hanya ditampilkan sekali. Simpan dengan aman; jika hilang, buat koneksi baru.</p><div className="pilot-token-box"><code>{tokenModal.token}</code><button aria-label="Salin token" onClick={() => void copyToken()}>{copied ? <Check size={16} /> : <Copy size={16} />}</button></div><div className="pilot-setup"><strong>Pengaturan Fast-Grid</strong><span>SupabaseFunctionUrl =</span><code>{MT5_API_URL}</code><span>EAConnectionToken = token di atas</span><span>MetaTrader → Tools → Options → Expert Advisors → izinkan WebRequest untuk:</span><code>{SUPABASE_URL}</code></div><div className="pilot-modal-actions"><button className="pilot-cancel" onClick={() => void copyToken()}>{copied ? "Token disalin" : "Salin token"}</button><button className="pilot-add-button" onClick={() => setTokenModal(null)}>Saya sudah simpan</button></div></section></div>}
     </main>

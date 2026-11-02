@@ -146,9 +146,8 @@ async function handleDashboard(req: Request, path: string) {
     if (!actions.has(action)) return respond(400, { error: "Jenis perintah tidak dikenal." });
     const accountId = commandMatch[1];
     const { data: account, error: accountError } = await admin.from("mt5_accounts")
-      .select("id,owner_id,is_demo,last_seen_at").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
+      .select("id,owner_id,last_seen_at").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
     if (accountError || !account) return respond(404, { error: "Akun tidak ditemukan." });
-    if (!account.is_demo) return respond(403, { error: "Kontrol web hanya diaktifkan untuk akun demo." });
     if (!account.last_seen_at || Date.now() - Date.parse(account.last_seen_at) > ONLINE_WINDOW_MS) {
       return respond(409, { error: "EA offline atau heartbeat sudah kedaluwarsa." });
     }

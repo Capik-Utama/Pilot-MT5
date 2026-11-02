@@ -148,10 +148,6 @@ double PilotDailyProfit();
 bool PilotCloseMagic(const int magic, int &closedCount, string &details);
 
 int OnInit() {
-   if(!MQLInfoInteger(MQL_TESTER) && AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
-      Print("Fast-Grid Pilot: EA ini dikunci untuk akun DEMO. Inisialisasi dibatalkan.");
-      return(INIT_FAILED);
-   }
    ResetTime = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
    LastDayReset = ResetTime;
    trade.LogLevel(LOG_LEVEL_NO);
@@ -453,7 +449,6 @@ void OnTimer() {
 
 void PilotOnTimer() {
    if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "") return;
-   if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) return;
    uint now = GetTickCount();
    if(now - LastPilotTelemetryAt >= 2500) {
       LastPilotTelemetryAt = now;
@@ -643,15 +638,13 @@ void PilotPollCommands() {
    string commandId = PilotJsonString(response, "commandId");
    string action = PilotJsonString(response, "action");
    if(commandId == "" || action == "") return;
-
    string dedupeKey = "MTP_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + commandId;
    if(GlobalVariableCheck(dedupeKey)) {
       PilotAck(commandId, "failed", "Perintah duplikat ditahan setelah restart EA; periksa posisi akun secara manual sebelum mengirim ulang.");
       return;
    }
-   if(!PilotAck(commandId, "accepted", "Perintah diterima EA demo.")) return;
+   if(!PilotAck(commandId, "accepted", "Perintah diterima EA.")) return;
    GlobalVariableSet(dedupeKey, (double)TimeCurrent()); // Persist before any trading action to prevent accidental replay.
-
    string result = "";
    bool success = false;
    if(action == "manual") {
@@ -659,61 +652,44 @@ void PilotPollCommands() {
       success = true;
       result = "Mode Manual aktif. Entry baru berhenti; pengaman SL/trailing tetap berjalan.";
    } else if(action == "auto") {
-      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
-         isAutoTradingActive = false;
-         result = "Auto ditolak: EA hanya mengizinkan akun demo.";
-      } else {
-         isAutoTradingActive = true;
-         success = true;
-         result = "Mode Auto aktif pada akun demo.";
-      }
+      isAutoTradingActive = true;
+      success = true;
+      result = "Mode Auto aktif.";
    } else if(action == "buy" || action == "sell") {
-      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
-         result = "Order manual ditolak: EA hanya mengizinkan akun demo.";
-      } else {
-         bool isBuy = action == "buy";
-         success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
-         result = success ? StringFormat("Order %s dikirim dengan lot awal %.2f.", isBuy ? "BUY" : "SELL", LotAwal) : "Order ditolak broker; periksa log MT5.";
-      }
+      bool isBuy = action == "buy";
+      success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
+      result = success ? StringFormat("Order %s dikirim dengan lot awal %.2f.", isBuy ? "BUY" : "SELL", LotAwal) : "Order ditolak broker; periksa log MT5.";
    } else if(action == "reset") {
-      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
-         result = "Reset ditolak: EA hanya mengizinkan akun demo.";
-      } else {
-         IsStoppedByTarget = false;
-         ResetTime = TimeCurrent();
-         LastDayReset = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
-         MaxFloatBuy = 0;
-         MaxFloatSell = 0;
-         MaxCombinedProfitPoints = 0;
-         VSL_BuyPrice = 0;
-         VSL_SellPrice = 0;
-         PendingTrail_BuyPrice = 0;
-         PendingTrail_SellPrice = 0;
-         DeleteTrailingOrders();
-         ObjectDelete(0, UIPrefix + "LineBuyTS");
-         ObjectDelete(0, UIPrefix + "LineSellTS");
-         ObjectDelete(0, UIPrefix + "LinePendingBuy");
-         ObjectDelete(0, UIPrefix + "LinePendingSell");
-         if(isAutoTradingActive && IsInsideTradingTime()) CheckInitialEntry();
-         success = true;
-         result = "Statistik harian dan state trailing direset.";
-      }
+      IsStoppedByTarget = false;
+      ResetTime = TimeCurrent();
+      LastDayReset = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
+      MaxFloatBuy = 0;
+      MaxFloatSell = 0;
+      MaxCombinedProfitPoints = 0;
+      VSL_BuyPrice = 0;
+      VSL_SellPrice = 0;
+      PendingTrail_BuyPrice = 0;
+      PendingTrail_SellPrice = 0;
+      DeleteTrailingOrders();
+      ObjectDelete(0, UIPrefix + "LineBuyTS");
+      ObjectDelete(0, UIPrefix + "LineSellTS");
+      ObjectDelete(0, UIPrefix + "LinePendingBuy");
+      ObjectDelete(0, UIPrefix + "LinePendingSell");
+      if(isAutoTradingActive && IsInsideTradingTime()) CheckInitialEntry();
+      success = true;
+      result = "Statistik harian dan state trailing direset.";
    } else if(action == "close_buy" || action == "close_sell" || action == "close_all") {
-      if(AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO) {
-         result = "Perintah tutup ditolak: EA hanya mengizinkan akun demo.";
-      } else {
-         isAutoTradingActive = false;
-         int closedBuy = 0, closedSell = 0;
-         string detailBuy = "", detailSell = "";
-         if(action == "close_buy") success = PilotCloseMagic(MagicBeli, closedBuy, result);
-         else if(action == "close_sell") success = PilotCloseMagic(MagicJual, closedSell, result);
-         else {
-            bool buyOk = PilotCloseMagic(MagicBeli, closedBuy, detailBuy);
-            bool sellOk = PilotCloseMagic(MagicJual, closedSell, detailSell);
-            success = buyOk && sellOk;
-            result = StringFormat("BUY ditutup %d posisi; SELL ditutup %d posisi. %s", closedBuy, closedSell, success ? "" : "Sebagian penutupan gagal.");
-            DeleteTrailingOrders();
-         }
+      isAutoTradingActive = false;
+      int closedBuy = 0, closedSell = 0;
+      string detailBuy = "", detailSell = "";
+      if(action == "close_buy") success = PilotCloseMagic(MagicBeli, closedBuy, result);
+      else if(action == "close_sell") success = PilotCloseMagic(MagicJual, closedSell, result);
+      else {
+         bool buyOk = PilotCloseMagic(MagicBeli, closedBuy, detailBuy);
+         bool sellOk = PilotCloseMagic(MagicJual, closedSell, detailSell);
+         success = buyOk && sellOk;
+         result = StringFormat("BUY ditutup %d posisi; SELL ditutup %d posisi. %s", closedBuy, closedSell, success ? "" : "Sebagian penutupan gagal.");
+         DeleteTrailingOrders();
       }
    } else {
       result = "Aksi tidak dikenal; tidak ada order dikirim.";
@@ -722,7 +698,6 @@ void PilotPollCommands() {
    PilotAck(commandId, success ? "succeeded" : "failed", result);
    Print("MT5 Pilot: ", result);
 }
-
 void OnTick() {
    datetime currentDay = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
 

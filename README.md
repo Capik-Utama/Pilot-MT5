@@ -2,12 +2,12 @@
 
 MT5 Pilot menampilkan dashboard privat untuk source `Fast-Grid` yang dilampirkan pemilik. Frontend React/Vite diterbitkan statis di Vercel; Supabase Auth menangani akun login, sedangkan Edge Function `mt5-api` memvalidasi sesi browser atau token EA sebelum membaca/menulis database. Koneksi EA menggunakan HTTPS WebRequest dari MT5.
 
-Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. Auto, BUY/SELL manual, RESET, dan perintah tutup yang dikirim melalui dashboard dibatasi ke akun demo.
+Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. Auto, BUY/SELL manual, RESET, dan perintah tutup yang dikirim melalui dashboard tersedia untuk akun demo maupun real setelah pemilik login dan EA terhubung.
 
 ## Uji EA
 
-1. Buka `https://pilot-mt5.vercel.app/`, buat akun/masuk dan buat token koneksi demo.
-2. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang di chart akun demo.
+1. Buka `https://pilot-mt5.vercel.app/`, buat akun/masuk dan buat token koneksi.
+2. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang di chart akun MT5.
 3. Masukkan token pada input `EAConnectionToken`.
 4. Izinkan WebRequest untuk `https://qqdsultliybypiuvihli.supabase.co` pada Tools → Options → Expert Advisors.
 5. Pastikan EA menunjukkan mode Manual dan heartbeat online sebelum menguji kontrol dashboard. BUY/SELL manual menggunakan lot awal yang dikonfigurasi di EA dan meminta konfirmasi di beranda.
