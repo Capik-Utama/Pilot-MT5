@@ -24,10 +24,10 @@ type Account = {
 type ConnectionToken = { label: string; token: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
-  ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 17000, MagicBeli: 2864384, MagicJual: 2864385,
-  LotAwal: 0.01, PenggandaLot: 1.2, LotMaksimal: 5, LangkahLayer: 5, JarakGrid: 100, JarakTrailingPending: 50,
-  JenisBatasRugi: 0, BatasKerugian: 10000, TargetHarian: 2000, SetelahTargetTercapai: 0, ModeTrailing: 0,
-  MulaiTrailingPoin: 150, KunciProfitPoin: 50, LangkahTrailingPoin: 5,
+  ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
+  LotAwal: 0.01, PenggandaLot: 1.5, LotMaksimal: 15, LangkahLayer: 5, JarakGrid: 1000, JarakTrailingPending: 500,
+  JenisBatasRugi: 0, BatasKerugian: 10000, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
+  MulaiTrailingPoin: 1500, KunciProfitPoin: 1000, LangkahTrailingPoin: 500,
 };
 const coreConfigFields = [
   ["ModePerdagangan", "Mode perdagangan", "select", [[0, "Beli + Jual"], [1, "Beli saja"], [2, "Jual saja"]]],
@@ -45,7 +45,7 @@ function finiteNumber(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
-function currency(value: number, accountCurrency: string, mode: DisplayCurrency = "USD", displayRate = 17000, isCentAccount = false) {
+function currency(value: number, accountCurrency: string, mode: DisplayCurrency = "USD", displayRate = 18000, isCentAccount = false) {
   const centsAccount = isCentAccount || /USC|CENT/i.test(accountCurrency);
   const usdValue = centsAccount ? value / 100 : value;
   if (mode === "CENT") return `${new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usdValue * 100)} USC`;

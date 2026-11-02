@@ -636,6 +636,25 @@ void PilotSendTelemetry() {
       int magic = (int)PositionGetInteger(POSITION_MAGIC);
       if(magic == MagicBeli || magic == MagicJual) openPositions++;
    }
+   string activeConfig = "{\"ModePerdagangan\":" + IntegerToString((int)ModePerdagangan) +
+      ",\"MataUangTampilan\":" + IntegerToString((int)MataUangTampilan) +
+      ",\"KursUSD_IDR\":" + DoubleToString(KursUSD_IDR, 8) +
+      ",\"MagicBeli\":" + IntegerToString(MagicBeli) +
+      ",\"MagicJual\":" + IntegerToString(MagicJual) +
+      ",\"LotAwal\":" + DoubleToString(LotAwal, 8) +
+      ",\"PenggandaLot\":" + DoubleToString(PenggandaLot, 8) +
+      ",\"LotMaksimal\":" + DoubleToString(LotMaksimal, 8) +
+      ",\"LangkahLayer\":" + IntegerToString(LangkahLayer) +
+      ",\"JarakGrid\":" + IntegerToString(JarakGrid) +
+      ",\"JarakTrailingPending\":" + IntegerToString(JarakTrailingPending) +
+      ",\"JenisBatasRugi\":" + IntegerToString((int)JenisBatasRugi) +
+      ",\"BatasKerugian\":" + DoubleToString(BatasKerugian, 8) +
+      ",\"TargetHarian\":" + DoubleToString(TargetHarian, 8) +
+      ",\"SetelahTargetTercapai\":" + IntegerToString((int)SetelahTargetTercapai) +
+      ",\"ModeTrailing\":" + IntegerToString((int)ModeTrailing) +
+      ",\"MulaiTrailingPoin\":" + IntegerToString(MulaiTrailingPoin) +
+      ",\"KunciProfitPoin\":" + IntegerToString(KunciProfitPoin) +
+      ",\"LangkahTrailingPoin\":" + IntegerToString(LangkahTrailingPoin) + "}";
    string body = "{\"accountName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_NAME)) +
       "\",\"login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) +
       ",\"serverName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER)) +
@@ -659,7 +678,8 @@ void PilotSendTelemetry() {
       ",\"displayCurrency\":\"" + (CurrentCurrencyMode == 1 ? "CENT" : CurrentCurrencyMode == 2 ? "IDR" : "USD") + "\"" +
       ",\"displayRate\":" + DoubleToString(InpUsdToIdr, 2) +
       ",\"eaMode\":\"" + mode + "\",\"currency\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) +
-      "\",\"latencyMs\":" + IntegerToString(LastPilotLatencyMs) + "}";
+      "\",\"latencyMs\":" + IntegerToString(LastPilotLatencyMs) +
+      ",\"eaConfig\":" + activeConfig + "}";
    string response = "";
    uint started = GetTickCount();
    int code = PilotHttp("POST", "/telemetry", body, response);

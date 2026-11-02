@@ -25,6 +25,12 @@ function validConfig(value: unknown): value is Json {
   if (!entries.length || entries.length > configKeys.size || entries.some(([key]) => !configKeys.has(key))) return false;
   return entries.every(([, item]) => (typeof item === "boolean" || (typeof item === "number" && Number.isFinite(item))));
 }
+function validEaConfig(value: unknown): value is Json {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value as Json);
+  return entries.length === configKeys.size && entries.every(([key, item]) =>
+    configKeys.has(key) && typeof item === "number" && Number.isFinite(item));
+}
 const activeStatuses = ["queued", "delivered", "accepted"];
 
 type Json = Record<string, unknown>;
@@ -214,6 +220,7 @@ async function handleEa(req: Request, path: string) {
     const panelNumbers = ["basketSlSet", "dailyTargetSet", "maxFloatBuy", "maxFloatSell", "runningFloat"] as const;
     if (!body || requiredNumbers.some((key) => !finite(body[key], -1e12, 1e15)) ||
       panelNumbers.some((key) => !finite(body[key], -1e12, 1e15)) ||
+      (body.eaConfig !== undefined && !validEaConfig(body.eaConfig)) ||
       (body.openPositions !== undefined && (!Number.isInteger(body.openPositions) || Number(body.openPositions) < 0 || Number(body.openPositions) > 1e6)) ||
       (body.eaStatus !== undefined && (typeof body.eaStatus !== "string" || body.eaStatus.length > 80)) ||
       (typeof body.basketSlType !== "string" || !["money", "percent"].includes(body.basketSlType)) ||
@@ -229,8 +236,16 @@ async function handleEa(req: Request, path: string) {
       (body.latencyMs !== undefined && !finite(body.latencyMs, 0, 60_000))) {
       return respond(400, { error: "Payload telemetri tidak valid." });
     }
+    let syncEaConfig = false;
+    if (body.eaConfig !== undefined) {
+      const { data: pendingConfig, error: pendingConfigError } = await admin.from("mt5_commands").select("id")
+        .eq("account_id", account.id).eq("action", "config").in("status", activeStatuses)
+        .gt("expires_at", new Date().toISOString()).limit(1);
+      if (pendingConfigError) return respond(500, { error: "Status konfigurasi EA tidak dapat diperiksa." });
+      syncEaConfig = !pendingConfig?.length;
+    }
     const now = new Date().toISOString();
-    const { error } = await admin.from("mt5_accounts").update({
+    const telemetryUpdate: Json = {
       broker_account_name: body.accountName,
       mt5_login: body.login ?? null,
       server_name: body.serverName ?? null,
@@ -259,7 +274,9 @@ async function handleEa(req: Request, path: string) {
       latency_ms: body.latencyMs ?? null,
       last_seen_at: now,
       updated_at: now,
-    }).eq("id", account.id);
+    };
+    if (syncEaConfig) telemetryUpdate.ea_config = body.eaConfig;
+    const { error } = await admin.from("mt5_accounts").update(telemetryUpdate).eq("id", account.id);
     if (error) return respond(500, { error: "Telemetri tidak dapat disimpan." });
     return respond(200, { ok: true, serverTime: now });
   }
