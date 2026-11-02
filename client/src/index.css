@@ -467,15 +467,10 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-list { display:grid; gap:14px; }
 .pilot-account-card { position:relative; overflow:hidden; border:1px solid var(--p-line); border-radius:10px; background:linear-gradient(115deg,rgba(14,27,44,.97),rgba(10,22,37,.97)); box-shadow:0 10px 28px rgba(0,0,0,.11); }
 .pilot-account-card::before { position:absolute; top:0; bottom:0; left:0; width:2px; background:rgba(112,129,152,.27); content:""; }
-.pilot-account-card:has(.pilot-connection.online)::before { background:var(--p-cyan); box-shadow:0 0 14px rgba(85,214,200,.56); }
 .pilot-account-header { display:flex; min-height:66px; align-items:center; justify-content:space-between; gap:16px; padding:13px 19px 12px 23px; border-bottom:1px solid var(--p-line); }
 .pilot-account-title { display:flex; min-width:0; align-items:center; gap:12px; }
-.pilot-led { width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:#64758a; }
-.pilot-led.online { background:#52dfac; box-shadow:0 0 9px rgba(82,223,172,.52); }
 .pilot-account-title h3 { overflow:hidden; color:#e4edf4; font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .pilot-account-title p { overflow:hidden; margin:4px 0 0; color:#7d8fa3; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
-.pilot-connection { display:flex; flex:0 0 auto; align-items:center; gap:6px; padding:6px 9px; border:1px solid rgba(132,145,162,.17); border-radius:5px; color:#8491a2; background:rgba(132,145,162,.045); font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:8px; letter-spacing:.08em; }
-.pilot-connection.online { border-color:rgba(82,223,172,.2); color:#6adab4; background:rgba(82,223,172,.05); }
 .pilot-account-tags { display:flex; flex-wrap:wrap; align-items:center; gap:10px 17px; min-height:39px; padding:8px 21px; border-bottom:1px solid var(--p-line); color:#8899aa; background:rgba(6,15,27,.32); font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:8px; }
 .pilot-account-tags > span { display:inline-flex; align-items:center; gap:6px; }
 .pilot-account-tags > span.demo { color:#72d9b1; }
@@ -615,8 +610,6 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-title { justify-content: center; text-align: center; }
 .pilot-account-title h3 { color: #00ff00; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: clamp(14px, 1.35vw, 21px); font-weight: 800; letter-spacing: .025em; text-shadow: 0 0 10px rgba(48,255,0,.35); }
 .pilot-account-title p { color: #a4b1c5; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 7px; }
-.pilot-account-header .pilot-connection { position: absolute; top: 8px; right: 8px; padding: 4px 6px; font-size: 7px; }
-.pilot-account-header .pilot-led { position: absolute; top: 13px; left: 13px; }
 .pilot-account-tags { display: none; }
 .pilot-panel-buttons { display: grid; gap: 2px; padding: 6px 7px 4px; }
 .pilot-button-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 2px; }
@@ -698,8 +691,6 @@ h1, h2, h3, p { margin: 0; }
   .pilot-account-header { min-height: 58px; padding: 18px 6px 5px; }
   .pilot-account-title h3 { font-size: 18px; }
   .pilot-account-title p { overflow: hidden; max-width: 100%; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
-  .pilot-account-header .pilot-connection { top: 3px; right: 3px; gap: 2px; padding: 2px 3px; font-size: 5px; }
-  .pilot-account-header .pilot-led { top: 7px; left: 6px; width: 5px; height: 5px; }
   .pilot-panel-buttons { gap: 2px; padding: 4px 4px 2px; }
   .pilot-button-row { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 2px; }
   .pilot-panel-buttons button { min-height: 24px; padding: 0 2px; font-size: 12px; letter-spacing: 0; }
@@ -720,7 +711,10 @@ h1, h2, h3, p { margin: 0; }
 /* Header search and account identity outside the MT5 panel card. */
 .pilot-header-search { width: clamp(150px, 18vw, 230px); }
 .pilot-account-shell { min-width: 0; }
-.pilot-account-identity { overflow: hidden; margin: 0 4px 4px; color: #9eafc3; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.pilot-account-identity { display: flex; min-width: 0; align-items: center; gap: 6px; overflow: hidden; margin: 0 4px 4px; color: #9eafc3; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; line-height: 1.35; }
+.pilot-account-identity > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pilot-identity-led { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,.55); }
+.pilot-identity-led.online { background: #52dfac; box-shadow: 0 0 8px rgba(82,223,172,.55); }
 .pilot-account-identity + .pilot-account-card { margin-top: 0; }
 @media (max-width: 980px) {
   .pilot-header-search { width: 165px; }
@@ -730,6 +724,7 @@ h1, h2, h3, p { margin: 0; }
   .pilot-header-search { width: min(100%, 220px); flex: 1 1 150px; }
   .pilot-header-controls { width: 100%; flex-wrap: wrap; }
   .pilot-account-identity { margin: 0 2px 3px; font-size: 9px; }
+  .pilot-identity-led { width: 6px; height: 6px; }
 }
 
 /* Larger, higher-contrast MT5 Pilot branding. */

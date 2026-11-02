@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -448,8 +448,8 @@ export default function Home() {
             const basketSlDisplay = !account.telemetry_received ? "Basket SL Set: —" : account.basket_sl_type === "percent"
               ? basketSlValue === null ? "INVALID" : `-${basketSlValue.toFixed(1)}%`
               : `-${showMoney(account.basket_sl_set)}`;
-            return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity">{account.label} - {account.broker_account_name || "Menunggu nama akun dari EA"}</div><article className="pilot-account-card">
-              <div className="pilot-account-header">{canWrite ? <button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3><small><Pencil size={11} /> EDIT PARAMETER EA</small></span></button> : <div className="pilot-account-title pilot-edit-title pilot-staff-card-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3></span></div>}<div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
+            return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity"><span className={`pilot-identity-led ${online ? "online" : "offline"}`} aria-label={online ? "Online" : "Offline"} /><span>{account.label} - {account.broker_account_name || "Menunggu nama akun dari EA"}</span></div><article className="pilot-account-card">
+              <div className="pilot-account-header">{canWrite ? <button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span><h3>*Grid_By_Capik*</h3><small><Pencil size={11} /> EDIT PARAMETER EA</small></span></button> : <div className="pilot-account-title pilot-edit-title pilot-staff-card-title"><span><h3>*Grid_By_Capik*</h3></span></div>}</div>
               {!canUseCardActions && <div className="pilot-readonly-note">AKSES READ ONLY · tombol aksi dinonaktifkan</div>}
               <div className="pilot-panel-buttons">
                 <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
