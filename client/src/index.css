@@ -506,13 +506,6 @@ h1, h2, h3, p { margin: 0; }
 .pilot-controls button.close-all { border-color:rgba(240,120,120,.25); color:#ee9690; background:rgba(240,120,120,.05); }
 .pilot-controls .divider { width:1px; height:19px; margin:0 2px; background:var(--p-line); }
 .pilot-lock-note { display:flex; align-items:center; gap:6px; margin-top:9px; color:#d4a678; font-size:9px; }
-.pilot-command-history { display:grid; gap:5px; padding:10px 22px 12px; border-top:1px solid var(--p-line); background:rgba(7,16,28,.32); }
-.pilot-command-history > span { color:#71849a; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:7px; letter-spacing:.13em; }
-.pilot-command-history > div { display:grid; grid-template-columns:120px 120px 1fr; gap:10px; align-items:center; padding:4px 0; color:#a8b6c5; font-size:9px; }
-.pilot-command-history small { overflow:hidden; color:#73869b; text-overflow:ellipsis; white-space:nowrap; }
-.status-queued,.status-delivered,.status-accepted { color:#e9c17d; }
-.status-succeeded { color:#69d9ac; }
-.status-failed,.status-expired { color:#ee908c; }
 .pilot-account-footer { display:flex; justify-content:space-between; padding:9px 22px 11px; border-top:1px solid rgba(143,170,201,.08); color:#6f8095; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:8px; }
 .pilot-info { display:flex; align-items:flex-start; gap:9px; margin-top:19px; padding:12px 14px; border:1px solid rgba(85,214,200,.13); border-radius:7px; color:#8195a6; background:rgba(85,214,200,.025); }
 .pilot-info svg { flex:0 0 auto; color:#83d8cf; }

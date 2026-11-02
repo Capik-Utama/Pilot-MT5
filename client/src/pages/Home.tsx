@@ -33,10 +33,6 @@ function age(value: string | null) {
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 1000));
   return seconds < 2 ? "baru saja" : seconds < 60 ? `${seconds} dtk lalu` : `${Math.floor(seconds / 60)} mnt lalu`;
 }
-function statusLabel(status: string) {
-  return ({ queued: "Dalam antrean", delivered: "Dikirim ke EA", accepted: "Diterima EA", succeeded: "Berhasil", failed: "Gagal", expired: "Kedaluwarsa" } as Record<string, string>)[status] ?? status;
-}
-
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -217,7 +213,6 @@ export default function Home() {
               </div>
               <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>
               {!account.is_demo && <small className="pilot-lock-note"><AlertTriangle size={13} /> Kontrol hanya tersedia untuk akun demo.</small>}
-              {account.commands.length > 0 && <div className="pilot-command-history"><span>PERINTAH TERAKHIR</span>{account.commands.slice(0, 3).map((command) => <div key={command.id}><b>{actionLabel[command.action] ?? command.action}</b><span className={`status-${command.status}`}>{statusLabel(command.status)}</span><small>{command.result_message ?? new Date(command.created_at).toLocaleTimeString("id-ID")}</small></div>)}</div>}
               <footer className="pilot-account-footer"><span>Token EA •••• {account.token_hint}</span><span>{account.is_demo ? "Akun demo" : "Read-only"}</span></footer>
             </article>;
           })}
