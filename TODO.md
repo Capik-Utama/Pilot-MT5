@@ -1,20 +1,19 @@
 # TODO — MT5 Pilot
 
-## Siap untuk uji demo
+## Selesai untuk tahap demo
 
-- [x] Dashboard dengan Supabase Auth, token akun EA satu kali, telemetry, heartbeat, dan kontrol per akun.
-- [x] Supabase tables privat dengan RLS aktif dan akses tabel browser dicabut.
-- [x] Edge Function memvalidasi sesi dashboard atau token EA sebelum akses database.
-- [x] Fast-Grid EA dimodifikasi: mode awal Manual, hard-lock akun demo, telemetri, polling, acknowledgement, dan deduplikasi perintah.
-- [x] Pemeriksaan TypeScript, build Vite, dan smoke test endpoint anonim berhasil.
+- [x] Dashboard Supabase Auth dipublikasikan di Vercel.
+- [x] Schema Supabase dan Edge Function `mt5-api` aktif.
+- [x] Akses tabel langsung dari publishable key ditolak; endpoint anonim API ditolak 401.
+- [x] Source Fast-Grid dimodifikasi dengan telemetry, antrean kontrol, acknowledgement, default Manual, dan guard akun demo.
+- [x] TypeScript check, build Vite, pemeriksaan sintaks TypeScript Edge Function, dan uji tampilan browser berhasil.
 
-## Langkah tersisa sebelum aktivasi pengguna
+## Langkah pengguna
 
-- [ ] Merge/publish branch fitur agar dashboard tersedia di domain Vercel.
-- [ ] Masuk/buat akun Supabase Auth, buat koneksi, lalu simpan token EA.
+- [ ] Daftar/masuk di https://pilot-mt5.vercel.app/ dan buat koneksi untuk mengambil token.
 - [ ] Compile `ea/Fast-Grid-Pilot.mq5` di MetaEditor; MetaEditor tidak tersedia di sandbox.
-- [ ] Tambahkan origin Supabase ke allow-list WebRequest MT5.
-- [ ] Uji telemetry dan tombol hanya di akun demo; tinjau tab Experts/Journal dan hasil broker.
-- [ ] Periksa timeout jaringan dan acknowledgement sebelum mengandalkan kontrol jarak jauh.
+- [ ] Pasang hanya di akun demo, tempel token EA, dan izinkan WebRequest untuk origin Supabase.
+- [ ] Pastikan heartbeat/status online muncul sebelum mencoba Auto atau tombol close.
+- [ ] Uji tiap tombol dan hasil eksekusi melalui tab Experts/Journal MT5 serta history broker.
 
-EA source menjaga guard demo aktif. Jangan pasang di akun real.
+Pendaftaran Supabase Auth terbuka selama demo. Data masing-masing login tetap dipisahkan berdasarkan owner ID. EA memiliki guard akun demo; jangan menghapus guard tersebut atau menjalankan source ini pada akun real.
