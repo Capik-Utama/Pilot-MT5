@@ -63,6 +63,18 @@ function age(value: string | null) {
   return seconds < 2 ? "baru saja" : seconds < 60 ? `${seconds} dtk lalu` : `${Math.floor(seconds / 60)} mnt lalu`;
 }
 
+function AccountRunningProfit({ account, displayMode }: { account: Account; displayMode: DisplayCurrency }) {
+  const showMoney = (value: unknown) => {
+    if (!account.telemetry_received) return "—";
+    const parsed = finiteNumber(value);
+    return parsed === null ? "INVALID" : currency(parsed, account.currency, displayMode, account.display_rate, account.is_cent_account);
+  };
+  return <div className="pilot-metrics pilot-panel-metrics pilot-card-summary">
+    <div className={`metric-running ${account.running_float >= 0 ? "positive" : "negative"}`}><span>Running</span><strong>{showMoney(account.running_float)}</strong></div>
+    <div className={`metric-profit ${account.profit >= 0 ? "profit-positive" : "profit-negative"}`}><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
+  </div>;
+}
+
 function AccountTelemetry({ account, displayMode }: { account: Account; displayMode: DisplayCurrency }) {
   const showMoney = (value: unknown) => {
     if (!account.telemetry_received) return "—";
@@ -473,6 +485,7 @@ export default function Home() {
                 <button className="close-all" disabled={disabled} onClick={() => void sendAction(account, "close_all")}>CLOSE ALL</button>
                 <div className="pilot-currency-row" aria-label="Mata uang tampilan">{(["USD", "IDR", "CENT"] as const).map((mode) => <button key={mode} className={displayMode === mode ? "selected" : ""} onClick={() => setCurrencyModes((current) => ({ ...current, [account.id]: mode }))}>{mode}</button>)}</div>
               </div>
+              <AccountRunningProfit account={account} displayMode={displayMode} />
               <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>
             </article></div>;
           })}
