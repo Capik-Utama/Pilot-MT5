@@ -606,7 +606,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 285px), 1fr)); align-items: start; gap: 6px; }
 .pilot-account-card { border: 2px solid rgba(104, 123, 185, .82); border-radius: 0; background: linear-gradient(145deg, #07101f 0%, #111b31 55%, #0b1529 100%); box-shadow: 0 0 0 1px rgba(30, 255, 14, .48), 0 0 20px rgba(42, 255, 0, .08); }
 .pilot-account-card::before { width: 3px; background: #32ff00; box-shadow: 0 0 12px rgba(50,255,0,.75); }
-.pilot-account-header { min-height: 51px; justify-content: center; padding: 8px 24px; border-bottom: 1px solid rgba(54,255,0,.62); background: rgba(3, 10, 20, .48); }
+.pilot-account-header { min-height: 31px; justify-content: center; padding: 3px 8px; border-bottom: 1px solid rgba(54,255,0,.62); background: rgba(3, 10, 20, .48); }
 .pilot-account-title { justify-content: center; text-align: center; }
 .pilot-account-title h3 { color: #00ff00; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: clamp(14px, 1.35vw, 21px); font-weight: 800; letter-spacing: .025em; text-shadow: 0 0 10px rgba(48,255,0,.35); }
 .pilot-account-title p { color: #a4b1c5; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 7px; }
@@ -648,7 +648,7 @@ h1, h2, h3, p { margin: 0; }
 .pilot-panel-metrics > div:last-child { grid-column: auto; }
 @media (min-width: 1200px) {
   .pilot-account-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-  .pilot-account-header { min-height: 46px; padding: 6px 20px; }
+  .pilot-account-header { min-height: 31px; padding: 3px 8px; }
   .pilot-account-title h3 { font-size: 20px; }
   .pilot-panel-buttons { gap: 2px; padding: 5px 6px 3px; }
   .pilot-button-row { gap: 2px; }
@@ -688,7 +688,7 @@ h1, h2, h3, p { margin: 0; }
   .pilot-filter-select { min-width: 76px; height: 32px; }
   .pilot-account-list { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
   .pilot-account-card { border-width: 1px; }
-  .pilot-account-header { min-height: 58px; padding: 18px 6px 5px; }
+  .pilot-account-header { min-height: 28px; padding: 3px 6px; }
   .pilot-account-title h3 { font-size: 18px; }
   .pilot-account-title p { overflow: hidden; max-width: 100%; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
   .pilot-panel-buttons { gap: 2px; padding: 4px 4px 2px; }
@@ -805,9 +805,7 @@ h1, h2, h3, p { margin: 0; }
 }
 
 /* Remote EA configuration editor. */
-.pilot-edit-title { display:inline-flex; align-items:center; gap:9px; border:0; background:transparent; cursor:pointer; }
-.pilot-edit-title > span:last-child { display:grid; gap:3px; justify-items:center; }
-.pilot-edit-title small { display:inline-flex; align-items:center; gap:4px; color:#00ff00; font:700 8px "IBM Plex Mono",ui-monospace,monospace; letter-spacing:.08em; }
+.pilot-edit-title { display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
 .pilot-edit-title:hover h3, .pilot-edit-title:focus-visible h3 { color:#b7ff9f; }
 .pilot-edit-title:focus-visible { outline:2px solid #7dff5b; outline-offset:4px; }
 .pilot-config-modal { width:min(100%,760px); max-height:calc(100vh - 36px); overflow-y:auto; }
