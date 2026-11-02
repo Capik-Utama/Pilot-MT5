@@ -33,17 +33,17 @@ input int     InputMagicJual   = 2864385;
 
 input group "== Pengaturan Lot & Pengganda =="
 input double    InputLotAwal         = 0.01;
-input double    InputPenggandaLot   = 1.5;
-input double    InputLotMaksimal          = 15;
-input int       InputLangkahLayer       = 5;
-input int       InputJarakGrid        = 1000;
+input double    InputPenggandaLot   = 1.2;
+input double    InputLotMaksimal          = 12;
+input int       InputLangkahLayer       = 1;
+input int       InputJarakGrid        = 2000;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
-input double    InputBatasKerugian    = 10000.0;
+input double    InputBatasKerugian    = 30000.0;
 input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
