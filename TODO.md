@@ -1,0 +1,18 @@
+# TODO — MT5 Pilot
+
+Status ruang lingkup saat ini: kerangka dashboard, skema, endpoint EA, antrean perintah, audit, dan UI responsif sudah dibuat. Integrasi dengan file EA milik pengguna serta pengaturan identitas owner masih menunggu langkah lanjutan. Tidak ada angka/simulasi akun yang diada-adakan.
+
+## 1. Privasi pemilik dan keamanan koneksi
+- [ ] “untuk saya pribadi. tidak akan saya kasih ke orang lain.” Aplikasi hanya dapat digunakan pemilik; layar serta kontrol mengharuskan autentikasi pemilik. Identitas pemilik yang belum dikonfigurasi harus gagal tertutup. Koneksi EA memerlukan autentikasi token per akun; token tersimpan sebagai hash dan token broker/password trading tidak diminta atau disimpan. Mekanisme fail-closed dan token sudah dibuat; `OWNER_OPEN_ID` belum diatur sehingga kontrol owner tetap terkunci sampai identitas pemilik ditetapkan dan visibilitas proyek dipastikan owner-only.
+
+## 2. Pemantauan beberapa akun dan status koneksi
+- [x] “memantau beberapa akun MT5 yang terkoneksi ke EA.” Tampilkan beberapa akun dalam satu dashboard dengan identitas dan kondisi koneksi masing-masing. “yang di tampilkan adalah: saldo, equity, max DD buy, max DD sell, Running.” Tampilkan kelima nilai/status tersebut dari telemetry EA, termasuk waktu pembaruan terakhir, kesehatan/latensi koneksi, serta penanda visual saat data basi atau akun offline. Jangan tampilkan angka contoh seolah-olah berasal dari akun nyata. Kerangka endpoint telemetry dan tampilan nilai per akun tersedia; sebelum heartbeat pertama metrik tetap `—`.
+
+## 3. Kontrol EA per akun dan pelacakan hasil
+- [x] “saya juga ingin bisa mengontrol EA” dan “beberapa tombol. di antaranya: Auto, Manual, close buy, close sell, close all.” Sediakan kontrol Auto dan Manual serta aksi Close Buy, Close Sell, dan Close All yang ditargetkan ke akun tertentu. Aksi penutupan memerlukan konfirmasi; kontrol dinonaktifkan saat akun offline. Tunjukkan status perintah dikirim, diterima EA, berhasil, gagal, atau kedaluwarsa agar pemilik dapat mengetahui hasilnya dan mengurangi pengiriman ganda. Simpan jejak audit perintah. Kerangka UI/API, locking antrean per akun, acknowledgement, dan event audit tersedia; keberhasilan transaksi broker baru dapat dilaporkan EA setelah integrasi dan pengujian.
+
+## 4. Integrasi dua arah dan pembaruan cepat
+- [ ] “sangat realtime. karna saya juga akan kontrol dari tombol-tombol itu.” UI menerima pembaruan akun dan status perintah secara berkala dengan cepat; EA dapat mengirim telemetry/heartbeat, menarik perintah dashboard, dan mengirim acknowledgement dengan hasil. Tandai umur data dan status offline dengan jelas. Jelaskan bahwa latensi aktual tergantung interval EA, koneksi, server, dan broker. Integrasikan EA yang sudah dimiliki pengguna pada langkah berikutnya; aplikasi tidak boleh mengaku sudah terhubung sebelum EA benar-benar mengirim data. API serta kontrak protokol sudah disiapkan, tetapi EA pengguna belum diberikan atau diuji terhadapnya.
+
+## 5. Tampilan desktop dan mobile
+- [x] “untuk saya pribadi” dan tombol digunakan untuk pemantauan serta kontrol langsung. Antarmuka harus mudah dibaca dan digunakan di desktop maupun mobile, dengan target akun yang jelas, keadaan kosong untuk saat belum ada koneksi, status mode EA, dan umpan balik visual perintah. Breakpoint responsif dan keadaan kosong sudah diterapkan.
