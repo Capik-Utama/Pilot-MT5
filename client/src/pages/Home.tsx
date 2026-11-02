@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -19,13 +19,14 @@ type Account = {
   running: boolean; ea_mode: "auto" | "manual"; profit: number; floating_profit: number;
   latency_ms: number | null; last_seen_at: string | null; connection_status: "online" | "offline";
   ea_config?: EaConfig | null;
-  commands: { id: string; action: Action; status: string; result_message: string | null; created_at: string }[];
+  commands: { id: string; action: Action; status: string; result_message: string | null; created_at: string; expires_at: string }[];
 };
 
 type ConnectionToken = { label: string; token: string };
 type AccessRole = "owner" | "read_only" | "staff";
 type ManagedUser = { user_id: string; email: string; access_role: "read_only" | "staff"; created_at: string; account_ids?: string[]; account_labels?: string[] };
 type CreatedUserCredential = { email: string; password: string };
+type BackgroundCommand = { accountId: string; label: string; toastId: string | number; lastStatus: string; startedAt: number };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
@@ -82,6 +83,8 @@ export default function Home() {
   const [tokenModal, setTokenModal] = useState<ConnectionToken | null>(null);
   const [copied, setCopied] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [busyAccountIds, setBusyAccountIds] = useState<Set<string>>(() => new Set());
+  const backgroundCommands = useRef(new Map<string, BackgroundCommand>());
   const [currencyModes, setCurrencyModes] = useState<Record<string, DisplayCurrency>>({});
   const [accountSearch, setAccountSearch] = useState("");
   const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
@@ -183,6 +186,44 @@ export default function Home() {
     };
   }, [loadAccounts, ownerId, refreshSeconds, session]);
 
+  useEffect(() => {
+    if (!backgroundCommands.current.size) return;
+    for (const [commandId, pending] of backgroundCommands.current) {
+      const command = accounts.find((account) => account.id === pending.accountId)?.commands.find((item) => item.id === commandId);
+      if (!command) {
+        if (Date.now() - pending.startedAt > 65_000) {
+          toast.error(`${pending.label}: belum ada konfirmasi hasil dari EA. Periksa koneksi dan status di MT5.`, { id: pending.toastId, duration: 8000 });
+          backgroundCommands.current.delete(commandId);
+        }
+        continue;
+      }
+      if (["queued", "delivered", "accepted"].includes(command.status) && Date.parse(command.expires_at) <= Date.now()) {
+        toast.error(`${pending.label}: EA belum memberi hasil sebelum batas waktu. Periksa status di MT5.`, { id: pending.toastId, duration: 8000 });
+        backgroundCommands.current.delete(commandId);
+        continue;
+      }
+      if (command.status === "delivered" || command.status === "accepted") {
+        if (pending.lastStatus !== command.status) {
+          pending.lastStatus = command.status;
+          toast.loading(`${pending.label}: diterima EA, sedang diproses…`, { id: pending.toastId, duration: Number.POSITIVE_INFINITY });
+        }
+        continue;
+      }
+      if (command.status === "succeeded") {
+        const detail = command.result_message?.trim();
+        toast.success(`${pending.label} berhasil${detail ? ` — ${detail}` : "."}`, { id: pending.toastId, duration: 6000 });
+        backgroundCommands.current.delete(commandId);
+      } else if (command.status === "failed") {
+        const detail = command.result_message?.trim();
+        toast.error(`${pending.label} gagal${detail ? `: ${detail}` : "."}`, { id: pending.toastId, duration: 8000 });
+        backgroundCommands.current.delete(commandId);
+      } else if (command.status === "expired") {
+        toast.error(`${pending.label} kedaluwarsa: EA tidak mengonfirmasi perintah.`, { id: pending.toastId, duration: 8000 });
+        backgroundCommands.current.delete(commandId);
+      }
+    }
+  }, [accounts]);
+
   const canWrite = accessRole === "owner";
   const canUseCardActions = accessRole === "owner" || accessRole === "staff";
 
@@ -245,6 +286,11 @@ export default function Home() {
     catch { toast.error("Clipboard tidak tersedia. Salin kata sandi secara manual."); }
   };
 
+  const trackBackgroundCommand = (accountId: string, commandId: string, label: string) => {
+    const toastId = toast.loading(`${label}: dikirim, menunggu EA…`, { duration: Number.POSITIVE_INFINITY });
+    backgroundCommands.current.set(commandId, { accountId, label, toastId, lastStatus: "queued", startedAt: Date.now() });
+  };
+
   const createAccount = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusyAction("create");
     try {
@@ -259,13 +305,14 @@ export default function Home() {
   const sendAction = async (account: Account, action: Action) => {
     if (!canUseCardActions) { toast.error("Role ini tidak dapat mengirim perintah EA."); return; }
     if (account.connection_status !== "online") { toast.error("EA harus online untuk menerima perintah."); return; }
-    setBusyAction(`${account.id}:${action}`);
+    setBusyAccountIds((current) => new Set(current).add(account.id));
     try {
-      await callApi(`/dashboard/accounts/${account.id}/commands`, "POST", { action });
-      toast.success(`${actionLabel[action]} masuk antrean. Tunggu konfirmasi dari EA.`);
+      const result = await callApi(`/dashboard/accounts/${account.id}/commands`, "POST", { action });
+      if (!result.command?.id) throw new Error("Perintah tersimpan, tetapi ID pemantauan tidak diterima.");
+      trackBackgroundCommand(account.id, result.command.id, `Perintah ${actionLabel[action]}`);
       await loadAccounts();
     } catch (error) { toast.error(error instanceof Error ? error.message : "Perintah tidak dapat dikirim."); }
-    finally { setBusyAction(null); }
+    finally { setBusyAccountIds((current) => { const next = new Set(current); next.delete(account.id); return next; }); }
   };
 
   const openConfigEditor = (account: Account) => {
@@ -285,8 +332,10 @@ export default function Home() {
     if (!editingAccount) return;
     setSavingConfig(true);
     try {
-      await callApi(`/dashboard/accounts/${editingAccount.id}/config`, "POST", { config: editingConfig });
-      toast.success("Konfigurasi disimpan ke Supabase dan dikirim ke EA.");
+      const accountId = editingAccount.id;
+      const result = await callApi(`/dashboard/accounts/${accountId}/config`, "POST", { config: editingConfig });
+      if (!result.command?.id) throw new Error("Konfigurasi tersimpan, tetapi ID pemantauan tidak diterima.");
+      trackBackgroundCommand(accountId, result.command.id, "Simpan parameter EA");
       setEditingAccount(null);
       await loadAccounts();
     } catch (error) {
@@ -304,7 +353,7 @@ export default function Home() {
       setEditingAccount((current) => current ? { ...current, label: result.account.label } : current);
       setEditingAccountLabel(result.account.label);
       toast.success("Nama kartu berhasil diperbarui.");
-      await loadAccounts();
+      void loadAccounts();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nama kartu gagal diperbarui.");
     } finally { setSavingAccountLabel(false); }
@@ -317,6 +366,12 @@ export default function Home() {
       const accountId = editingAccount.id;
       const result = await callApi(`/dashboard/accounts/${accountId}`, "DELETE", { password: deletePassword });
       setAccounts((current) => current.filter((account) => account.id !== accountId));
+      for (const [commandId, pending] of backgroundCommands.current) {
+        if (pending.accountId === accountId) {
+          toast.error(`${pending.label} dibatalkan karena kartu EA dihapus dari Pilot.`, { id: pending.toastId, duration: 8000 });
+          backgroundCommands.current.delete(commandId);
+        }
+      }
       setEditingAccount(null);
       setDeletePassword("");
       toast.success(result?.message ?? "EA dihapus dari Pilot. EA di terminal MT5 tidak dihentikan.");
@@ -382,7 +437,7 @@ export default function Home() {
           {filteredAccounts.map((account) => {
             const online = account.connection_status === "online";
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
-            const disabled = !canUseCardActions || !online || !account.telemetry_received || Boolean(active) || busyAction !== null;
+            const disabled = !canUseCardActions || !online || !account.telemetry_received || Boolean(active) || busyAccountIds.has(account.id);
             const displayMode = currencyModes[account.id] ?? account.display_currency ?? "USD";
             const showMoney = (value: unknown) => {
               if (!account.telemetry_received) return "—";
