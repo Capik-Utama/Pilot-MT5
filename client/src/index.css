@@ -960,3 +960,21 @@ h1, h2, h3, p { margin: 0; }
 @media (max-width: 520px) { .pilot-card-name-editor { grid-template-columns: 1fr; } .pilot-card-name-editor .pilot-cancel { width: 100%; } .pilot-delete-button { width: 100%; } }
 .pilot-dashboard[data-theme="light"] .pilot-card-name-editor, .pilot-dashboard[data-theme="blue-white"] .pilot-card-name-editor { background: rgba(225,235,247,.35); }
 .pilot-dashboard[data-theme="light"] .pilot-delete-zone, .pilot-dashboard[data-theme="blue-white"] .pilot-delete-zone { background: rgba(179,48,48,.05); }
+
+.pilot-config-telemetry {
+  margin: 0 0 0;
+  padding: 8px 10px 4px;
+  border: 1px solid var(--p-line);
+  border-radius: 6px;
+  background: rgba(5,13,23,.28);
+}
+.pilot-config-footer {
+  padding: 8px 10px 10px;
+  border: 1px solid var(--p-line);
+  border-top: 0;
+  background: rgba(5,13,23,.18);
+}
+@media (max-width: 650px) {
+  .pilot-config-telemetry { padding: 6px 8px 3px; }
+  .pilot-config-footer { padding: 7px 8px 9px; }
+}
