@@ -951,3 +951,19 @@ h1, h2, h3, p { margin: 0; }
 .pilot-staff-account-picker label span { color: var(--p-text); font-size: 10px; }
 .pilot-user-create-form select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--p-line); border-radius: 5px; color: var(--p-text); background: #101c2c; }
 .pilot-managed-scope { display: block; margin-top: 4px; color: var(--p-muted) !important; font: 8px "IBM Plex Mono",ui-monospace,monospace !important; white-space: normal; }
+
+.pilot-card-name-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; margin: 0 0 14px; padding: 12px; border: 1px solid var(--p-line); border-radius: 6px; background: rgba(5,13,23,.28); }
+.pilot-card-name-editor label { min-width: 0; }
+.pilot-card-name-editor .pilot-cancel { min-height: 39px; white-space: nowrap; }
+.pilot-delete-zone { display: grid; gap: 10px; margin-top: 18px; padding: 14px; border: 1px solid rgba(229,91,91,.36); border-radius: 7px; background: rgba(132,27,35,.09); }
+.pilot-delete-zone > strong { color: #ffaaa5; font: 700 11px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-delete-zone > p { margin: 0; color: #c99c9c; font-size: 10px; line-height: 1.6; }
+.pilot-delete-zone label { display: grid; gap: 6px; color: #e1baba; font-size: 9px; }
+.pilot-delete-zone label span { color: #9e8c8c; }
+.pilot-delete-zone input { color: #f3e5e5; }
+.pilot-delete-button { justify-self: end; min-height: 36px; padding: 0 13px; border: 1px solid rgba(255,104,104,.56); border-radius: 5px; color: #fff; background: #852b31; font: 700 9px "IBM Plex Mono",ui-monospace,monospace; cursor: pointer; }
+.pilot-delete-button:hover:not(:disabled) { background: #a82d35; }
+.pilot-delete-button:disabled { opacity: .48; cursor: not-allowed; }
+@media (max-width: 520px) { .pilot-card-name-editor { grid-template-columns: 1fr; } .pilot-card-name-editor .pilot-cancel { width: 100%; } .pilot-delete-button { width: 100%; } }
+.pilot-dashboard[data-theme="light"] .pilot-card-name-editor, .pilot-dashboard[data-theme="blue-white"] .pilot-card-name-editor { background: rgba(225,235,247,.35); }
+.pilot-dashboard[data-theme="light"] .pilot-delete-zone, .pilot-dashboard[data-theme="blue-white"] .pilot-delete-zone { background: rgba(179,48,48,.05); }

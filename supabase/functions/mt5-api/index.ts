@@ -11,7 +11,7 @@ const admin = createClient(supabaseUrl, serviceKey, {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-mt5-client",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Cache-Control": "no-store",
 };
 const ONLINE_WINDOW_MS = 20_000;
@@ -240,6 +240,47 @@ async function handleDashboard(req: Request, path: string) {
       if (insertError) return respond(500, { error: "Akses akun staff tidak dapat disimpan." });
     }
     return respond(200, { ok: true });
+  }
+
+  const accountMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})$/i);
+  if (accountMatch && req.method === "PATCH") {
+    if (access.access_role !== "owner" || access.owner_id !== user.id) return respond(403, { error: "Hanya owner yang dapat mengganti nama kartu." });
+    const body = await jsonBody(req);
+    const label = typeof body?.label === "string" ? body.label.trim() : "";
+    if (label.length < 1 || label.length > 80) return respond(400, { error: "Nama kartu harus berisi 1–80 karakter." });
+    const { data, error } = await admin.from("mt5_accounts").update({ label, updated_at: new Date().toISOString() })
+      .eq("id", accountMatch[1]).eq("owner_id", user.id).select("id,label").maybeSingle();
+    if (error) return respond(500, { error: "Nama kartu tidak dapat disimpan." });
+    if (!data) return respond(404, { error: "Akun tidak ditemukan." });
+    return respond(200, { account: data });
+  }
+
+  if (accountMatch && req.method === "DELETE") {
+    if (access.access_role !== "owner" || access.owner_id !== user.id) return respond(403, { error: "Hanya owner yang dapat menghapus EA dari Pilot." });
+    const body = await jsonBody(req);
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!password || password.length > 1_024 || !user.email) return respond(400, { error: "Masukkan sandi login yang valid." });
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!anonKey) return respond(500, { error: "Verifikasi sandi belum dikonfigurasi di server." });
+    let passwordCheck: Response;
+    try {
+      passwordCheck = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, password }),
+      });
+    } catch {
+      return respond(503, { error: "Layanan verifikasi sandi tidak tersedia. Coba lagi." });
+    }
+    const verified = passwordCheck.ok ? await passwordCheck.json().catch(() => null) : null;
+    if (!verified?.user?.id || verified.user.id !== user.id) return respond(403, { error: "Sandi login tidak cocok." });
+    const { data: account, error: lookupError } = await admin.from("mt5_accounts").select("id,label")
+      .eq("id", accountMatch[1]).eq("owner_id", user.id).maybeSingle();
+    if (lookupError) return respond(500, { error: "Akun tidak dapat diperiksa sebelum dihapus." });
+    if (!account) return respond(404, { error: "Akun tidak ditemukan." });
+    const { error: deleteError } = await admin.from("mt5_accounts").delete().eq("id", account.id).eq("owner_id", user.id);
+    if (deleteError) return respond(500, { error: "EA tidak dapat dihapus dari Pilot." });
+    return respond(200, { ok: true, label: account.label, message: "EA dihapus dari Pilot. EA di terminal MT5 tidak dihentikan." });
   }
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
