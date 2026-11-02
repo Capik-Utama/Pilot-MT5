@@ -16,3 +16,7 @@ Status ruang lingkup saat ini: kerangka dashboard, skema, endpoint EA, antrean p
 
 ## 5. Tampilan desktop dan mobile
 - [x] “untuk saya pribadi” dan tombol digunakan untuk pemantauan serta kontrol langsung. Antarmuka harus mudah dibaca dan digunakan di desktop maupun mobile, dengan target akun yang jelas, keadaan kosong untuk saat belum ada koneksi, status mode EA, dan umpan balik visual perintah. Breakpoint responsif dan keadaan kosong sudah diterapkan.
+
+
+## 6. Migrasi GitHub dan kesiapan deploy Vercel
+- [ ] “migrasi repo yang ada di manus ke github. lalu lanjutkan deploy sampai siap terbit dan bisa di akses via vercel.” Source lengkap harus berada pada branch yang benar dan PR perubahan harus terpisah dari `main` sampai diperiksa. Build Vercel harus menyajikan dashboard sebagai `text/html`, endpoint API serverless, file statis, health route, serta manifest halaman yang benar; respons root bukan JavaScript bundle. Jangan masukkan secret/env file ke Git. Dokumentasikan kebutuhan database MySQL yang dapat dijangkau Vercel, migrasi skema, Manus OAuth/callback, `OWNER_OPEN_ID`, dan perlindungan owner-only. PR source GitHub telah dibuka; perbaikan Vercel sedang disiapkan. Pemeriksaan sebelumnya menemukan root Vercel mengembalikan JavaScript (`application/javascript`), bukan HTML. Vercel OAuth connector belum terotorisasi dan environment variable/database produksi belum diverifikasi; jangan menganggap siap rilis atau mempromosikan production sampai akses owner, autentikasi, database dan respons UI/API terverifikasi.

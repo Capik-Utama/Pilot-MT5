@@ -13,7 +13,8 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",
     "dev:static": "vite --host 0.0.0.0 --port ${PORT:-3000} --strictPort",
-    "build:static": "vite build"
+    "build:static": "vite build",
+    "build:vercel": "vite build --outDir ../public"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -105,5 +106,6 @@
     "vite": "^7.3.7",
     "vitest": "^2.1.4"
   },
+  "engines": { "node": "22.x" },
   "packageManager": "pnpm@10.18.0"
 }
