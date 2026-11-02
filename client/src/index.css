@@ -1006,3 +1006,40 @@ h1, h2, h3, p { margin: 0; }
   .pilot-card-summary .metric-running > span,
   .pilot-card-summary .metric-running strong { font-size: 12px; }
 }
+
+
+/* Keep the dashboard shell fixed; only account cards scroll. */
+.pilot-dashboard {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pilot-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pilot-account-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  scrollbar-width: thin;
+}
+.pilot-copyright {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 0;
+  color: #506178;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-align: center;
+}
+@media (max-width: 650px) {
+  .pilot-copyright { padding-top: 8px; font-size: 8px; }
+}
