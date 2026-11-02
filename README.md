@@ -1,16 +1,24 @@
-# MT5 Pilot — Dashboard EA Pribadi
+# MT5 Pilot — dashboard EA demo
 
-React / Express / tRPC / Drizzle starter, adapted from the Sandbox web-db-user template.
+MT5 Pilot menampilkan dashboard privat untuk source `Fast-Grid` yang dilampirkan pemilik. Frontend React/Vite diterbitkan statis di Vercel; Supabase Auth menangani akun login, sedangkan Edge Function `mt5-api` memvalidasi sesi browser atau token EA sebelum membaca/menulis database. Koneksi EA menggunakan HTTPS WebRequest dari MT5.
 
-- `pnpm dev`: development server; honors `PORT` (default 3000).
-- `pnpm build` / `pnpm start`: build and serve `dist/index.js` and `dist/public/`.
-- `pnpm db:migrate`: apply checked-in migrations. `pnpm db:push`: generate and apply new schema changes.
-- `pnpm check` / `pnpm test`: types and application tests.
+Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. EA membatasi Auto dan perintah tutup ke akun demo.
 
-Dashboard access is owner-only and fails closed until `OWNER_OPEN_ID` is configured for the signed-in owner's exact Manus account ID. The application has no simulated MT5 data; metrics appear after the EA sends telemetry.
+## Uji EA
 
-`server/_core/publicConfig.ts` exposes only named public values to the browser. Keep API keys, database URLs, session secrets, and owner configuration server-side; never commit real `.env` values.
+1. Buka `https://pilot-mt5.vercel.app/`, buat akun/masuk dan buat token koneksi demo.
+2. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang di chart akun demo.
+3. Masukkan token pada input `EAConnectionToken`.
+4. Izinkan WebRequest untuk `https://qqdsultliybypiuvihli.supabase.co` pada Tools → Options → Expert Advisors.
+5. Pastikan EA menunjukkan mode Manual dan heartbeat online sebelum menguji Auto atau kontrol penutupan.
 
-## Vercel
+EA versi ini menolak inisialisasi pada akun real, memulai dalam Manual, dan mengalihkan ke Manual sebelum menutup posisi. Lihat [panduan integrasi Fast-Grid](docs/mt5-ea-api.md) untuk arti setiap metrik dan batas kontrol. MetaEditor tidak tersedia di sandbox, jadi file MQL5 perlu dikompilasi dan dijalankan di terminal MT5 milik pengguna.
 
-`vercel.json` memilih `pnpm build:vercel` dan output statis `public/`; root `index.ts` mengekspor Express app sebagai Vercel Function. Untuk konfigurasi dan environment variable wajib, database MySQL, OAuth/callback, serta pemeriksaan privasi sebelum promosi production, lihat [`docs/deploy-vercel.md`](docs/deploy-vercel.md). Jangan commit `.env` atau kredensial.
+## Pengembangan
+
+- `pnpm install --frozen-lockfile` memasang dependency.
+- `pnpm check` menjalankan pemeriksaan TypeScript.
+- `pnpm build:vercel` membangun frontend ke direktori `public/`.
+- `pnpm test` menjalankan test aplikasi.
+
+Skema Supabase berada di `supabase/migrations/`; kode Edge Function ada di `supabase/functions/mt5-api/`. Jangan pernah memasukkan service-role key atau kredensial broker ke frontend, EA, atau Git. Publishable key di browser bukan rahasia; akses tabel langsung dari anon/authenticated dicabut dan RLS aktif.
