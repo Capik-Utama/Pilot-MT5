@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
 
 type Action = "auto" | "manual" | "buy" | "sell" | "close_buy" | "close_sell" | "close_all" | "reset";
+type EaConfigValue = number | boolean;
+type EaConfig = Record<string, EaConfigValue>;
 type Account = {
   id: string; label: string; broker_account_name: string | null; mt5_login: number | null;
   server_name: string | null; currency: string; token_hint: string; is_demo: boolean;
@@ -15,11 +17,37 @@ type Account = {
   running_float: number; open_positions: number; ea_status: string;
   running: boolean; ea_mode: "auto" | "manual"; profit: number; floating_profit: number;
   latency_ms: number | null; last_seen_at: string | null; connection_status: "online" | "offline";
+  ea_config?: EaConfig | null;
   commands: { id: string; action: Action; status: string; result_message: string | null; created_at: string }[];
 };
 
 type ConnectionToken = { label: string; token: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
+const defaultEaConfig: EaConfig = {
+  ModePerdagangan: 0, AksiDiLuarWaktu: 1, MataUangTampilan: 2, KursUSD_IDR: 17000, MagicBeli: 2864384, MagicJual: 2864385,
+  LotAwal: 0.01, PenggandaLot: 1.2, LotMaksimal: 5, LangkahLayer: 5, JarakGrid: 100, JarakTrailingPending: 50,
+  JenisBatasRugi: 0, BatasKerugian: 10000, TargetHarian: 2000, SetelahTargetTercapai: 0, ModeTrailing: 0,
+  MulaiTrailingPoin: 150, KunciProfitPoin: 50, LangkahTrailingPoin: 5,
+  AktifSenin: true, SeninMulaiJam: 0, SeninMulaiMenit: 0, SeninSelesaiJam: 0, SeninSelesaiMenit: 0,
+  AktifSelasa: true, SelasaMulaiJam: 0, SelasaMulaiMenit: 0, SelasaSelesaiJam: 0, SelasaSelesaiMenit: 0,
+  AktifRabu: true, RabuMulaiJam: 0, RabuMulaiMenit: 0, RabuSelesaiJam: 0, RabuSelesaiMenit: 0,
+  AktifKamis: true, KamisMulaiJam: 0, KamisMulaiMenit: 0, KamisSelesaiJam: 0, KamisSelesaiMenit: 0,
+  AktifJumat: true, JumatMulaiJam: 0, JumatMulaiMenit: 0, JumatSelesaiJam: 23, JumatSelesaiMenit: 0,
+  AktifSabtu: false, SabtuMulaiJam: 0, SabtuMulaiMenit: 0, SabtuSelesaiJam: 0, SabtuSelesaiMenit: 0,
+  AktifMinggu: false, MingguMulaiJam: 0, MingguMulaiMenit: 0, MingguSelesaiJam: 0, MingguSelesaiMenit: 0,
+};
+const coreConfigFields = [
+  ["ModePerdagangan", "Mode perdagangan", "select", [[0, "Beli + Jual"], [1, "Beli saja"], [2, "Jual saja"]]],
+  ["AksiDiLuarWaktu", "Aksi di luar waktu", "select", [[0, "Hentikan entry"], [1, "Tutup semua"]]],
+  ["MataUangTampilan", "Mata uang tampilan", "select", [[0, "USD"], [1, "CENT"], [2, "IDR"]]],
+  ["KursUSD_IDR", "Kurs USD / IDR", "number"], ["MagicBeli", "Magic BUY", "number"], ["MagicJual", "Magic SELL", "number"],
+  ["LotAwal", "Lot awal", "number"], ["PenggandaLot", "Pengganda lot", "number"], ["LotMaksimal", "Lot maksimal", "number"],
+  ["LangkahLayer", "Langkah layer", "number"], ["JarakGrid", "Jarak grid (poin)", "number"], ["JarakTrailingPending", "Jarak trailing pending", "number"],
+  ["JenisBatasRugi", "Jenis batas rugi", "select", [[0, "Nilai uang"], [1, "Persen"]]], ["BatasKerugian", "Batas kerugian", "number"], ["TargetHarian", "Target harian", "number"],
+  ["SetelahTargetTercapai", "Setelah target tercapai", "select", [[0, "Stop hari ini"], [1, "Lanjut"]]], ["ModeTrailing", "Mode trailing", "select", [[0, "Per arah"], [1, "Semua arah"]]],
+  ["MulaiTrailingPoin", "Mulai trailing (poin)", "number"], ["KunciProfitPoin", "Kunci profit (poin)", "number"], ["LangkahTrailingPoin", "Langkah trailing (poin)", "number"],
+] as const;
+const dayNames = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 type DisplayCurrency = "USD" | "CENT" | "IDR";
 function finiteNumber(value: unknown): number | null {
@@ -57,6 +85,9 @@ export default function Home() {
   const [accountSearch, setAccountSearch] = useState("");
   const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [editingConfig, setEditingConfig] = useState<EaConfig>(defaultEaConfig);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -163,6 +194,25 @@ export default function Home() {
     finally { setBusyAction(null); }
   };
 
+  const openConfigEditor = (account: Account) => {
+    setEditingAccount(account);
+    setEditingConfig({ ...defaultEaConfig, ...(account.ea_config ?? {}) });
+  };
+
+  const saveConfig = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingAccount) return;
+    setSavingConfig(true);
+    try {
+      await callApi(`/dashboard/accounts/${editingAccount.id}/config`, "POST", { config: editingConfig });
+      toast.success("Konfigurasi disimpan ke Supabase dan dikirim ke EA.");
+      setEditingAccount(null);
+      await loadAccounts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Konfigurasi EA gagal disimpan.");
+    } finally { setSavingConfig(false); }
+  };
+
   const copyToken = async () => {
     if (!tokenModal) return;
     try { await navigator.clipboard.writeText(tokenModal.token); setCopied(true); toast.success("Token disalin."); }
@@ -225,7 +275,7 @@ export default function Home() {
               ? basketSlValue === null ? "INVALID" : `-${basketSlValue.toFixed(1)}%`
               : `-${showMoney(account.basket_sl_set)}`;
             return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity">{account.label} · {account.broker_account_name || "Menunggu nama akun dari EA"}{account.mt5_login ? ` · #${account.mt5_login}` : ""}{account.server_name ? ` · ${account.server_name}` : ""}</div><article className="pilot-account-card">
-              <div className="pilot-account-header"><div className="pilot-account-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><div><h3>*Grid_By_Capik*</h3></div></div><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
+              <div className="pilot-account-header"><button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3><small><Pencil size={11} /> EDIT PARAMETER EA</small></span></button><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
               <div className="pilot-panel-buttons">
                 <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
                 <div className="pilot-button-row"><button className="trade-sell" disabled={disabled} onClick={() => void sendAction(account, "sell")}>SELL</button><button className="trade-buy" disabled={disabled} onClick={() => void sendAction(account, "buy")}>BUY</button></div>
@@ -254,6 +304,7 @@ export default function Home() {
       {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid MT5 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}
 
       {tokenModal && <div className="pilot-modal-backdrop"><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-token-title"><div className="pilot-success"><Check size={19} /></div><div className="pilot-kicker">KONEKSI DIBUAT</div><h2 id="pilot-token-title">Masukkan token ini ke EA</h2><p>Token untuk <b>{tokenModal.label}</b> hanya ditampilkan sekali. Simpan dengan aman; jika hilang, buat koneksi baru.</p><div className="pilot-token-box"><code>{tokenModal.token}</code><button aria-label="Salin token" onClick={() => void copyToken()}>{copied ? <Check size={16} /> : <Copy size={16} />}</button></div><div className="pilot-setup"><strong>Pengaturan Fast-Grid</strong><span>SupabaseFunctionUrl =</span><code>{MT5_API_URL}</code><span>EAConnectionToken = token di atas</span><span>MetaTrader → Tools → Options → Expert Advisors → izinkan WebRequest untuk:</span><code>{SUPABASE_URL}</code></div><div className="pilot-modal-actions"><button className="pilot-cancel" onClick={() => void copyToken()}>{copied ? "Token disalin" : "Salin token"}</button><button className="pilot-add-button" onClick={() => setTokenModal(null)}>Saya sudah simpan</button></div></section></div>}
+      {editingAccount && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingConfig) setEditingAccount(null); }}><section className="pilot-modal pilot-config-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-config-title"><button type="button" className="pilot-modal-x" aria-label="Tutup editor" onClick={() => { if (!savingConfig) setEditingAccount(null); }}><X size={18} /></button><div className="pilot-kicker">KONFIGURASI REMOTE · SUPABASE</div><h2 id="pilot-config-title">Edit parameter EA</h2><p>Perubahan disimpan ke Supabase lalu dikirim ke EA melalui antrean aman. EA harus online dan menerapkan konfigurasi yang diterima.</p><form onSubmit={saveConfig}><div className="pilot-config-grid">{coreConfigFields.map(([key, label, kind, options]) => <label key={key}>{label}{kind === "select" ? <select value={Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: Number(event.target.value) }))}>{options?.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type="number" step="any" required value={Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: Number(event.target.value) }))} />}</label>)}</div><div className="pilot-config-section"><strong>Hari & waktu server</strong><div className="pilot-config-days">{dayNames.map((day) => <div className="pilot-day-card" key={day}><b>{day}</b><label><input type="checkbox" checked={Boolean(editingConfig[`Aktif${day}`])} onChange={(event) => setEditingConfig((current) => ({ ...current, [`Aktif${day}`]: event.target.checked }))} /> Aktif</label><label>Mulai<input type="number" min="0" max="2359" value={Number(editingConfig[`${day}MulaiJam`]) * 100 + Number(editingConfig[`${day}MulaiMenit`])} onChange={(event) => { const value = Math.max(0, Math.min(2359, Number(event.target.value))); setEditingConfig((current) => ({ ...current, [`${day}MulaiJam`]: Math.floor(value / 100), [`${day}MulaiMenit`]: value % 100 })); }} /></label><label>Selesai<input type="number" min="0" max="2359" value={Number(editingConfig[`${day}SelesaiJam`]) * 100 + Number(editingConfig[`${day}SelesaiMenit`])} onChange={(event) => { const value = Math.max(0, Math.min(2359, Number(event.target.value))); setEditingConfig((current) => ({ ...current, [`${day}SelesaiJam`]: Math.floor(value / 100), [`${day}SelesaiMenit`]: value % 100 })); }} /></label></div>)}</div></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" disabled={savingConfig} onClick={() => setEditingAccount(null)}>Batal</button><button className="pilot-add-button" disabled={savingConfig || !editingAccount.connection_status || editingAccount.connection_status === "offline"}>{savingConfig ? "Mengirim…" : "Simpan & kirim ke EA"}</button></div></form></section></div>}
     </main>
   );
 }

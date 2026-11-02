@@ -17,6 +17,14 @@ const corsHeaders = {
 const ONLINE_WINDOW_MS = 20_000;
 const COMMAND_TTL_MS = 45_000;
 const actions = new Set(["auto", "manual", "buy", "sell", "close_buy", "close_sell", "close_all", "reset"]);
+const configKeys = new Set(["ModePerdagangan", "AksiDiLuarWaktu", "MataUangTampilan", "KursUSD_IDR", "MagicBeli", "MagicJual", "LotAwal", "PenggandaLot", "LotMaksimal", "LangkahLayer", "JarakGrid", "JarakTrailingPending", "JenisBatasRugi", "BatasKerugian", "TargetHarian", "SetelahTargetTercapai", "ModeTrailing", "MulaiTrailingPoin", "KunciProfitPoin", "LangkahTrailingPoin", "AktifSenin", "SeninMulaiJam", "SeninMulaiMenit", "SeninSelesaiJam", "SeninSelesaiMenit", "AktifSelasa", "SelasaMulaiJam", "SelasaMulaiMenit", "SelasaSelesaiJam", "SelasaSelesaiMenit", "AktifRabu", "RabuMulaiJam", "RabuMulaiMenit", "RabuSelesaiJam", "RabuSelesaiMenit", "AktifKamis", "KamisMulaiJam", "KamisMulaiMenit", "KamisSelesaiJam", "KamisSelesaiMenit", "AktifJumat", "JumatMulaiJam", "JumatMulaiMenit", "JumatSelesaiJam", "JumatSelesaiMenit", "AktifSabtu", "SabtuMulaiJam", "SabtuMulaiMenit", "SabtuSelesaiJam", "SabtuSelesaiMenit", "AktifMinggu", "MingguMulaiJam", "MingguMulaiMenit", "MingguSelesaiJam", "MingguSelesaiMenit"]);
+
+function validConfig(value: unknown): value is Json {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value as Json);
+  if (!entries.length || entries.length > configKeys.size || entries.some(([key]) => !configKeys.has(key))) return false;
+  return entries.every(([, item]) => (typeof item === "boolean" || (typeof item === "number" && Number.isFinite(item))));
+}
 const activeStatuses = ["queued", "delivered", "accepted"];
 
 type Json = Record<string, unknown>;
@@ -93,7 +101,7 @@ async function handleDashboard(req: Request, path: string) {
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
     const { data: accounts, error } = await admin.from("mt5_accounts").select(
-      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at",
+      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at,ea_config",
     ).eq("owner_id", user.id).order("created_at", { ascending: true }).limit(25);
     if (error) return respond(500, { error: "Data akun gagal dibaca." });
     const accountIds = (accounts ?? []).map((account) => account.id);
@@ -137,6 +145,32 @@ async function handleDashboard(req: Request, path: string) {
     const { data, error } = await admin.from("mt5_accounts").insert(row).select("id,label,token_hint,created_at").single();
     if (error || !data) return respond(500, { error: "Akun koneksi gagal dibuat." });
     return respond(201, { account: data, token });
+  }
+
+  const configMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/config$/i);
+  if (configMatch && req.method === "POST") {
+    const body = await jsonBody(req);
+    const config = body?.config;
+    if (!validConfig(config)) return respond(400, { error: "Konfigurasi EA tidak valid atau berisi parameter yang tidak dikenal." });
+    const accountId = configMatch[1];
+    const { data: account, error: accountError } = await admin.from("mt5_accounts")
+      .select("id,owner_id,last_seen_at").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
+    if (accountError || !account) return respond(404, { error: "Akun tidak ditemukan." });
+    if (!account.last_seen_at || Date.now() - Date.parse(account.last_seen_at) > ONLINE_WINDOW_MS) return respond(409, { error: "EA offline atau heartbeat sudah kedaluwarsa." });
+    const { data: pending, error: pendingError } = await admin.from("mt5_commands").select("id")
+      .eq("account_id", accountId).in("status", activeStatuses).gt("expires_at", new Date().toISOString()).limit(1);
+    if (pendingError) return respond(500, { error: "Antrean konfigurasi gagal diperiksa." });
+    if (pending?.length) return respond(409, { error: "Masih ada perintah yang belum selesai." });
+    const expiresAt = new Date(Date.now() + COMMAND_TTL_MS).toISOString();
+    const { data: command, error: commandError } = await admin.from("mt5_commands")
+      .insert({ account_id: accountId, owner_id: user.id, action: "config", payload: config, status: "queued", expires_at: expiresAt })
+      .select("id,action,status,created_at,expires_at").single();
+    if (commandError || !command) return respond(500, { error: "Konfigurasi gagal dimasukkan ke antrean." });
+    const { error: updateError } = await admin.from("mt5_accounts").update({ ea_config: config, updated_at: new Date().toISOString() }).eq("id", accountId).eq("owner_id", user.id);
+    if (updateError) { await admin.from("mt5_commands").delete().eq("id", command.id); return respond(500, { error: "Konfigurasi gagal disimpan ke Supabase." }); }
+    try { await writeEvent({ id: command.id, account_id: accountId, owner_id: user.id }, "queued"); }
+    catch { await admin.from("mt5_commands").delete().eq("id", command.id); return respond(500, { error: "Jejak audit gagal ditulis; konfigurasi dibatalkan." }); }
+    return respond(201, { command });
   }
 
   const commandMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/commands$/i);
@@ -232,7 +266,7 @@ async function handleEa(req: Request, path: string) {
 
   if (path === "/commands/next" && req.method === "GET") {
     const now = new Date();
-    const { data: commands, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,action,status,expires_at")
+    const { data: commands, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,action,status,expires_at,payload")
       .eq("account_id", account.id).in("status", ["queued", "delivered"]).gt("expires_at", now.toISOString())
       .order("created_at", { ascending: true }).limit(1);
     if (error) return respond(500, { error: "Antrean tidak dapat dibaca." });
@@ -245,7 +279,7 @@ async function handleEa(req: Request, path: string) {
       if (!updated) return respond(204);
       await writeEvent(command, "delivered");
     }
-    return respond(200, { commandId: command.id, action: command.action, expiresAt: command.expires_at });
+    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: command.expires_at });
   }
 
   const ackMatch = path.match(/^\/commands\/([0-9a-f-]{36})\/ack$/i);
