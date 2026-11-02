@@ -1,53 +1,44 @@
-# Protokol EA MT5 Pilot
+# Pilot-MT5 ↔ Fast-Grid (uji demo)
 
-Dokumen ini menjelaskan endpoint server untuk EA MQL5 yang akan dibuat pada tahap integrasi berikutnya. EA mengirim request HTTPS ke origin aplikasi; jangan menaruh kredensial trading broker pada aplikasi web.
+Dokumen ini menjelaskan koneksi source EA `ea/Fast-Grid-Pilot.mq5` dengan dashboard Supabase. Source EA tidak mengirim password, investor password, atau kredensial broker. Token koneksi dashboard hanya disimpan sebagai hash SHA-256 di Supabase dan tidak dapat dilihat ulang setelah dibuat.
 
-## Autentikasi koneksi
-Saat akun dashboard dibuat, token koneksi 256-bit hanya ditampilkan satu kali. EA mengirimkannya sebagai `Authorization: Bearer <token>`. Server menyimpan hash SHA-256 token, bukan token mentah. Jangan kirim token ke log atau browser lain. Jika token hilang, buat akun koneksi baru dan gunakan token yang baru.
+## Batas keselamatan
 
-## Telemetry dan heartbeat
-`POST /api/mt5/telemetry` dengan `Content-Type: application/json` dan token Bearer. Contoh payload:
+- Versi ini menolak inisialisasi jika akun bukan akun **DEMO**. Pengecualian hanya Strategy Tester; WebRequest remote dinonaktifkan saat pengujian Strategy Tester.
+- EA mulai pada mode **Manual** setiap kali dipasang ulang. Mode Auto harus dipilih secara eksplisit.
+- Tombol **Manual** menghentikan entry/layer otomatis. Pengelolaan risiko yang sudah ada (stop loss, target, trailing) tetap berjalan.
+- Setiap perintah **Close Buy**, **Close Sell**, atau **Close All** mengalihkan EA ke Manual terlebih dahulu agar strategi tidak membuka ulang posisi pada tick berikutnya.
+- Close hanya menargetkan posisi pada simbol chart aktif (`_Symbol`) dengan Magic Number `MagicBeli` atau `MagicJual`. Order EA lain tidak ikut ditutup.
+- Backend menolak perintah jika telemetry menunjukkan bukan akun demo atau EA tidak online. Perintah antrean kedaluwarsa setelah 45 detik dan hanya satu perintah aktif per akun.
+- WebRequest MQL5 bersifat sinkron, sehingga respons jaringan lambat dapat menunda pemrosesan EA. Uji dahulu di akun demo dan amati tab Experts/Journal serta hasil transaksi.
 
-```json
-{
-  "balance": 10000.25,
-  "equity": 10025.1,
-  "maxDdBuyPct": 2.4,
-  "maxDdSellPct": 0.8,
-  "running": true,
-  "eaMode": "auto",
-  "currency": "USD",
-  "latencyMs": 112
-}
-```
+## Langkah mengaktifkan
 
-`maxDdBuyPct` dan `maxDdSellPct` dikirim sebagai persentase (misalnya `2.4` berarti 2,4%). Aplikasi menampilkan `—` sampai menerima telemetry nyata pertama. Definisi periode/puncak drawdown perlu disamakan dengan logika strategi EA. `latencyMs` adalah estimasi RTT WebRequest yang diukur EA, opsional. Dashboard menandai EA offline jika tidak ada heartbeat selama 15 detik.
+1. Buka `https://pilot-mt5.vercel.app/`, buat akun/masuk dengan Supabase Auth. Jika verifikasi email aktif, konfirmasi email sebelum login.
+2. Pilih **Tambah koneksi**, beri label yang mudah dikenali, lalu simpan token yang ditampilkan satu kali. Jangan kirim token ke orang lain atau ke chat.
+3. Buka MetaTrader 5 pada **akun demo**, pasang `Fast-Grid-Pilot.mq5` pada chart simbol yang hendak dipantau, dan biarkan mode awal `Manual`.
+4. Pada input EA, isi `EAConnectionToken` dengan token tadi. Biarkan URL dan publishable key bawaan kecuali Anda memang memindahkan proyek Supabase.
+5. Di MT5 buka **Tools → Options → Expert Advisors**, aktifkan izin WebRequest dan tambahkan origin berikut ke daftar URL yang diizinkan: `https://qqdsultliybypiuvihli.supabase.co`.
+6. Pastikan AutoTrading/Algo Trading MT5 diizinkan untuk EA. Dashboard akan menunjukkan online setelah heartbeat diterima; biasanya beberapa detik.
+7. Uji **Manual** dahulu. Jika ingin mencoba strategi di akun demo, tekan **Auto** dari dashboard atau panel chart. Uji tombol close hanya dengan posisi demo yang memang siap ditutup.
 
-## Poll perintah
-EA melakukan `GET /api/mt5/commands/next` dengan token yang sama. `204 No Content` berarti belum ada perintah. `200` berisi satu perintah:
+## Telemetri
 
-```json
-{"commandId":"32karakterheksadesimal","action":"close_all","expiresAt":"2026-11-01T15:00:00.000Z"}
-```
+- **Nama akun**: nama akun dari server broker (`ACCOUNT_NAME`); dashboard juga menampilkan login MT5 dan server bila tersedia.
+- **Saldo / Equity**: nilai akun broker dalam mata uang deposit.
+- **Max DD Buy / Max DD Sell**: kerugian floating terbesar per sisi yang diamati sejak EA dipasang/dijalankan, dalam mata uang deposit. Nilai ini di-reset ketika EA dimulai ulang; bukan persentase dan bukan drawdown historis akun.
+- **Running**: status Auto aktif dan EA tidak terkunci oleh target harian. EA dapat tetap online saat mode Manual.
+- **Profit hari ini**: hasil bersih strategi Fast-Grid sejak reset harian server MT5—profit, komisi, swap deal plus floating profit/swap posisi Fast-Grid yang masih terbuka.
+- **Floating**: P/L berjalan posisi Fast-Grid yang terbuka saat itu, terpisah agar maknanya jelas.
+- **Online**: heartbeat terakhir diterima kurang dari 20 detik lalu.
 
-Tindakan yang didukung: `auto`, `manual`, `close_buy`, `close_sell`, dan `close_all`. Perintah harus diambil dan diakui sebelum masa berlaku 45 detik. Setelah status `accepted`, EA harus mengirim hasil final; masa antre tidak lagi berlaku dan dashboard menahan kontrol berikutnya untuk mencegah aksi tumpang tindih.
+## Alur API
 
-EA perlu memeriksa kedaluwarsa, mendeduplikasi `commandId` secara persisten, dan tidak mengulangi eksekusi hanya karena respons jaringan hilang. Polling HTTP bersifat at-least-once sampai acknowledgement; broker dan database tidak dapat menyediakan transaksi exactly-once lintas jaringan.
+Edge Function: `https://qqdsultliybypiuvihli.supabase.co/functions/v1/mt5-api`.
+EA mengirim `POST ?route=/telemetry`, melakukan polling `GET ?route=/commands/next` tiap sekitar 1,5 detik, lalu acknowledgement ke `POST ?route=/commands/{id}/ack`. Dashboard mengirim tindakan hanya lewat sesi Supabase pengguna terautentikasi. Function memvalidasi token EA atau JWT pengguna sendiri sebelum mengakses tabel yang RLS-nya aktif dan tidak dapat dibaca oleh role anon/authenticated.
 
-## Acknowledgement
-EA mengirim `POST /api/mt5/commands/{commandId}/ack` dengan token Bearer dan salah satu status:
+## Referensi teknis resmi
 
-```json
-{"status":"accepted","message":"Perintah diterima EA"}
-```
-
-Lalu setelah hasil broker diketahui, kirim `succeeded` atau `failed`, misalnya:
-
-```json
-{"status":"succeeded","message":"Posisi BUY ditutup; 2 posisi diproses"}
-```
-
-Respons dikonfirmasi dashboard sebagai berhasil/gagal hanya setelah EA mengirim hasil terminal. `accepted` artinya EA mengakui perintah, bukan berarti transaksi sudah dieksekusi. EA harus mengirim kegagalan jika order ditolak atau ada kesalahan broker. Perubahan queued/delivered/accepted/succeeded/failed dicatat sebagai event audit append-only.
-
-## Keamanan dan operasi
-Gunakan HTTPS. Di MetaTrader 5, pemilik perlu menambahkan origin aplikasi ke daftar URL yang diizinkan untuk fungsi WebRequest. Polling awal yang disarankan sekitar 1 detik dan heartbeat 1–2 detik; angka ini dapat disetel sesuai beban koneksi dan batas broker. Uji seluruh perintah pada akun demo terlebih dahulu. Jangan mengeksekusi aksi pada akun live sebelum hasil acknowledgement dan perilaku ketika terputus diuji.
+- [MQL5 WebRequest](https://www.mql5.com/en/docs/network/webrequest): allow-list URL, pemanggilan sinkron, dan batasan Strategy Tester.
+- [MQL5 Account Properties](https://www.mql5.com/en/docs/constants/environment_state/accountinformation): konstanta `ACCOUNT_TRADE_MODE_DEMO`.
+- [Supabase Securing Edge Functions](https://supabase.com/docs/guides/functions/auth): validasi autentikasi pada function.
