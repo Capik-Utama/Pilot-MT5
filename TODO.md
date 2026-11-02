@@ -16,4 +16,12 @@
 - [ ] Pastikan heartbeat/status online muncul sebelum mencoba Auto atau tombol close.
 - [ ] Uji tiap tombol dan hasil eksekusi melalui tab Experts/Journal MT5 serta history broker.
 
-Pendaftaran Supabase Auth terbuka selama demo. Data masing-masing login tetap dipisahkan berdasarkan owner ID. EA memiliki validasi token koneksi EA; jangan menghapus validasi tersebut. Untuk akun real, pastikan pengaturan risiko dan izin trading sudah ditinjau sebelum menjalankan source ini.
+## Pengaturan dashboard dan akses pengguna
+
+- [x] Menu sidebar menyediakan pengaturan delay refresh dalam detik dengan default 5 detik.
+- [x] Menu sidebar menyediakan tema gelap (default), terang, biru-hitam, dan biru-putih.
+- [x] Owner dapat mendaftarkan user lain dengan akses read-only.
+- [x] User read-only melihat dashboard dan tombol yang sama seperti owner, tetapi semua tombol aksi/perubahan tidak dapat dijalankan; API dan Supabase juga menolak mutasi read-only.
+- [x] Halaman login hanya menyediakan login, tanpa fitur buat akun; hanya owner dapat membuat akun pengguna.
+
+Pendaftaran publik Supabase Auth ditutup; buat pengguna tambahan melalui pengaturan user owner. Data EA tetap dimiliki owner utama, dan user read-only mengakses scope data yang sama hanya untuk dibaca. EA memiliki validasi token koneksi EA; jangan menghapus validasi tersebut. Untuk akun real, pastikan pengaturan risiko dan izin trading sudah ditinjau sebelum menjalankan source ini.

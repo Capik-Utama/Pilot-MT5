@@ -823,3 +823,110 @@ h1, h2, h3, p { margin: 0; }
   .pilot-config-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .pilot-config-modal { padding:23px 17px; }
 }
+
+
+/* Sidebar preferences, owner-managed accounts, and read-only affordances. */
+.pilot-sidebar-settings { gap: 12px; }
+.pilot-sidebar-setting { display: grid; grid-template-columns: 1fr 112px; align-items: center; gap: 8px; color: var(--p-text); font: 10px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-sidebar-setting > span { margin-left: -5px; color: var(--p-muted); }
+.pilot-sidebar-setting input, .pilot-sidebar-setting select { grid-column: 2; width: 100%; height: 35px; padding: 0 9px; border: 1px solid var(--p-line); border-radius: 5px; color: var(--p-text); background: rgba(8,17,31,.65); font: 10px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-sidebar-setting input { grid-row: 1; }
+.pilot-sidebar-setting select { grid-row: 1; }
+.pilot-sidebar-setting { position: relative; }
+.pilot-sidebar-setting:has(input) { padding-right: 0; }
+.pilot-sidebar-setting:has(select) { margin-top: 3px; }
+.pilot-sidebar-hint { margin-top: -7px; color: var(--p-muted); font-size: 9px; line-height: 1.5; }
+.pilot-sidebar-add:disabled, .pilot-edit-title:disabled { opacity: .48; cursor: not-allowed; }
+.pilot-readonly-note { padding: 5px 8px; color: #f3d486; background: rgba(197,153,54,.12); border-block: 1px solid rgba(197,153,54,.22); font: 700 8px "IBM Plex Mono",ui-monospace,monospace; text-align: center; letter-spacing: .05em; }
+.pilot-user-modal { width: min(100%, 540px); max-height: calc(100vh - 36px); overflow-y: auto; }
+.pilot-user-create-form { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 9px; margin: 18px 0; }
+.pilot-user-create-form label { display: grid; gap: 7px; color: var(--p-muted); font-size: 10px; }
+.pilot-user-create-form input { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--p-line); border-radius: 5px; color: var(--p-text); background: rgba(8,17,31,.55); }
+.pilot-user-create-form .pilot-add-button { min-height: 40px; padding: 0 12px; }
+.pilot-managed-users { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--p-line); color: var(--p-muted); font-size: 10px; }
+.pilot-managed-users > strong { color: var(--p-text); font-family: "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-managed-users > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid var(--p-line); background: rgba(85,214,200,.035); }
+.pilot-managed-users > div > span { overflow: hidden; color: var(--p-text); text-overflow: ellipsis; white-space: nowrap; }
+.pilot-managed-users small { flex: 0 0 auto; color: var(--p-cyan); font: 8px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-created-credential { display: grid; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid rgba(85,214,200,.28); border-radius: 6px; color: var(--p-text); background: rgba(85,214,200,.07); font-size: 10px; }
+.pilot-created-credential code { overflow-wrap: anywhere; padding: 9px; color: var(--p-cyan); background: rgba(0,0,0,.18); font-size: 12px; }
+.pilot-created-credential .pilot-cancel { display: inline-flex; width: fit-content; align-items: center; gap: 7px; padding: 8px 10px; }
+@media (max-width: 480px) {
+  .pilot-user-create-form { grid-template-columns: 1fr; }
+  .pilot-user-create-form .pilot-add-button { width: 100%; }
+}
+
+/* Theme-specific surfaces. Trading action colors and semantic metrics remain chart-inspired. */
+.pilot-dashboard[data-theme="light"], .pilot-auth-page[data-theme="light"] {
+  --p-bg: #f3f6fb; --p-panel: #ffffff; --p-line: rgba(52,73,101,.18); --p-muted: #5d6f84; --p-text: #1d2c40; --p-cyan: #087f8c;
+  color-scheme: light; color: var(--p-text); background: radial-gradient(ellipse 68% 33% at 59% -12%,rgba(8,127,140,.09),transparent 72%),var(--p-bg);
+}
+.pilot-dashboard[data-theme="blue-black"] {
+  --p-bg: #061326; --p-panel: #0b1d35; --p-line: rgba(91,157,232,.24); --p-muted: #91add0; --p-text: #e0edff; --p-cyan: #60aaff;
+  color-scheme: dark; background: radial-gradient(ellipse 70% 35% at 55% -10%,rgba(54,128,219,.18),transparent 72%),var(--p-bg);
+}
+.pilot-dashboard[data-theme="blue-white"], .pilot-auth-page[data-theme="blue-white"] {
+  --p-bg: #edf4fd; --p-panel: #ffffff; --p-line: rgba(45,91,145,.2); --p-muted: #56708d; --p-text: #193653; --p-cyan: #145ec7;
+  color-scheme: light; color: var(--p-text); background: radial-gradient(ellipse 68% 33% at 59% -12%,rgba(20,94,199,.11),transparent 72%),var(--p-bg);
+}
+.pilot-dashboard[data-theme="light"] .pilot-topbar, .pilot-dashboard[data-theme="blue-white"] .pilot-topbar { border-color: var(--p-line); background: rgba(255,255,255,.92); }
+.pilot-dashboard[data-theme="light"] .pilot-brand, .pilot-dashboard[data-theme="blue-white"] .pilot-brand { color: var(--p-text); }
+.pilot-dashboard[data-theme="light"] .pilot-brand small, .pilot-dashboard[data-theme="blue-white"] .pilot-brand small { color: var(--p-muted); text-shadow: none; }
+.pilot-dashboard[data-theme="light"] .pilot-sidebar, .pilot-dashboard[data-theme="blue-white"] .pilot-sidebar { border-color: var(--p-line); background: linear-gradient(160deg,#fff,#edf3fa 78%); box-shadow: -18px 0 55px rgba(35,53,76,.18); }
+.pilot-dashboard[data-theme="light"] .pilot-sidebar-head strong, .pilot-dashboard[data-theme="blue-white"] .pilot-sidebar-head strong { color: var(--p-text); }
+.pilot-dashboard[data-theme="light"] .pilot-sidebar-status, .pilot-dashboard[data-theme="blue-white"] .pilot-sidebar-status { color: var(--p-text); background: rgba(29,92,143,.045); }
+.pilot-dashboard[data-theme="light"] .pilot-sidebar-setting input, .pilot-dashboard[data-theme="light"] .pilot-sidebar-setting select, .pilot-dashboard[data-theme="light"] .pilot-user-create-form input,
+.pilot-dashboard[data-theme="blue-white"] .pilot-sidebar-setting input, .pilot-dashboard[data-theme="blue-white"] .pilot-sidebar-setting select, .pilot-dashboard[data-theme="blue-white"] .pilot-user-create-form input { color: var(--p-text); background: #fff; }
+.pilot-dashboard[data-theme="light"] .pilot-account-card, .pilot-dashboard[data-theme="blue-white"] .pilot-account-card { border-color: rgba(54,90,136,.4); background: linear-gradient(145deg,#fff,#f7f9fd); box-shadow: 0 3px 14px rgba(29,49,77,.12); }
+.pilot-dashboard[data-theme="light"] .pilot-account-header, .pilot-dashboard[data-theme="blue-white"] .pilot-account-header { border-color: var(--p-line); background: rgba(225,235,247,.62); }
+.pilot-dashboard[data-theme="light"] .pilot-account-title h3, .pilot-dashboard[data-theme="blue-white"] .pilot-account-title h3 { color: #087448; text-shadow: none; }
+.pilot-dashboard[data-theme="light"] .pilot-account-title p, .pilot-dashboard[data-theme="blue-white"] .pilot-account-title p { color: var(--p-muted); }
+.pilot-dashboard[data-theme="light"] .pilot-account-identity, .pilot-dashboard[data-theme="blue-white"] .pilot-account-identity { color: var(--p-muted); }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics > div > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics > div > strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics > div > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics > div > strong { color: #26374b; }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-sl > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-sl strong,
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-running.negative > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-running.negative strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-sl > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-sl strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-running.negative > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-running.negative strong { color: #966500; }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-target > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-target strong,
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-running.positive > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-running.positive strong,
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-profit.profit-positive > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-profit.profit-positive strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-target > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-target strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-running.positive > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-running.positive strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-profit.profit-positive > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-profit.profit-positive strong { color: #087448; }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-float-buy > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-float-buy strong,
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-float-sell > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-float-sell strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-float-buy > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-float-buy strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-float-sell > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-float-sell strong { color: #1764a3; }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-profit.profit-negative > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-profit.profit-negative strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-profit.profit-negative > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-profit.profit-negative strong { color: #c32626; }
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-status > span, .pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-status strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-status > span, .pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-status strong { color: #26374b; }
+.pilot-dashboard[data-theme="light"] .pilot-search-box, .pilot-dashboard[data-theme="blue-white"] .pilot-search-box { color: var(--p-muted); background: #fff; }
+.pilot-dashboard[data-theme="light"] .pilot-search-box input, .pilot-dashboard[data-theme="blue-white"] .pilot-search-box input { color: var(--p-text); }
+.pilot-dashboard[data-theme="light"] .pilot-filter-select, .pilot-dashboard[data-theme="blue-white"] .pilot-filter-select { color: var(--p-text); background: #fff; }
+.pilot-dashboard[data-theme="light"] .pilot-modal, .pilot-dashboard[data-theme="blue-white"] .pilot-modal { color: var(--p-text); border-color: var(--p-line); background: linear-gradient(160deg,#fff,#f3f7fc); }
+.pilot-dashboard[data-theme="light"] .pilot-modal h2, .pilot-dashboard[data-theme="blue-white"] .pilot-modal h2 { color: var(--p-text); }
+.pilot-dashboard[data-theme="light"] .pilot-modal p, .pilot-dashboard[data-theme="blue-white"] .pilot-modal p { color: var(--p-muted); }
+.pilot-dashboard[data-theme="light"] .pilot-config-grid input, .pilot-dashboard[data-theme="light"] .pilot-config-grid select,
+.pilot-dashboard[data-theme="blue-white"] .pilot-config-grid input, .pilot-dashboard[data-theme="blue-white"] .pilot-config-grid select { color: var(--p-text); background: #fff; }
+.pilot-dashboard[data-theme="blue-black"] .pilot-topbar { border-color: var(--p-line); background: rgba(5,17,34,.94); }
+.pilot-dashboard[data-theme="blue-black"] .pilot-sidebar { border-color: var(--p-line); background: linear-gradient(160deg,#10294a,#061326 78%); }
+.pilot-dashboard[data-theme="blue-black"] .pilot-account-card { border-color: rgba(87,151,228,.65); background: linear-gradient(145deg,#08182d,#102544 55%,#0a1c34); box-shadow: 0 0 0 1px rgba(38,120,215,.28),0 4px 20px rgba(0,0,0,.22); }
+.pilot-dashboard[data-theme="blue-black"] .pilot-account-header { border-color: rgba(82,151,231,.35); background: rgba(6,19,38,.58); }
+.pilot-dashboard[data-theme="blue-black"] .pilot-account-title h3 { color: #64b2ff; text-shadow: 0 0 12px rgba(70,150,240,.24); }
+.pilot-dashboard[data-theme="blue-black"] .pilot-sidebar-setting input, .pilot-dashboard[data-theme="blue-black"] .pilot-sidebar-setting select, .pilot-dashboard[data-theme="blue-black"] .pilot-user-create-form input { color: var(--p-text); background: #09192e; }
+.pilot-auth-page[data-theme="light"], .pilot-auth-page[data-theme="blue-white"] { color-scheme: light; }
+.pilot-auth-page[data-theme="light"] .pilot-auth-card, .pilot-auth-page[data-theme="blue-white"] .pilot-auth-card { color: var(--p-text); border-color: var(--p-line); background: rgba(255,255,255,.94); }
+.pilot-auth-page[data-theme="light"] .pilot-auth-card h1, .pilot-auth-page[data-theme="blue-white"] .pilot-auth-card h1 { color: var(--p-text); }
+.pilot-auth-page[data-theme="light"] .pilot-auth-card p, .pilot-auth-page[data-theme="blue-white"] .pilot-auth-card p { color: var(--p-muted); }
+.pilot-auth-page[data-theme="light"] .pilot-auth-card input, .pilot-auth-page[data-theme="blue-white"] .pilot-auth-card input { color: var(--p-text); border-color: var(--p-line); background: #fff; }
+.pilot-auth-page[data-theme="light"] .pilot-brand, .pilot-auth-page[data-theme="blue-white"] .pilot-brand { color: var(--p-text); }
+.pilot-auth-page[data-theme="light"] .pilot-brand small, .pilot-auth-page[data-theme="blue-white"] .pilot-brand small { color: var(--p-muted); }
+.pilot-dashboard[data-theme="blue-white"] .pilot-brand-mark { color: #145ec7; border-color: rgba(20,94,199,.3); background: rgba(20,94,199,.08); }
+
+.pilot-sidebar { overflow-y: auto; }
+.pilot-auth-page[data-theme="blue-black"] { --p-bg:#061326; --p-panel:#0b1d35; --p-line:rgba(91,157,232,.24); --p-muted:#91add0; --p-text:#e0edff; --p-cyan:#60aaff; background:radial-gradient(ellipse 70% 35% at 55% -10%,rgba(54,128,219,.18),transparent 72%),var(--p-bg); }
+.pilot-auth-page[data-theme="blue-black"] .pilot-auth-card { border-color:var(--p-line); background:rgba(11,29,53,.94); }
+.pilot-auth-page[data-theme="blue-black"] .pilot-auth-card input { color:var(--p-text); border-color:var(--p-line); background:#09192e; }
+.pilot-auth-page[data-theme="blue-black"] .pilot-brand small { color:var(--p-muted); }

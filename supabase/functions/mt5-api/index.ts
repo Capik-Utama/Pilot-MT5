@@ -80,6 +80,13 @@ async function dashboardUser(req: Request) {
   return data.user;
 }
 
+function temporaryPassword() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
 async function authenticateEa(req: Request) {
   const token = bearer(req);
   if (token.length < 40 || token.length > 128) return null;
@@ -104,18 +111,74 @@ async function writeEvent(command: { id: string; account_id: string; owner_id: s
 async function handleDashboard(req: Request, path: string) {
   const user = await dashboardUser(req);
   if (!user) return respond(401, { error: "Sesi Supabase tidak valid. Silakan masuk lagi." });
+  const { data: access, error: accessError } = await admin.from("pilot_user_access")
+    .select("user_id,owner_id,email,access_role").eq("user_id", user.id).maybeSingle();
+  if (accessError) return respond(500, { error: "Hak akses pengguna tidak dapat diperiksa." });
+  if (!access) return respond(403, { error: "Akses MT5 Pilot belum didaftarkan oleh owner." });
+
+  if (path === "/dashboard/session" && req.method === "GET") {
+    return respond(200, {
+      user: { id: access.user_id, email: access.email },
+      role: access.access_role,
+      ownerId: access.owner_id,
+    });
+  }
+
+  if (path === "/dashboard/users" && req.method === "GET") {
+    if (access.access_role !== "owner") return respond(403, { error: "Hanya owner yang dapat mengelola pengguna." });
+    const { data, error } = await admin.from("pilot_user_access")
+      .select("user_id,email,access_role,created_at")
+      .eq("owner_id", user.id).eq("access_role", "read_only")
+      .order("created_at", { ascending: true }).limit(100);
+    if (error) return respond(500, { error: "Daftar pengguna tidak dapat dimuat." });
+    return respond(200, { users: data ?? [] });
+  }
+
+  if (path === "/dashboard/users" && req.method === "POST") {
+    if (access.access_role !== "owner" || access.owner_id !== user.id) {
+      return respond(403, { error: "Hanya owner utama yang dapat mendaftarkan pengguna." });
+    }
+    const body = await jsonBody(req);
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return respond(400, { error: "Alamat email tidak valid." });
+    }
+    const password = temporaryPassword();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: { pilot_role: "read_only", pilot_provisioned_by: "owner" },
+    });
+    if (createError || !created.user) {
+      console.error("[mt5-api] owner user creation failed", createError?.message ?? "unknown");
+      return respond(409, { error: "Akun tidak dapat dibuat. Periksa apakah email sudah terdaftar." });
+    }
+    const { error: roleError } = await admin.from("pilot_user_access").insert({
+      user_id: created.user.id,
+      owner_id: user.id,
+      email,
+      access_role: "read_only",
+    });
+    if (roleError) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      console.error("[mt5-api] owner user role assignment failed", roleError.message);
+      return respond(500, { error: "Role read-only gagal disimpan; akun baru dibatalkan." });
+    }
+    return respond(201, { user: { id: created.user.id, email, access_role: "read_only" }, temporaryPassword: password });
+  }
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
     const { data: accounts, error } = await admin.from("mt5_accounts").select(
       "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at,ea_config",
-    ).eq("owner_id", user.id).order("created_at", { ascending: true }).limit(25);
+    ).eq("owner_id", access.owner_id).order("created_at", { ascending: true }).limit(25);
     if (error) return respond(500, { error: "Data akun gagal dibaca." });
     const accountIds = (accounts ?? []).map((account) => account.id);
     let commands: Json[] = [];
     if (accountIds.length) {
       const { data, error: commandError } = await admin.from("mt5_commands").select(
         "id,account_id,action,status,result_message,created_at,expires_at",
-      ).eq("owner_id", user.id).in("account_id", accountIds).order("created_at", { ascending: false }).limit(50);
+      ).eq("owner_id", access.owner_id).in("account_id", accountIds).order("created_at", { ascending: false }).limit(50);
       if (commandError) return respond(500, { error: "Status perintah gagal dibaca." });
       commands = data ?? [];
     }
@@ -133,6 +196,7 @@ async function handleDashboard(req: Request, path: string) {
   }
 
   if (path === "/dashboard/accounts" && req.method === "POST") {
+    if (access.access_role !== "owner") return respond(403, { error: "Aksi ini hanya tersedia untuk owner." });
     const body = await jsonBody(req);
     const label = typeof body?.label === "string" ? body.label.trim() : "";
     if (label.length < 1 || label.length > 80) return respond(400, { error: "Nama akun harus berisi 1–80 karakter." });
@@ -155,6 +219,7 @@ async function handleDashboard(req: Request, path: string) {
 
   const configMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/config$/i);
   if (configMatch && req.method === "POST") {
+    if (access.access_role !== "owner") return respond(403, { error: "Aksi ini hanya tersedia untuk owner." });
     const body = await jsonBody(req);
     const config = body?.config;
     if (!validConfig(config)) return respond(400, { error: "Konfigurasi EA tidak valid atau berisi parameter yang tidak dikenal." });
@@ -181,6 +246,7 @@ async function handleDashboard(req: Request, path: string) {
 
   const commandMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/commands$/i);
   if (commandMatch && req.method === "POST") {
+    if (access.access_role !== "owner") return respond(403, { error: "Aksi ini hanya tersedia untuk owner." });
     const body = await jsonBody(req);
     const action = typeof body?.action === "string" ? body.action : "";
     if (!actions.has(action)) return respond(400, { error: "Jenis perintah tidak dikenal." });
