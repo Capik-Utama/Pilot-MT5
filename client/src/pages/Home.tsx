@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Plus, Radio, RefreshCw, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Wallet, Wifi, WifiOff, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -53,6 +53,8 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [currencyModes, setCurrencyModes] = useState<Record<string, DisplayCurrency>>({});
+  const [accountSearch, setAccountSearch] = useState("");
+  const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
 
   useEffect(() => {
     let active = true;
@@ -94,6 +96,16 @@ export default function Home() {
   }, [loadAccounts, session]);
 
   const onlineCount = useMemo(() => accounts.filter((account) => account.connection_status === "online").length, [accounts]);
+  const filteredAccounts = useMemo(() => {
+    const query = accountSearch.trim().toLocaleLowerCase();
+    return accounts.filter((account) => {
+      const searchable = [account.label, account.broker_account_name, account.server_name, account.mt5_login?.toString()]
+        .filter(Boolean).join(" ").toLocaleLowerCase();
+      const matchesSearch = !query || searchable.includes(query);
+      const matchesConnection = connectionFilter === "all" || account.connection_status === connectionFilter;
+      return matchesSearch && matchesConnection;
+    });
+  }, [accounts, accountSearch, connectionFilter]);
 
   const handleAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setAuthBusy(true); setAuthMessage("");
@@ -168,18 +180,18 @@ export default function Home() {
     <main className="pilot-dashboard">
       <header className="pilot-topbar">
         <a className="pilot-brand" href="/"><span className="pilot-brand-mark"><Activity size={19} /></span><span><strong>MT5 <i>PILOT</i></strong><small>PRIVATE EA WORKSPACE</small></span></a>
-        <div className="pilot-top-actions"><span className="pilot-owner-pill"><ShieldCheck size={14} /> LOGIN TERVERIFIKASI</span><button className="pilot-icon-button" title="Keluar" aria-label="Keluar" onClick={() => void supabase.auth.signOut()}><LogOut size={16} /></button></div>
+        <div className="pilot-top-actions"><div className="pilot-header-controls"><div className="pilot-header-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong></div><button className="pilot-icon-button pilot-header-refresh" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={13} className={loadingAccounts ? "pilot-spin" : ""} /></button><button className="pilot-add-button pilot-header-add" onClick={() => setShowAdd(true)}><Plus size={15} /> Tambah EA</button></div><div className="pilot-user-actions"><span className="pilot-owner-pill"><ShieldCheck size={14} /> LOGIN TERVERIFIKASI</span><button className="pilot-icon-button" title="Keluar" aria-label="Keluar" onClick={() => void supabase.auth.signOut()}><LogOut size={16} /></button></div></div>
       </header>
 
       <section className="pilot-main">
-        <div className="pilot-toolbar"><div><h2>Akun EA <b>{String(accounts.length).padStart(2, "0")}</b></h2></div></div>
+        <div className="pilot-toolbar"><div><h2>Akun EA <b>{String(accounts.length).padStart(2, "0")}</b></h2></div><div className="pilot-toolbar-actions"><label className="pilot-search-box"><Search size={13} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select></div></div>
 
         {accounts.length === 0 && !loadingAccounts ? (
           <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA Fast-Grid</h2><p>Buat token koneksi untuk akun demo. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>
         ) : null}
 
         <div className="pilot-account-list">
-          {accounts.map((account) => {
+          {filteredAccounts.map((account) => {
             const online = account.connection_status === "online";
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
             const disabled = !online || !account.telemetry_received || !account.is_demo || Boolean(active) || busyAction !== null;
@@ -210,8 +222,8 @@ export default function Home() {
             </article>;
           })}
         </div>
+        {accounts.length > 0 && filteredAccounts.length === 0 && <div className="pilot-search-empty"><span>Tidak ada panel EA yang cocok dengan pencarian atau filter.</span><button onClick={() => { setAccountSearch(""); setConnectionFilter("all"); }}>Hapus filter</button></div>}
         <section className="pilot-info"><ShieldCheck size={16} /><p>Mode Manual menghentikan pembukaan posisi otomatis; pengaman SL/trailing EA tetap berjalan. Perintah tutup hanya memproses posisi Fast-Grid pada simbol chart EA ini. Uji di demo terlebih dahulu.</p></section>
-        <footer className="pilot-dashboard-footer"><div className="pilot-footer-left"><div className="pilot-footer-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong></div><button className="pilot-icon-button pilot-footer-refresh" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={13} className={loadingAccounts ? "pilot-spin" : ""} /></button></div><button className="pilot-add-button" onClick={() => setShowAdd(true)}><Plus size={16} /> Tambah EA</button></footer>
       </section>
 
       {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU · DEMO SAJA</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid Demo 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}

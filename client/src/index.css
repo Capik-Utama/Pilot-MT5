@@ -598,8 +598,23 @@ h1, h2, h3, p { margin: 0; }
 .pilot-heading { margin-bottom: 14px; }
 .pilot-heading h1 { font-size: clamp(23px, 2.4vw, 32px); }
 .pilot-heading p { font-size: 10px; }
-.pilot-toolbar { margin-bottom: 9px; }
+.pilot-top-actions { gap: 12px; }
+.pilot-header-controls, .pilot-user-actions { display: flex; align-items: center; gap: 7px; }
+.pilot-header-status { display: inline-flex; align-items: center; gap: 7px; color: #78daba; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 9px; letter-spacing: .05em; white-space: nowrap; }
+.pilot-header-status > span { width: 7px; height: 7px; border-radius: 50%; background: #e2ad69; }
+.pilot-header-status > span.is-live { background: #58d5a5; box-shadow: 0 0 10px rgba(82,223,172,.6); }
+.pilot-icon-button.pilot-header-refresh { width: 28px; height: 28px; }
+.pilot-header-add { min-height: 32px; padding: 0 9px; font-size: 10px; }
+.pilot-toolbar { flex-wrap: wrap; align-items: center; margin-bottom: 9px; }
 .pilot-toolbar h2 { font-size: 16px; }
+.pilot-toolbar-actions { align-items: center; gap: 6px; }
+.pilot-search-box { display: flex; width: 190px; height: 29px; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid rgba(143,170,201,.2); border-radius: 5px; color: #8297ac; background: rgba(8,17,31,.8); }
+.pilot-search-box input { width: 100%; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; color: #d8e2ef; background: transparent; font: 9px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-search-box input::placeholder { color: #71839a; }
+.pilot-search-box input::-webkit-search-cancel-button { cursor: pointer; }
+.pilot-filter-select { height: 29px; padding: 0 8px; border: 1px solid rgba(143,170,201,.2); border-radius: 5px; color: #c4d1df; background: #101d2d; font: 9px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-search-empty { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px solid rgba(143,170,201,.16); color: #91a2b5; font-size: 10px; }
+.pilot-search-empty button { padding: 6px 8px; border: 1px solid rgba(85,214,200,.25); border-radius: 4px; color: #8fe0d4; background: rgba(85,214,200,.06); font-size: 9px; }
 .pilot-account-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 285px), 1fr)); align-items: start; gap: 6px; }
 .pilot-account-card { border: 2px solid rgba(104, 123, 185, .82); border-radius: 0; background: linear-gradient(145deg, #07101f 0%, #111b31 55%, #0b1529 100%); box-shadow: 0 0 0 1px rgba(30, 255, 14, .48), 0 0 20px rgba(42, 255, 0, .08); }
 .pilot-account-card::before { width: 3px; background: #32ff00; box-shadow: 0 0 12px rgba(50,255,0,.75); }
@@ -643,27 +658,21 @@ h1, h2, h3, p { margin: 0; }
 .pilot-command-history { padding: 10px 14px; }
 .pilot-account-footer { padding: 8px 14px 10px; }
 .pilot-panel-metrics > div:last-child { grid-column: auto; }
-.pilot-dashboard-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 10px 2px 2px; border-top: 1px solid rgba(143,170,201,.15); }
-.pilot-footer-left { display: flex; align-items: center; gap: 10px; }
-.pilot-footer-status { display: inline-flex; align-items: center; gap: 8px; color: #78daba; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 9px; letter-spacing: .06em; }
-.pilot-footer-status > span { width: 7px; height: 7px; border-radius: 50%; background: #e2ad69; }
-.pilot-footer-status > span.is-live { background: #58d5a5; box-shadow: 0 0 10px rgba(82,223,172,.6); }
-.pilot-icon-button.pilot-footer-refresh { width: 26px; height: 26px; border-radius: 5px; }
 @media (min-width: 1200px) {
   .pilot-account-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
   .pilot-account-header { min-height: 46px; padding: 6px 20px; }
-  .pilot-account-title h3 { font-size: 18px; }
+  .pilot-account-title h3 { font-size: 20px; }
   .pilot-panel-buttons { gap: 3px; padding: 5px 6px 3px; }
   .pilot-button-row { gap: 3px; }
-  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 28px; font-size: 12px; }
+  .pilot-panel-buttons button, .pilot-reset-row button { min-height: 32px; font-size: 14px; }
   .pilot-panel-buttons .pilot-currency-row button { min-height: 24px; }
   .pilot-panel-metrics { padding: 2px 6px 1px; }
   .pilot-panel-metrics > div { min-height: 19px; }
-  .pilot-panel-metrics > div > span { font-size: 10px; }
-  .pilot-panel-metrics strong { font-size: 10px; }
-  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 12px; }
+  .pilot-panel-metrics > div > span { font-size: 12px; }
+  .pilot-panel-metrics strong { font-size: 12px; }
+  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 14px; }
   .pilot-reset-row { padding: 4px 6px 6px; }
-  .pilot-reset-row .reset-all { min-height: 30px; font-size: 12px; }
+  .pilot-reset-row .reset-all { min-height: 34px; font-size: 14px; }
 }
 @media (min-width: 900px) and (max-width: 1199px) {
   .pilot-account-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -672,32 +681,43 @@ h1, h2, h3, p { margin: 0; }
   .pilot-account-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 650px) {
+  .pilot-topbar { height: auto; min-height: 62px; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px; padding: 8px 12px; }
+  .pilot-top-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+  .pilot-header-controls { gap: 5px; }
+  .pilot-header-status { gap: 5px; font-size: 8px; }
+  .pilot-icon-button.pilot-header-refresh { width: 27px; height: 27px; }
+  .pilot-header-add { min-height: 28px; gap: 4px; padding: 0 7px; font-size: 9px; }
+  .pilot-user-actions { gap: 5px; }
+  .pilot-user-actions .pilot-owner-pill { padding: 5px 6px; font-size: 6px; }
+  .pilot-user-actions .pilot-icon-button { width: 27px; height: 27px; }
   .pilot-main { width: calc(100% - 14px); padding-top: 12px; }
   .pilot-heading { margin-bottom: 8px; }
   .pilot-heading h1 { margin-top: 5px; font-size: 21px; }
   .pilot-heading p { margin-top: 4px; font-size: 8px; }
+  .pilot-toolbar { align-items: flex-start; gap: 7px; margin-bottom: 8px; }
+  .pilot-toolbar-actions { width: 100%; gap: 5px; }
+  .pilot-search-box { width: auto; height: 32px; flex: 1; }
+  .pilot-filter-select { min-width: 76px; height: 32px; }
   .pilot-account-list { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
   .pilot-account-card { border-width: 1px; }
-  .pilot-account-header { min-height: 43px; padding: 6px 18px; }
-  .pilot-account-title h3 { font-size: 15px; }
+  .pilot-account-header { min-height: 58px; padding: 18px 6px 5px; }
+  .pilot-account-title h3 { font-size: 18px; }
   .pilot-account-title p { overflow: hidden; max-width: 100%; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
   .pilot-account-header .pilot-connection { top: 3px; right: 3px; gap: 2px; padding: 2px 3px; font-size: 5px; }
   .pilot-account-header .pilot-led { top: 7px; left: 6px; width: 5px; height: 5px; }
   .pilot-panel-buttons { gap: 3px; padding: 4px 4px 2px; }
   .pilot-button-row { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 3px; }
-  .pilot-panel-buttons button { min-height: 28px; padding: 0 2px; font-size: 10px; letter-spacing: 0; }
+  .pilot-panel-buttons button { min-height: 32px; padding: 0 2px; font-size: 12px; letter-spacing: 0; }
   .pilot-panel-buttons .pilot-currency-row button { min-height: 24px; }
   .pilot-panel-metrics { padding: 2px 5px 1px; }
   .pilot-panel-metrics > div { min-height: 18px; gap: 2px; }
-  .pilot-panel-metrics > div > span { font-size: 8px; }
-  .pilot-panel-metrics strong { font-size: 8px; }
-  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 10px; }
+  .pilot-panel-metrics > div > span { font-size: 10px; }
+  .pilot-panel-metrics strong { font-size: 10px; }
+  .pilot-panel-metrics .metric-profit > span, .pilot-panel-metrics .metric-profit strong { font-size: 12px; }
   .pilot-reset-row { padding: 3px 4px 5px; }
-  .pilot-reset-row .reset-all { min-height: 27px; font-size: 10px; }
+  .pilot-reset-row .reset-all { min-height: 32px; font-size: 12px; }
   .pilot-account-footer { gap: 4px; padding: 5px 6px; font-size: 5px; }
   .pilot-command-history { padding: 6px; }
   .pilot-command-history > div { grid-template-columns: 1fr auto; gap: 4px; font-size: 7px; }
   .pilot-command-history small { grid-column: 1 / -1; }
-  .pilot-dashboard-footer { margin-top: 10px; padding-top: 8px; }
-  .pilot-footer-status { font-size: 8px; }
 }
