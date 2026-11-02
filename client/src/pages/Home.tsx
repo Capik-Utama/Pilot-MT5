@@ -279,7 +279,7 @@ export default function Home() {
                 <div className="metric-target"><span>Daily Target Set</span><strong>{account.telemetry_received ? showMoney(account.daily_target_set) : "—"}</strong></div>
                 <div className="metric-float-buy"><span>Max Float Buy</span><strong>{showMoney(account.max_float_buy)}</strong></div>
                 <div className="metric-float-sell"><span>Max Float Sell</span><strong>{showMoney(account.max_float_sell)}</strong></div>
-                <div className="metric-running"><span>Running</span><strong>{showMoney(account.running_float)}</strong></div>
+                <div className={`metric-running ${account.running_float >= 0 ? "positive" : "negative"}`}><span>Running</span><strong>{showMoney(account.running_float)}</strong></div>
                 <div className={`metric-profit ${account.profit >= 0 ? "profit-positive" : "profit-negative"}`}><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
                 <div className="metric-status"><span>Status</span><strong>{account.telemetry_received ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL") : "MENUNGGU EA"}</strong></div>
               </div>
