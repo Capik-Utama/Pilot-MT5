@@ -12,7 +12,6 @@ enum ENUM_TRADE_MODE { MODE_BELI_JUAL, MODE_BELI_SAJA, MODE_JUAL_SAJA };
 enum ENUM_CL_TYPE { CL_NILAI_UANG, CL_PERSEN };
 enum ENUM_AFTER_LOGIC { SETELAH_STOP_HARI_INI, SETELAH_LANJUT };
 enum ENUM_TS_MODE { MODE_GLOBAL_PER_ARAH, MODE_GLOBAL_SEMUA_ARAH };
-enum EN_TIME_OUT_ACT { AKSI_HENTIKAN_MASUK, AKSI_TUTUP_SEMUA };
 enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
@@ -23,7 +22,6 @@ input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jang
 
 input group "== Mode Perdagangan =="
 input ENUM_TRADE_MODE InputModePerdagangan = MODE_BELI_JUAL;
-input EN_TIME_OUT_ACT InputAksiDiLuarWaktu = AKSI_TUTUP_SEMUA;
 
 input group "== Mata Uang Tampilan =="
 input ENUM_DISPLAY_CURRENCY InputMataUangTampilan = MATA_IDR;
@@ -55,52 +53,8 @@ input int        InputMulaiTrailingPoin = 150;
 input int        InputKunciProfitPoin    = 50;
 input int        InputLangkahTrailingPoin  = 5;
 
-input group "== Pengaturan Hari & Waktu (Waktu Server) =="
-input bool InputAktifSenin = true;
-input int  InputSeninMulaiJam = 0;
-input int  InputSeninMulaiMenit = 0;
-input int  InputSeninSelesaiJam = 0;
-input int  InputSeninSelesaiMenit = 0;
-
-input bool InputAktifSelasa = true;
-input int  InputSelasaMulaiJam = 0;
-input int  InputSelasaMulaiMenit = 0;
-input int  InputSelasaSelesaiJam = 0;
-input int  InputSelasaSelesaiMenit = 0;
-
-input bool InputAktifRabu = true;
-input int  InputRabuMulaiJam = 0;
-input int  InputRabuMulaiMenit = 0;
-input int  InputRabuSelesaiJam = 0;
-input int  InputRabuSelesaiMenit = 0;
-
-input bool InputAktifKamis = true;
-input int  InputKamisMulaiJam = 0;
-input int  InputKamisMulaiMenit = 0;
-input int  InputKamisSelesaiJam = 0;
-input int  InputKamisSelesaiMenit = 0;
-
-input bool InputAktifJumat = true;
-input int  InputJumatMulaiJam = 0;
-input int  InputJumatMulaiMenit = 0;
-input int  InputJumatSelesaiJam = 23;
-input int  InputJumatSelesaiMenit = 0;
-
-input bool InputAktifSabtu = false;
-input int  InputSabtuMulaiJam = 0;
-input int  InputSabtuMulaiMenit = 0;
-input int  InputSabtuSelesaiJam = 0;
-input int  InputSabtuSelesaiMenit = 0;
-
-input bool InputAktifMinggu = false;
-input int  InputMingguMulaiJam = 0;
-input int  InputMingguMulaiMenit = 0;
-input int  InputMingguSelesaiJam = 0;
-input int  InputMingguSelesaiMenit = 0;
-
 // Runtime values mirrored from the MT5 inputs and optionally updated from the dashboard.
 ENUM_TRADE_MODE ModePerdagangan = InputModePerdagangan;
-EN_TIME_OUT_ACT AksiDiLuarWaktu = InputAksiDiLuarWaktu;
 ENUM_DISPLAY_CURRENCY MataUangTampilan = InputMataUangTampilan;
 double KursUSD_IDR = InputKursUSD_IDR;
 int MagicBeli = InputMagicBeli;
@@ -119,41 +73,6 @@ ENUM_TS_MODE ModeTrailing = InputModeTrailing;
 int MulaiTrailingPoin = InputMulaiTrailingPoin;
 int KunciProfitPoin = InputKunciProfitPoin;
 int LangkahTrailingPoin = InputLangkahTrailingPoin;
-bool AktifSenin = InputAktifSenin;
-int SeninMulaiJam = InputSeninMulaiJam;
-int SeninMulaiMenit = InputSeninMulaiMenit;
-int SeninSelesaiJam = InputSeninSelesaiJam;
-int SeninSelesaiMenit = InputSeninSelesaiMenit;
-bool AktifSelasa = InputAktifSelasa;
-int SelasaMulaiJam = InputSelasaMulaiJam;
-int SelasaMulaiMenit = InputSelasaMulaiMenit;
-int SelasaSelesaiJam = InputSelasaSelesaiJam;
-int SelasaSelesaiMenit = InputSelasaSelesaiMenit;
-bool AktifRabu = InputAktifRabu;
-int RabuMulaiJam = InputRabuMulaiJam;
-int RabuMulaiMenit = InputRabuMulaiMenit;
-int RabuSelesaiJam = InputRabuSelesaiJam;
-int RabuSelesaiMenit = InputRabuSelesaiMenit;
-bool AktifKamis = InputAktifKamis;
-int KamisMulaiJam = InputKamisMulaiJam;
-int KamisMulaiMenit = InputKamisMulaiMenit;
-int KamisSelesaiJam = InputKamisSelesaiJam;
-int KamisSelesaiMenit = InputKamisSelesaiMenit;
-bool AktifJumat = InputAktifJumat;
-int JumatMulaiJam = InputJumatMulaiJam;
-int JumatMulaiMenit = InputJumatMulaiMenit;
-int JumatSelesaiJam = InputJumatSelesaiJam;
-int JumatSelesaiMenit = InputJumatSelesaiMenit;
-bool AktifSabtu = InputAktifSabtu;
-int SabtuMulaiJam = InputSabtuMulaiJam;
-int SabtuMulaiMenit = InputSabtuMulaiMenit;
-int SabtuSelesaiJam = InputSabtuSelesaiJam;
-int SabtuSelesaiMenit = InputSabtuSelesaiMenit;
-bool AktifMinggu = InputAktifMinggu;
-int MingguMulaiJam = InputMingguMulaiJam;
-int MingguMulaiMenit = InputMingguMulaiMenit;
-int MingguSelesaiJam = InputMingguSelesaiJam;
-int MingguSelesaiMenit = InputMingguSelesaiMenit;
 
 CTrade trade;
 double VSL_BuyPrice = 0, VSL_SellPrice = 0;
@@ -174,7 +93,6 @@ uint LastPilotTelemetryAt = 0;
 uint LastPilotPollAt = 0;
 int LastPilotLatencyMs = 0;
 
-bool IsInsideTradingTime();
 void CreateDashboard();
 void RefreshDashboardUI();
 void DeleteTrailingOrders();
@@ -210,7 +128,6 @@ bool PilotApplyConfig(const string json);
 
 int OnInit() {
    ModePerdagangan = InputModePerdagangan;
-   AksiDiLuarWaktu = InputAksiDiLuarWaktu;
    MataUangTampilan = InputMataUangTampilan;
    KursUSD_IDR = InputKursUSD_IDR;
    MagicBeli = InputMagicBeli;
@@ -229,41 +146,6 @@ int OnInit() {
    MulaiTrailingPoin = InputMulaiTrailingPoin;
    KunciProfitPoin = InputKunciProfitPoin;
    LangkahTrailingPoin = InputLangkahTrailingPoin;
-   AktifSenin = InputAktifSenin;
-   SeninMulaiJam = InputSeninMulaiJam;
-   SeninMulaiMenit = InputSeninMulaiMenit;
-   SeninSelesaiJam = InputSeninSelesaiJam;
-   SeninSelesaiMenit = InputSeninSelesaiMenit;
-   AktifSelasa = InputAktifSelasa;
-   SelasaMulaiJam = InputSelasaMulaiJam;
-   SelasaMulaiMenit = InputSelasaMulaiMenit;
-   SelasaSelesaiJam = InputSelasaSelesaiJam;
-   SelasaSelesaiMenit = InputSelasaSelesaiMenit;
-   AktifRabu = InputAktifRabu;
-   RabuMulaiJam = InputRabuMulaiJam;
-   RabuMulaiMenit = InputRabuMulaiMenit;
-   RabuSelesaiJam = InputRabuSelesaiJam;
-   RabuSelesaiMenit = InputRabuSelesaiMenit;
-   AktifKamis = InputAktifKamis;
-   KamisMulaiJam = InputKamisMulaiJam;
-   KamisMulaiMenit = InputKamisMulaiMenit;
-   KamisSelesaiJam = InputKamisSelesaiJam;
-   KamisSelesaiMenit = InputKamisSelesaiMenit;
-   AktifJumat = InputAktifJumat;
-   JumatMulaiJam = InputJumatMulaiJam;
-   JumatMulaiMenit = InputJumatMulaiMenit;
-   JumatSelesaiJam = InputJumatSelesaiJam;
-   JumatSelesaiMenit = InputJumatSelesaiMenit;
-   AktifSabtu = InputAktifSabtu;
-   SabtuMulaiJam = InputSabtuMulaiJam;
-   SabtuMulaiMenit = InputSabtuMulaiMenit;
-   SabtuSelesaiJam = InputSabtuSelesaiJam;
-   SabtuSelesaiMenit = InputSabtuSelesaiMenit;
-   AktifMinggu = InputAktifMinggu;
-   MingguMulaiJam = InputMingguMulaiJam;
-   MingguMulaiMenit = InputMingguMulaiMenit;
-   MingguSelesaiJam = InputMingguSelesaiJam;
-   MingguSelesaiMenit = InputMingguSelesaiMenit;
    ResetTime = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
    LastDayReset = ResetTime;
    trade.LogLevel(LOG_LEVEL_NO);
@@ -471,7 +353,6 @@ void RefreshDashboardUI() {
 
    string statusText = "Status: ACTIVE";
    if(IsStoppedByTarget) statusText = "Status: TARGET HIT";
-   else if(!IsInsideTradingTime()) statusText = "Status: OUT OF TIME";
    else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) statusText = "Status: TS PER ARAH";
    else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) statusText = StringFormat("Status: TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
 
@@ -508,7 +389,7 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
 
          // If AUTO is active and trading time is valid, start a new cycle immediately.
          // The existing entry/layer logic is reused unchanged.
-         if(isAutoTradingActive && IsInsideTradingTime()) {
+         if(isAutoTradingActive) {
             // Start only the initial basket here. Layering starts on the next tick
             // after the newly opened positions are established.
             CheckInitialEntry();
@@ -677,7 +558,6 @@ string PilotJsonObject(const string json, const string key) {
 
 bool PilotApplyConfig(const string json) {
    ModePerdagangan = (ENUM_TRADE_MODE)PilotJsonNumber(json, "ModePerdagangan", ModePerdagangan);
-   AksiDiLuarWaktu = (EN_TIME_OUT_ACT)PilotJsonNumber(json, "AksiDiLuarWaktu", AksiDiLuarWaktu);
    MataUangTampilan = (ENUM_DISPLAY_CURRENCY)PilotJsonNumber(json, "MataUangTampilan", MataUangTampilan);
    KursUSD_IDR = PilotJsonNumber(json, "KursUSD_IDR", KursUSD_IDR);
    MagicBeli = (int)PilotJsonNumber(json, "MagicBeli", MagicBeli);
@@ -696,41 +576,6 @@ bool PilotApplyConfig(const string json) {
    MulaiTrailingPoin = (int)PilotJsonNumber(json, "MulaiTrailingPoin", MulaiTrailingPoin);
    KunciProfitPoin = (int)PilotJsonNumber(json, "KunciProfitPoin", KunciProfitPoin);
    LangkahTrailingPoin = (int)PilotJsonNumber(json, "LangkahTrailingPoin", LangkahTrailingPoin);
-   AktifSenin = PilotJsonBool(json, "AktifSenin", AktifSenin);
-   SeninMulaiJam = (int)PilotJsonNumber(json, "SeninMulaiJam", SeninMulaiJam);
-   SeninMulaiMenit = (int)PilotJsonNumber(json, "SeninMulaiMenit", SeninMulaiMenit);
-   SeninSelesaiJam = (int)PilotJsonNumber(json, "SeninSelesaiJam", SeninSelesaiJam);
-   SeninSelesaiMenit = (int)PilotJsonNumber(json, "SeninSelesaiMenit", SeninSelesaiMenit);
-   AktifSelasa = PilotJsonBool(json, "AktifSelasa", AktifSelasa);
-   SelasaMulaiJam = (int)PilotJsonNumber(json, "SelasaMulaiJam", SelasaMulaiJam);
-   SelasaMulaiMenit = (int)PilotJsonNumber(json, "SelasaMulaiMenit", SelasaMulaiMenit);
-   SelasaSelesaiJam = (int)PilotJsonNumber(json, "SelasaSelesaiJam", SelasaSelesaiJam);
-   SelasaSelesaiMenit = (int)PilotJsonNumber(json, "SelasaSelesaiMenit", SelasaSelesaiMenit);
-   AktifRabu = PilotJsonBool(json, "AktifRabu", AktifRabu);
-   RabuMulaiJam = (int)PilotJsonNumber(json, "RabuMulaiJam", RabuMulaiJam);
-   RabuMulaiMenit = (int)PilotJsonNumber(json, "RabuMulaiMenit", RabuMulaiMenit);
-   RabuSelesaiJam = (int)PilotJsonNumber(json, "RabuSelesaiJam", RabuSelesaiJam);
-   RabuSelesaiMenit = (int)PilotJsonNumber(json, "RabuSelesaiMenit", RabuSelesaiMenit);
-   AktifKamis = PilotJsonBool(json, "AktifKamis", AktifKamis);
-   KamisMulaiJam = (int)PilotJsonNumber(json, "KamisMulaiJam", KamisMulaiJam);
-   KamisMulaiMenit = (int)PilotJsonNumber(json, "KamisMulaiMenit", KamisMulaiMenit);
-   KamisSelesaiJam = (int)PilotJsonNumber(json, "KamisSelesaiJam", KamisSelesaiJam);
-   KamisSelesaiMenit = (int)PilotJsonNumber(json, "KamisSelesaiMenit", KamisSelesaiMenit);
-   AktifJumat = PilotJsonBool(json, "AktifJumat", AktifJumat);
-   JumatMulaiJam = (int)PilotJsonNumber(json, "JumatMulaiJam", JumatMulaiJam);
-   JumatMulaiMenit = (int)PilotJsonNumber(json, "JumatMulaiMenit", JumatMulaiMenit);
-   JumatSelesaiJam = (int)PilotJsonNumber(json, "JumatSelesaiJam", JumatSelesaiJam);
-   JumatSelesaiMenit = (int)PilotJsonNumber(json, "JumatSelesaiMenit", JumatSelesaiMenit);
-   AktifSabtu = PilotJsonBool(json, "AktifSabtu", AktifSabtu);
-   SabtuMulaiJam = (int)PilotJsonNumber(json, "SabtuMulaiJam", SabtuMulaiJam);
-   SabtuMulaiMenit = (int)PilotJsonNumber(json, "SabtuMulaiMenit", SabtuMulaiMenit);
-   SabtuSelesaiJam = (int)PilotJsonNumber(json, "SabtuSelesaiJam", SabtuSelesaiJam);
-   SabtuSelesaiMenit = (int)PilotJsonNumber(json, "SabtuSelesaiMenit", SabtuSelesaiMenit);
-   AktifMinggu = PilotJsonBool(json, "AktifMinggu", AktifMinggu);
-   MingguMulaiJam = (int)PilotJsonNumber(json, "MingguMulaiJam", MingguMulaiJam);
-   MingguMulaiMenit = (int)PilotJsonNumber(json, "MingguMulaiMenit", MingguMulaiMenit);
-   MingguSelesaiJam = (int)PilotJsonNumber(json, "MingguSelesaiJam", MingguSelesaiJam);
-   MingguSelesaiMenit = (int)PilotJsonNumber(json, "MingguSelesaiMenit", MingguSelesaiMenit);
    if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
    else CurrentCurrencyMode = 0;
@@ -781,7 +626,6 @@ void PilotSendTelemetry() {
    string mode = isAutoTradingActive ? "auto" : "manual";
    string eaStatus = "ACTIVE";
    if(IsStoppedByTarget) eaStatus = "TARGET HIT";
-   else if(!IsInsideTradingTime()) eaStatus = "OUT OF TIME";
    else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) eaStatus = "TS PER ARAH";
    else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) eaStatus = StringFormat("TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
    int openPositions = 0;
@@ -898,7 +742,7 @@ void PilotPollCommands() {
       ObjectDelete(0, UIPrefix + "LineSellTS");
       ObjectDelete(0, UIPrefix + "LinePendingBuy");
       ObjectDelete(0, UIPrefix + "LinePendingSell");
-      if(isAutoTradingActive && IsInsideTradingTime()) CheckInitialEntry();
+      if(isAutoTradingActive) CheckInitialEntry();
       success = true;
       result = "Statistik harian dan state trailing direset.";
    } else if(action == "close_buy" || action == "close_sell" || action == "close_all") {
@@ -945,20 +789,7 @@ void OnTick() {
 
    CheckStopLossPerDirection();
 
-   bool isInsideTime = IsInsideTradingTime();
-
-   if(!isInsideTime) {
-      if(AksiDiLuarWaktu == AKSI_TUTUP_SEMUA) {
-         if(HasOpenPositions()) {
-            BulkCloseAll();
-            RefreshDashboardUI();
-            DeleteTrailingOrders();
-            return;
-         }
-      }
-   }
-
-   if(isInsideTime && !IsStoppedByTarget && isAutoTradingActive) {
+   if(!IsStoppedByTarget && isAutoTradingActive) {
       // Start a completely new basket when there are no positions.
       if(!HasOpenPositions()) {
          CheckInitialEntry();
@@ -1637,66 +1468,4 @@ void DeleteTrailingOrders() {
          }
       }
    }
-}
-
-bool IsInsideTradingTime() {
-   MqlDateTime dt;
-   TimeCurrent(dt);
-
-   bool dayEnabled = false;
-   int startHour = 0, startMinute = 0, endHour = 0, endMinute = 0;
-
-   switch(dt.day_of_week) {
-      case 1:
-         dayEnabled = AktifSenin;
-         startHour = SeninMulaiJam; startMinute = SeninMulaiMenit;
-         endHour = SeninSelesaiJam; endMinute = SeninSelesaiMenit;
-         break;
-      case 2:
-         dayEnabled = AktifSelasa;
-         startHour = SelasaMulaiJam; startMinute = SelasaMulaiMenit;
-         endHour = SelasaSelesaiJam; endMinute = SelasaSelesaiMenit;
-         break;
-      case 3:
-         dayEnabled = AktifRabu;
-         startHour = RabuMulaiJam; startMinute = RabuMulaiMenit;
-         endHour = RabuSelesaiJam; endMinute = RabuSelesaiMenit;
-         break;
-      case 4:
-         dayEnabled = AktifKamis;
-         startHour = KamisMulaiJam; startMinute = KamisMulaiMenit;
-         endHour = KamisSelesaiJam; endMinute = KamisSelesaiMenit;
-         break;
-      case 5:
-         dayEnabled = AktifJumat;
-         startHour = JumatMulaiJam; startMinute = JumatMulaiMenit;
-         endHour = JumatSelesaiJam; endMinute = JumatSelesaiMenit;
-         break;
-      case 6:
-         dayEnabled = AktifSabtu;
-         startHour = SabtuMulaiJam; startMinute = SabtuMulaiMenit;
-         endHour = SabtuSelesaiJam; endMinute = SabtuSelesaiMenit;
-         break;
-      case 0:
-         dayEnabled = AktifMinggu;
-         startHour = MingguMulaiJam; startMinute = MingguMulaiMenit;
-         endHour = MingguSelesaiJam; endMinute = MingguSelesaiMenit;
-         break;
-   }
-
-   if(!dayEnabled) return false;
-
-   int currentTotalMinutes = (dt.hour * 60) + dt.min;
-   int startTotalMinutes = (startHour * 60) + startMinute;
-   int endTotalMinutes = (endHour * 60) + endMinute;
-
-   if(startTotalMinutes == endTotalMinutes)
-      return true;
-
-   if(startTotalMinutes < endTotalMinutes)
-      return (currentTotalMinutes >= startTotalMinutes &&
-              currentTotalMinutes < endTotalMinutes);
-
-   return (currentTotalMinutes >= startTotalMinutes ||
-           currentTotalMinutes < endTotalMinutes);
 }

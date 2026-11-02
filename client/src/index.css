@@ -817,19 +817,9 @@ h1, h2, h3, p { margin: 0; }
 .pilot-edit-title:focus-visible { outline:2px solid #7dff5b; outline-offset:4px; }
 .pilot-config-modal { width:min(100%,760px); max-height:calc(100vh - 36px); overflow-y:auto; }
 .pilot-config-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; }
-.pilot-config-grid label, .pilot-day-card label { display:grid; gap:5px; color:#c8d4df; font-size:9px; }
-.pilot-config-grid input, .pilot-config-grid select, .pilot-day-card input:not([type="checkbox"]) { width:100%; height:34px; padding:0 8px; border:1px solid rgba(143,170,201,.3); border-radius:4px; outline:none; color:#f0f6fb; background:#091523; font-size:10px; }
 .pilot-config-grid select { appearance:auto; }
-.pilot-config-grid input:focus, .pilot-config-grid select:focus, .pilot-day-card input:focus { border-color:#79f58a; box-shadow:0 0 0 2px rgba(125,255,91,.14); }
 .pilot-config-section { margin-top:17px; padding-top:13px; border-top:1px solid var(--p-line); }
-.pilot-config-section > strong { display:block; margin-bottom:9px; color:#eff8ff; font-size:10px; letter-spacing:.08em; }
-.pilot-config-days { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
-.pilot-day-card { display:grid; gap:7px; padding:9px; border:1px solid rgba(143,170,201,.2); border-radius:5px; background:rgba(5,13,23,.5); }
-.pilot-day-card b { color:#76ff8b; font-size:10px; }
-.pilot-day-card label:first-of-type { display:flex; align-items:center; gap:5px; color:#a9bacb; }
-.pilot-day-card input[type="checkbox"] { width:14px; height:14px; accent-color:#6dff77; }
 @media (max-width:480px) {
   .pilot-config-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .pilot-config-days { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .pilot-config-modal { padding:23px 17px; }
 }
