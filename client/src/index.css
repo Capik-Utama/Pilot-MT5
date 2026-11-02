@@ -772,3 +772,26 @@ h1, h2, h3, p { margin: 0; }
   .pilot-menu-button { width: 36px; height: 36px; }
   .pilot-sidebar { width: min(330px, calc(100vw - 18px)); padding: 18px; }
 }
+
+/* Inline brand lockup: logo + title + workspace subtitle. */
+.pilot-topbar { min-height: 82px; height: auto; }
+.pilot-brand { gap: 15px; }
+.pilot-brand-mark { width: 56px; height: 56px; border-radius: 13px; }
+.pilot-brand-mark svg { width: 29px; height: 29px; }
+.pilot-brand > span:last-child { display: flex; align-items: baseline; gap: 15px; }
+.pilot-brand strong { font-size: clamp(20px, 1.7vw, 25px); }
+.pilot-brand small { font-size: 10px; white-space: nowrap; }
+@media (max-width: 650px) {
+  .pilot-topbar { min-height: 70px; }
+  .pilot-brand { gap: 10px; max-width: calc(100% - 48px); }
+  .pilot-brand-mark { width: 46px; height: 46px; border-radius: 11px; }
+  .pilot-brand-mark svg { width: 24px; height: 24px; }
+  .pilot-brand > span:last-child { gap: 8px; min-width: 0; }
+  .pilot-brand strong { overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+  .pilot-brand small { font-size: 7px; letter-spacing: .1em; }
+}
+@media (max-width: 420px) {
+  .pilot-brand > span:last-child { gap: 6px; }
+  .pilot-brand strong { font-size: 16px; }
+  .pilot-brand small { font-size: 6px; letter-spacing: .08em; }
+}
