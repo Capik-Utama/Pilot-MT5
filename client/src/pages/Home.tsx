@@ -23,8 +23,8 @@ type Account = {
 };
 
 type ConnectionToken = { label: string; token: string };
-type AccessRole = "owner" | "read_only";
-type ManagedUser = { user_id: string; email: string; access_role: "read_only"; created_at: string };
+type AccessRole = "owner" | "read_only" | "staff";
+type ManagedUser = { user_id: string; email: string; access_role: "read_only" | "staff"; created_at: string; account_ids?: string[]; account_labels?: string[] };
 type CreatedUserCredential = { email: string; password: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
@@ -104,6 +104,8 @@ export default function Home() {
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"read_only" | "staff">("read_only");
+  const [selectedStaffAccountIds, setSelectedStaffAccountIds] = useState<string[]>([]);
   const [creatingUser, setCreatingUser] = useState(false);
   const [createdUserCredential, setCreatedUserCredential] = useState<CreatedUserCredential | null>(null);
 
@@ -178,6 +180,7 @@ export default function Home() {
   }, [loadAccounts, ownerId, refreshSeconds, session]);
 
   const canWrite = accessRole === "owner";
+  const canUseCardActions = accessRole === "owner" || accessRole === "staff";
 
   const onlineCount = useMemo(() => accounts.filter((account) => account.connection_status === "online").length, [accounts]);
   const filteredAccounts = useMemo(() => {
@@ -217,12 +220,17 @@ export default function Home() {
     if (!canWrite || creatingUser) return;
     setCreatingUser(true);
     try {
-      const result = await callApi("/dashboard/users", "POST", { email: newUserEmail.trim() });
+      const result = await callApi("/dashboard/users", "POST", {
+        email: newUserEmail.trim(), accessRole: newUserRole,
+        accountIds: newUserRole === "staff" ? selectedStaffAccountIds : [],
+      });
       setCreatedUserCredential({ email: result.user.email, password: result.temporaryPassword });
       setNewUserEmail("");
+      setNewUserRole("read_only");
+      setSelectedStaffAccountIds([]);
       const refreshed = await callApi("/dashboard/users");
       setManagedUsers(refreshed.users ?? []);
-      toast.success("Akun read-only berhasil dibuat.");
+      toast.success(`Akun ${newUserRole === "staff" ? "staff" : "read-only"} berhasil dibuat.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Akun read-only gagal dibuat."); }
     finally { setCreatingUser(false); }
   };
@@ -245,7 +253,7 @@ export default function Home() {
   };
 
   const sendAction = async (account: Account, action: Action) => {
-    if (!canWrite) { toast.error("Akun read-only tidak dapat mengirim perintah."); return; }
+    if (!canUseCardActions) { toast.error("Role ini tidak dapat mengirim perintah EA."); return; }
     if (account.connection_status !== "online") { toast.error("EA harus online untuk menerima perintah."); return; }
     if (action.startsWith("close_") && !window.confirm(`Kirim ${actionLabel[action]} ke EA “${account.label}”? Perintah akan menutup posisi Fast-Grid pada simbol chart ini.`)) return;
     if ((action === "buy" || action === "sell") && !window.confirm(`Kirim order ${actionLabel[action]} manual ke ${account.label} (${account.broker_account_name ?? "akun MT5"})? EA akan menggunakan lot awal yang dikonfigurasi di MT5.`)) return;
@@ -320,15 +328,15 @@ export default function Home() {
       <aside className={`pilot-sidebar ${sidebarOpen ? "open" : ""}`} aria-hidden={!sidebarOpen}>
         <div className="pilot-sidebar-head"><div><span className="pilot-kicker"><span /> MENU PANEL</span><strong>MT5 PILOT</strong></div><button className="pilot-icon-button" title="Tutup menu" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)}><X size={17} /></button></div>
         <div className="pilot-sidebar-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong><button className="pilot-icon-button" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={14} className={loadingAccounts ? "pilot-spin" : ""} /></button></div>
-        <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select><button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Buat koneksi EA" : "Akun read-only tidak dapat menambah EA"} onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button></div>
-        <div className="pilot-sidebar-section pilot-settings-section">
+        <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select>{canWrite && <button className="pilot-add-button pilot-sidebar-add" onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button>}</div>
+        {accessRole !== "staff" && <div className="pilot-sidebar-section pilot-settings-section">
           <span className="pilot-kicker">PREFERENSI</span>
           <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshSeconds} onChange={(event) => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshSeconds(value); }} onBlur={() => setRefreshSeconds((value) => Math.max(1, Math.min(60, value || 5)))} /></label>
           <small className="pilot-sidebar-hint">Default 5 detik. Realtime tetap memperbarui data seketika.</small>
           <label className="pilot-sidebar-setting"><span>Tema</span><select value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="dark">Gelap (default)</option><option value="light">Terang</option><option value="blue-black">Biru hitam</option><option value="blue-white">Biru putih</option></select></label>
-          <button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Kelola akun read-only" : "Hanya owner yang dapat mengelola pengguna"} onClick={() => void openUserManager()}><Users size={15} /> Kelola pengguna</button>
-        </div>
-        <div className="pilot-sidebar-account"><span className="pilot-owner-pill"><ShieldCheck size={14} /> {accessRole === "read_only" ? "AKSES READ ONLY" : accessRole === "owner" ? "AKSES OWNER" : "MEMERIKSA AKSES"}</span><button className="pilot-sidebar-logout" onClick={() => void supabase.auth.signOut()}><LogOut size={15} /> Keluar</button></div>
+          <button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Kelola pengguna" : "Hanya owner yang dapat mengelola pengguna"} onClick={() => void openUserManager()}><Users size={15} /> Kelola pengguna</button>
+        </div>}
+        <div className="pilot-sidebar-account"><span className="pilot-owner-pill"><ShieldCheck size={14} /> {accessRole === "read_only" ? "AKSES READ ONLY" : accessRole === "staff" ? "AKSES STAFF" : accessRole === "owner" ? "AKSES OWNER" : "MEMERIKSA AKSES"}</span><button className="pilot-sidebar-logout" onClick={() => void supabase.auth.signOut()}><LogOut size={15} /> Keluar</button></div>
       </aside>
       <section className="pilot-main">
         {accounts.length === 0 && !loadingAccounts ? (
@@ -339,7 +347,7 @@ export default function Home() {
           {filteredAccounts.map((account) => {
             const online = account.connection_status === "online";
             const active = account.commands.find((command) => ["queued", "delivered", "accepted"].includes(command.status));
-            const disabled = !canWrite || !online || !account.telemetry_received || Boolean(active) || busyAction !== null;
+            const disabled = !canUseCardActions || !online || !account.telemetry_received || Boolean(active) || busyAction !== null;
             const displayMode = currencyModes[account.id] ?? account.display_currency ?? "USD";
             const showMoney = (value: unknown) => {
               if (!account.telemetry_received) return "—";
@@ -351,8 +359,8 @@ export default function Home() {
               ? basketSlValue === null ? "INVALID" : `-${basketSlValue.toFixed(1)}%`
               : `-${showMoney(account.basket_sl_set)}`;
             return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity">{account.label} - {account.broker_account_name || "Menunggu nama akun dari EA"}</div><article className="pilot-account-card">
-              <div className="pilot-account-header"><button type="button" className="pilot-account-title pilot-edit-title" disabled={!canWrite} onClick={() => openConfigEditor(account)} title={canWrite ? "Edit seluruh parameter EA" : "Akun read-only tidak dapat mengubah parameter EA"}><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3><small><Pencil size={11} /> EDIT PARAMETER EA</small></span></button><div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
-              {!canWrite && <div className="pilot-readonly-note">AKSES READ ONLY · tombol aksi dinonaktifkan</div>}
+              <div className="pilot-account-header">{canWrite ? <button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3><small><Pencil size={11} /> EDIT PARAMETER EA</small></span></button> : <div className="pilot-account-title pilot-edit-title pilot-staff-card-title"><span className={`pilot-led ${online ? "online" : "offline"}`} /><span><h3>*Grid_By_Capik*</h3></span></div>}<div className={`pilot-connection ${online ? "online" : "offline"}`}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}{online ? "ONLINE" : "OFFLINE"}</div></div>
+              {!canUseCardActions && <div className="pilot-readonly-note">AKSES READ ONLY · tombol aksi dinonaktifkan</div>}
               <div className="pilot-panel-buttons">
                 <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
                 <div className="pilot-button-row"><button className="trade-sell" disabled={disabled} onClick={() => void sendAction(account, "sell")}>SELL</button><button className="trade-buy" disabled={disabled} onClick={() => void sendAction(account, "buy")}>BUY</button></div>
@@ -382,7 +390,7 @@ export default function Home() {
 
       {tokenModal && <div className="pilot-modal-backdrop"><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-token-title"><div className="pilot-success"><Check size={19} /></div><div className="pilot-kicker">KONEKSI DIBUAT</div><h2 id="pilot-token-title">Masukkan token ini ke EA</h2><p>Token untuk <b>{tokenModal.label}</b> hanya ditampilkan sekali. Simpan dengan aman; jika hilang, buat koneksi baru.</p><div className="pilot-token-box"><code>{tokenModal.token}</code><button aria-label="Salin token" onClick={() => void copyToken()}>{copied ? <Check size={16} /> : <Copy size={16} />}</button></div><div className="pilot-setup"><strong>Pengaturan Fast-Grid</strong><span>SupabaseFunctionUrl =</span><code>{MT5_API_URL}</code><span>EAConnectionToken = token di atas</span><span>MetaTrader → Tools → Options → Expert Advisors → izinkan WebRequest untuk:</span><code>{SUPABASE_URL}</code></div><div className="pilot-modal-actions"><button className="pilot-cancel" onClick={() => void copyToken()}>{copied ? "Token disalin" : "Salin token"}</button><button className="pilot-add-button" onClick={() => setTokenModal(null)}>Saya sudah simpan</button></div></section></div>}
       {editingAccount && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingConfig) setEditingAccount(null); }}><section className="pilot-modal pilot-config-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-config-title"><button type="button" className="pilot-modal-x" aria-label="Tutup editor" onClick={() => { if (!savingConfig) setEditingAccount(null); }}><X size={18} /></button><div className="pilot-kicker">KONFIGURASI REMOTE · SUPABASE</div><h2 id="pilot-config-title">Edit parameter EA</h2><div className="pilot-config-account" aria-label="Informasi akun MT5"><span><strong>Login MT5</strong>{editingAccount.mt5_login ?? "Belum diterima dari EA"}</span><span><strong>Server</strong>{editingAccount.server_name || "Belum diterima dari EA"}</span></div><p>Perubahan disimpan ke Supabase lalu dikirim ke EA melalui antrean aman. EA harus online dan menerapkan konfigurasi yang diterima.</p><form onSubmit={saveConfig}><div className="pilot-config-grid">{coreConfigFields.map(([key, label, kind, options]) => <label key={key}>{label}{kind === "select" ? <select value={Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: Number(event.target.value) }))}>{options?.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type="number" step="any" required value={Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: Number(event.target.value) }))} />}</label>)}</div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" disabled={savingConfig} onClick={() => setEditingAccount(null)}>Batal</button><button className="pilot-add-button" disabled={!canWrite || savingConfig || !editingAccount.connection_status || editingAccount.connection_status === "offline"}>{savingConfig ? "Mengirim…" : "Simpan & kirim ke EA"}</button></div></form></section></div>}
-      {showUserManager && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowUserManager(false); }}><section className="pilot-modal pilot-user-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-users-title"><button type="button" className="pilot-modal-x" aria-label="Tutup pengaturan pengguna" onClick={() => setShowUserManager(false)}><X size={18} /></button><div className="pilot-kicker">AKSES · OWNER ONLY</div><h2 id="pilot-users-title">Pengguna read-only</h2><p>Pengguna dapat melihat akun dan metrik yang sama, tetapi tidak dapat menjalankan tombol EA, mengubah parameter, atau membuat koneksi.</p>{createdUserCredential && <div className="pilot-created-credential"><strong>Akun berhasil dibuat</strong><span>Email: <b>{createdUserCredential.email}</b></span><span>Kata sandi sementara (simpan sekarang, hanya tampil sekali):</span><code>{createdUserCredential.password}</code><button type="button" className="pilot-cancel" onClick={() => void copyTemporaryPassword()}><Copy size={14} /> Salin kata sandi</button></div>}<form className="pilot-user-create-form" onSubmit={createReadOnlyUser}><label>Email pengguna<input type="email" autoComplete="off" required maxLength={320} value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} placeholder="nama@email.com" /></label><button className="pilot-add-button" disabled={creatingUser || !canWrite}>{creatingUser ? "Membuat akun…" : "Buat akun read-only"}</button></form><div className="pilot-managed-users"><strong>Pengguna terdaftar</strong>{loadingUsers ? <span>Memuat…</span> : managedUsers.length ? managedUsers.map((managedUser) => <div key={managedUser.user_id}><span>{managedUser.email}</span><small>READ ONLY · {new Date(managedUser.created_at).toLocaleDateString("id-ID")}</small></div>) : <span>Belum ada pengguna read-only.</span>}</div></section></div>}
+      {showUserManager && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowUserManager(false); }}><section className="pilot-modal pilot-user-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-users-title"><button type="button" className="pilot-modal-x" aria-label="Tutup pengaturan pengguna" onClick={() => setShowUserManager(false)}><X size={18} /></button><div className="pilot-kicker">AKSES · OWNER ONLY</div><h2 id="pilot-users-title">Kelola pengguna</h2><p>Read-only hanya dapat melihat dashboard. Staff dapat menjalankan tombol pada kartu akun yang dipilih, tetapi tidak dapat mengubah parameter EA, pengaturan, atau pengguna.</p>{createdUserCredential && <div className="pilot-created-credential"><strong>Akun berhasil dibuat</strong><span>Email: <b>{createdUserCredential.email}</b></span><span>Kata sandi sementara (simpan sekarang, hanya tampil sekali):</span><code>{createdUserCredential.password}</code><button type="button" className="pilot-cancel" onClick={() => void copyTemporaryPassword()}><Copy size={14} /> Salin kata sandi</button></div>}<form className="pilot-user-create-form" onSubmit={createReadOnlyUser}><label>Email pengguna<input type="email" autoComplete="off" required maxLength={320} value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} placeholder="nama@email.com" /></label><label>Role<select value={newUserRole} onChange={(event) => setNewUserRole(event.target.value as "read_only" | "staff")}><option value="read_only">Read-only</option><option value="staff">Staff</option></select></label>{newUserRole === "staff" && <fieldset className="pilot-staff-account-picker"><legend>Akun yang boleh diakses</legend>{accounts.length ? accounts.map((account, index) => <label key={account.id}><input type="checkbox" checked={selectedStaffAccountIds.includes(account.id)} onChange={(event) => setSelectedStaffAccountIds((current) => event.target.checked ? [...current, account.id] : current.filter((id) => id !== account.id))} /><span>{account.label}{account.broker_account_name ? ` - ${account.broker_account_name}` : ` · Akun ${index + 1}`}</span></label>) : <span className="pilot-sidebar-hint">Belum ada akun tersedia untuk dipilih.</span>}</fieldset>}<button className="pilot-add-button" disabled={creatingUser || !canWrite || (newUserRole === "staff" && selectedStaffAccountIds.length === 0)}>{creatingUser ? "Membuat akun…" : `Buat akun ${newUserRole === "staff" ? "staff" : "read-only"}`}</button></form><div className="pilot-managed-users"><strong>Pengguna terdaftar</strong>{loadingUsers ? <span>Memuat…</span> : managedUsers.length ? managedUsers.map((managedUser) => <div key={managedUser.user_id}><span>{managedUser.email}<small className="pilot-managed-scope">{managedUser.access_role === "staff" ? `STAFF · ${managedUser.account_labels?.join(", ") || "Tanpa akun"}` : "READ-ONLY · semua akun (lihat saja)"}</small></span><small>{new Date(managedUser.created_at).toLocaleDateString("id-ID")}</small></div>) : <span>Belum ada pengguna.</span>}</div></section></div>}
     </main>
   );
 }

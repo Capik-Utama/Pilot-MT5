@@ -11,7 +11,7 @@ const admin = createClient(supabaseUrl, serviceKey, {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-mt5-client",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   "Cache-Control": "no-store",
 };
 const ONLINE_WINDOW_MS = 20_000;
@@ -97,11 +97,12 @@ async function authenticateEa(req: Request) {
   return data;
 }
 
-async function writeEvent(command: { id: string; account_id: string; owner_id: string }, status: string, message: string | null = null) {
+async function writeEvent(command: { id: string; account_id: string; owner_id: string; requested_by_user_id?: string }, status: string, message: string | null = null) {
   const { error } = await admin.from("mt5_command_events").insert({
     command_id: command.id,
     account_id: command.account_id,
     owner_id: command.owner_id,
+    requested_by_user_id: command.requested_by_user_id ?? null,
     status,
     message,
   });
@@ -128,10 +129,25 @@ async function handleDashboard(req: Request, path: string) {
     if (access.access_role !== "owner") return respond(403, { error: "Hanya owner yang dapat mengelola pengguna." });
     const { data, error } = await admin.from("pilot_user_access")
       .select("user_id,email,access_role,created_at")
-      .eq("owner_id", user.id).eq("access_role", "read_only")
+      .eq("owner_id", user.id).in("access_role", ["read_only", "staff"])
       .order("created_at", { ascending: true }).limit(100);
     if (error) return respond(500, { error: "Daftar pengguna tidak dapat dimuat." });
-    return respond(200, { users: data ?? [] });
+    const userIds = (data ?? []).map((item) => item.user_id);
+    let assignments: Json[] = [];
+    if (userIds.length) {
+      const { data: rows, error: assignmentError } = await admin.from("pilot_user_account_access")
+        .select("user_id,account_id").eq("owner_id", user.id).in("user_id", userIds).limit(2_500);
+      if (assignmentError) return respond(500, { error: "Hak akses akun staff tidak dapat dimuat." });
+      assignments = rows ?? [];
+    }
+    const { data: accounts, error: accountsError } = await admin.from("mt5_accounts")
+      .select("id,label").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(25);
+    if (accountsError) return respond(500, { error: "Daftar akun tidak dapat dimuat." });
+    const labels = new Map((accounts ?? []).map((account) => [account.id, account.label]));
+    return respond(200, { users: (data ?? []).map((item) => {
+      const accountIds = assignments.filter((row) => row.user_id === item.user_id).map((row) => String(row.account_id));
+      return { ...item, account_ids: accountIds, account_labels: accountIds.map((id) => labels.get(id)).filter(Boolean) };
+    }) });
   }
 
   if (path === "/dashboard/users" && req.method === "POST") {
@@ -140,15 +156,29 @@ async function handleDashboard(req: Request, path: string) {
     }
     const body = await jsonBody(req);
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const requestedRole = body?.accessRole === "staff" ? "staff" : body?.accessRole === "read_only" ? "read_only" : "";
+    const accountIds = Array.isArray(body?.accountIds) && body.accountIds.every((id) => typeof id === "string")
+      ? [...new Set(body.accountIds as string[])] : [];
+    if (!requestedRole) return respond(400, { error: "Pilih role read-only atau staff." });
     if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return respond(400, { error: "Alamat email tidak valid." });
+    }
+    if (requestedRole === "staff" && (accountIds.length < 1 || accountIds.length > 25)) {
+      return respond(400, { error: "Pilih minimal satu akun untuk staff (maksimal 25)." });
+    }
+    if (requestedRole === "read_only" && accountIds.length) return respond(400, { error: "Akun khusus hanya dapat dipilih untuk role staff." });
+    if (requestedRole === "staff") {
+      const { data: validAccounts, error: accountError } = await admin.from("mt5_accounts")
+        .select("id").eq("owner_id", user.id).in("id", accountIds).limit(25);
+      if (accountError) return respond(500, { error: "Akun staff tidak dapat divalidasi." });
+      if ((validAccounts ?? []).length !== accountIds.length) return respond(400, { error: "Pilihan mencakup akun yang bukan milik owner." });
     }
     const password = temporaryPassword();
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      app_metadata: { pilot_role: "read_only", pilot_provisioned_by: "owner" },
+      app_metadata: { pilot_role: requestedRole, pilot_provisioned_by: "owner" },
     });
     if (createError || !created.user) {
       console.error("[mt5-api] owner user creation failed", createError?.message ?? "unknown");
@@ -158,20 +188,74 @@ async function handleDashboard(req: Request, path: string) {
       user_id: created.user.id,
       owner_id: user.id,
       email,
-      access_role: "read_only",
+      access_role: requestedRole,
     });
     if (roleError) {
       await admin.auth.admin.deleteUser(created.user.id);
       console.error("[mt5-api] owner user role assignment failed", roleError.message);
-      return respond(500, { error: "Role read-only gagal disimpan; akun baru dibatalkan." });
+      return respond(500, { error: "Role pengguna gagal disimpan; akun baru dibatalkan." });
     }
-    return respond(201, { user: { id: created.user.id, email, access_role: "read_only" }, temporaryPassword: password });
+    if (requestedRole === "staff") {
+      const { error: assignmentError } = await admin.from("pilot_user_account_access").insert(
+        accountIds.map((accountId) => ({ user_id: created.user.id, owner_id: user.id, account_id: accountId })),
+      );
+      if (assignmentError) {
+        await admin.auth.admin.deleteUser(created.user.id);
+        console.error("[mt5-api] staff account assignment failed", assignmentError.message);
+        return respond(500, { error: "Pilihan akun staff gagal disimpan; akun baru dibatalkan." });
+      }
+    }
+    return respond(201, { user: { id: created.user.id, email, access_role: requestedRole, account_ids: accountIds }, temporaryPassword: password });
+  }
+
+  const accountAccessMatch = path.match(/^\/dashboard\/users\/([0-9a-f-]{36})$/i);
+  if (accountAccessMatch && req.method === "PATCH") {
+    if (access.access_role !== "owner" || access.owner_id !== user.id) return respond(403, { error: "Hanya owner utama yang dapat mengubah akses pengguna." });
+    const targetUserId = accountAccessMatch[1];
+    if (targetUserId === user.id) return respond(400, { error: "Akses owner tidak dapat diubah melalui pengelolaan staff." });
+    const body = await jsonBody(req);
+    const requestedRole = body?.accessRole === "staff" ? "staff" : body?.accessRole === "read_only" ? "read_only" : "";
+    const accountIds = Array.isArray(body?.accountIds) && body.accountIds.every((id) => typeof id === "string")
+      ? [...new Set(body.accountIds as string[])] : [];
+    if (!requestedRole) return respond(400, { error: "Pilih role read-only atau staff." });
+    if (requestedRole === "staff" && (accountIds.length < 1 || accountIds.length > 25)) return respond(400, { error: "Pilih minimal satu akun untuk staff." });
+    const { data: target, error: targetError } = await admin.from("pilot_user_access").select("user_id")
+      .eq("user_id", targetUserId).eq("owner_id", user.id).in("access_role", ["read_only", "staff"]).maybeSingle();
+    if (targetError || !target) return respond(404, { error: "Pengguna tidak ditemukan." });
+    if (requestedRole === "staff") {
+      const { data: validAccounts, error: accountError } = await admin.from("mt5_accounts")
+        .select("id").eq("owner_id", user.id).in("id", accountIds).limit(25);
+      if (accountError) return respond(500, { error: "Akun staff tidak dapat divalidasi." });
+      if ((validAccounts ?? []).length !== accountIds.length) return respond(400, { error: "Pilihan mencakup akun yang bukan milik owner." });
+    }
+    const { error: updateError } = await admin.from("pilot_user_access").update({ access_role: requestedRole })
+      .eq("user_id", targetUserId).eq("owner_id", user.id);
+    if (updateError) return respond(500, { error: "Role pengguna tidak dapat diperbarui." });
+    const { error: deleteError } = await admin.from("pilot_user_account_access").delete().eq("user_id", targetUserId).eq("owner_id", user.id);
+    if (deleteError) return respond(500, { error: "Akses akun lama tidak dapat diperbarui." });
+    if (requestedRole === "staff") {
+      const { error: insertError } = await admin.from("pilot_user_account_access").insert(
+        accountIds.map((accountId) => ({ user_id: targetUserId, owner_id: user.id, account_id: accountId })),
+      );
+      if (insertError) return respond(500, { error: "Akses akun staff tidak dapat disimpan." });
+    }
+    return respond(200, { ok: true });
   }
 
   if (path === "/dashboard/accounts" && req.method === "GET") {
-    const { data: accounts, error } = await admin.from("mt5_accounts").select(
-      "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at,ea_config",
-    ).eq("owner_id", access.owner_id).order("created_at", { ascending: true }).limit(25);
+    let allowedAccountIds: string[] | null = null;
+    if (access.access_role === "staff") {
+      const { data: assignments, error: assignmentError } = await admin.from("pilot_user_account_access")
+        .select("account_id").eq("user_id", user.id).eq("owner_id", access.owner_id).limit(25);
+      if (assignmentError) return respond(500, { error: "Daftar akun staff gagal dibaca." });
+      allowedAccountIds = (assignments ?? []).map((row) => String(row.account_id));
+      if (!allowedAccountIds.length) return respond(200, { accounts: [] });
+    }
+    const accountColumns = "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at";
+    let accountQuery = admin.from("mt5_accounts").select(access.access_role === "owner" ? `${accountColumns},ea_config` : accountColumns)
+      .eq("owner_id", access.owner_id).order("created_at", { ascending: true }).limit(25);
+    if (allowedAccountIds) accountQuery = accountQuery.in("id", allowedAccountIds);
+    const { data: accounts, error } = await accountQuery;
     if (error) return respond(500, { error: "Data akun gagal dibaca." });
     const accountIds = (accounts ?? []).map((account) => account.id);
     let commands: Json[] = [];
@@ -246,14 +330,20 @@ async function handleDashboard(req: Request, path: string) {
 
   const commandMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/commands$/i);
   if (commandMatch && req.method === "POST") {
-    if (access.access_role !== "owner") return respond(403, { error: "Aksi ini hanya tersedia untuk owner." });
+    if (!["owner", "staff"].includes(access.access_role)) return respond(403, { error: "Role ini tidak dapat mengirim perintah EA." });
     const body = await jsonBody(req);
     const action = typeof body?.action === "string" ? body.action : "";
     if (!actions.has(action)) return respond(400, { error: "Jenis perintah tidak dikenal." });
     const accountId = commandMatch[1];
     const { data: account, error: accountError } = await admin.from("mt5_accounts")
-      .select("id,owner_id,last_seen_at").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
+      .select("id,owner_id,last_seen_at").eq("id", accountId).eq("owner_id", access.owner_id).maybeSingle();
     if (accountError || !account) return respond(404, { error: "Akun tidak ditemukan." });
+    if (access.access_role === "staff") {
+      const { data: assignment, error: assignmentError } = await admin.from("pilot_user_account_access").select("account_id")
+        .eq("user_id", user.id).eq("owner_id", account.owner_id).eq("account_id", accountId).maybeSingle();
+      if (assignmentError) return respond(500, { error: "Izin akun staff tidak dapat diperiksa." });
+      if (!assignment) return respond(403, { error: "Staff tidak memiliki akses ke akun ini." });
+    }
     if (!account.last_seen_at || Date.now() - Date.parse(account.last_seen_at) > ONLINE_WINDOW_MS) {
       return respond(409, { error: "EA offline atau heartbeat sudah kedaluwarsa." });
     }
@@ -261,11 +351,11 @@ async function handleDashboard(req: Request, path: string) {
       .eq("account_id", accountId).in("status", activeStatuses).gt("expires_at", new Date().toISOString()).limit(1);
     if (pendingError) return respond(500, { error: "Antrean perintah gagal diperiksa." });
     if (pending?.length) return respond(409, { error: "Masih ada perintah yang belum selesai." });
-    const command = { account_id: accountId, owner_id: user.id, action, status: "queued", expires_at: new Date(Date.now() + COMMAND_TTL_MS).toISOString() };
+    const command = { account_id: accountId, owner_id: account.owner_id, requested_by_user_id: user.id, action, status: "queued", expires_at: new Date(Date.now() + COMMAND_TTL_MS).toISOString() };
     const { data, error } = await admin.from("mt5_commands").insert(command).select("id,action,status,created_at,expires_at").single();
     if (error || !data) return respond(500, { error: "Perintah gagal dimasukkan ke antrean." });
     try {
-      await writeEvent({ id: data.id, account_id: accountId, owner_id: user.id }, "queued");
+      await writeEvent({ id: data.id, account_id: accountId, owner_id: account.owner_id, requested_by_user_id: user.id }, "queued");
     } catch {
       await admin.from("mt5_commands").delete().eq("id", data.id);
       return respond(500, { error: "Jejak audit gagal ditulis; perintah dibatalkan." });

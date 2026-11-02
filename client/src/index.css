@@ -941,3 +941,13 @@ h1, h2, h3, p { margin: 0; }
 .pilot-dashboard[data-theme="light"] .pilot-config-account span, .pilot-dashboard[data-theme="blue-white"] .pilot-config-account span { color: var(--p-text); }
 .pilot-dashboard[data-theme="light"] .pilot-config-account strong, .pilot-dashboard[data-theme="blue-white"] .pilot-config-account strong { color: var(--p-muted); }
 @media (max-width: 520px) { .pilot-config-account { grid-template-columns: 1fr; } }
+
+/* Staff can operate assigned card controls but cannot edit account or dashboard settings. */
+.pilot-staff-card-title { cursor: default; }
+.pilot-staff-account-picker { display: grid; gap: 8px; grid-column: 1 / -1; min-width: 0; margin: 5px 0; padding: 12px; border: 1px solid var(--p-line); border-radius: 6px; }
+.pilot-staff-account-picker legend { padding: 0 5px; color: var(--p-text); font: 600 10px "IBM Plex Mono",ui-monospace,monospace; }
+.pilot-staff-account-picker label { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 8px !important; min-height: 28px; cursor: pointer; }
+.pilot-staff-account-picker input { width: 16px !important; height: 16px !important; accent-color: #74df9a; }
+.pilot-staff-account-picker label span { color: var(--p-text); font-size: 10px; }
+.pilot-user-create-form select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--p-line); border-radius: 5px; color: var(--p-text); background: #101c2c; }
+.pilot-managed-scope { display: block; margin-top: 4px; color: var(--p-muted) !important; font: 8px "IBM Plex Mono",ui-monospace,monospace !important; white-space: normal; }
