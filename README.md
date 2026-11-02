@@ -7,8 +7,10 @@ React / Express / tRPC / Drizzle starter, adapted from the Sandbox web-db-user t
 - `pnpm db:migrate`: apply checked-in migrations. `pnpm db:push`: generate and apply new schema changes.
 - `pnpm check` / `pnpm test`: types and application tests.
 
-Start with the Webdev skill's default-template guide. Platform login, storage, payments and service contracts live in its shared references; read the relevant capability before extending its helper.
+Dashboard access is owner-only and fails closed until `OWNER_OPEN_ID` is configured for the signed-in owner's exact Manus account ID. The application has no simulated MT5 data; metrics appear after the EA sends telemetry.
 
-`server/_core/publicConfig.ts` exposes only named public runtime values. Private keys stay server-side. The platform serves managed `/manus-storage/` assets; the application does not register a second proxy.
+`server/_core/publicConfig.ts` exposes only named public values to the browser. Keep API keys, database URLs, session secrets, and owner configuration server-side; never commit real `.env` values.
 
-Platform configuration is readable and editable through `webdev.config`. Default settings are initial values, not enforced constraints. The agent may modify the files, commands and configuration or follow the flexible guide for another stack.
+## Vercel
+
+`vercel.json` memilih `pnpm build:vercel` dan output statis `public/`; root `index.ts` mengekspor Express app sebagai Vercel Function. Untuk konfigurasi dan environment variable wajib, database MySQL, OAuth/callback, serta pemeriksaan privasi sebelum promosi production, lihat [`docs/deploy-vercel.md`](docs/deploy-vercel.md). Jangan commit `.env` atau kredensial.

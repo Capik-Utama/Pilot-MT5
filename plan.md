@@ -11,15 +11,27 @@ Aplikasi dashboard web privat untuk pemilik, mengelola beberapa akun MT5 yang ak
 - **Real-time:** EA mengirim heartbeat/telemetry secara periodik dan menarik perintah melalui HTTP; browser membaca snapshot dan status terbaru secara periodik. Status online diturunkan dari heartbeat yang segar, sedangkan keterlambatan ditandai sebagai basi/offline. Latensi total bergantung pada interval EA, jaringan, server, dan broker sehingga tidak dijanjikan sebagai eksekusi seketika.
 - **Privasi:** Manus OAuth yang disediakan starter menjadi login aplikasi. Prosedur dashboard harus menolak identitas selain pemilik yang dikonfigurasi, gagal tertutup jika identitas pemilik belum diatur, dan menyembunyikan kontrol sampai sesi sah. Visibilitas proyek harus tetap owner-only sebelum dipakai; visibilitas proyek adalah pengaturan platform terpisah dari login aplikasi.
 
+## Target deployment via Vercel
+- Vercel saat ini menerima commit GitHub, tetapi respons domain yang diperiksa adalah JavaScript (`application/javascript`) alih-alih HTML halaman dashboard; check sukses saja belum membuktikan situs siap diakses.
+- Vite menghasilkan UI sebagai aset statis ke direktori root `public/` pada perintah build khusus Vercel. Direktori itu menjadi output CDN Vercel; `express.static()` tidak dipakai untuk menyajikan UI di Vercel.
+- Root `index.ts` baru mengekspor Express app sebagai default tanpa membuka port. `server/_core/app.ts` berbagi registrasi middleware dan API; `server/_core/index.ts` tetap menjalankan listener untuk development/Docker.
+- `vercel.json` menetapkan `buildCommand` dan `outputDirectory`. Endpoint HTTP EA, OAuth, tRPC, dan health berjalan melalui satu Express Function; tidak menambahkan rewrite catch-all yang dapat menimpa endpoint API/platform.
+- Vercel memerlukan environment variable runtime yang sesuai untuk database MySQL, Manus OAuth/sesi, dan `OWNER_OPEN_ID`; file `.env`, URL database, token, atau key tidak masuk Git. Manus managed `DATABASE_URL` tidak diasumsikan dapat dijangkau Vercel; ketersediaan jaringan/TLS, migrasi skema, region, dan backup perlu dipastikan sebelum trafik produksi.
+- Jangan mempromosikan build produksi sebelum halaman root menyajikan `text/html`, API health aktif, akses owner-only teruji, login OAuth sesuai host Vercel, dan database eksternal siap. Vercel connector/OAuth belum terotorisasi pada sesi ini; branch Preview dapat memberi bukti build tanpa menggantikan pemeriksaan variabel rahasia/privasi produksi.
+
 ## Struktur proyek
 - `client/src/pages/Home.tsx`: layar dashboard, keadaan kosong, daftar akun, dan dialog konfirmasi/perintah.
 - `client/src/index.css`: sistem warna terminal gelap, tipografi monospasi, status warna, dan responsivitas.
+- `index.ts` (baru): default export Express app untuk serverless Function Vercel; tidak memanggil `listen()`.
+- `server/_core/app.ts` (baru): konfigurasi middleware dan route Express yang dipakai bersama.
 - `server/routers.ts`: API owner untuk membaca akun, membuat koneksi/token, dan membuat perintah.
 - `server/mt5.ts` (modul baru): validasi skema input, hashing token, autentikasi EA, operasi akun/telemetry/perintah/ack.
-- `server/_core/index.ts`: registrasi route HTTP EA dan alur parser JSON.
+- `server/_core/index.ts`: listener development/Docker yang memanggil route bersama dan memilih Vite/static lokal.
 - `server/db.ts` serta `drizzle/schema.ts` dan `drizzle/`: persistensi dan migrasi database.
 - `shared/`: skema dan tipe umum yang dibutuhkan frontend/server.
 - `client/public/manus-routes.json`: deklarasi rute halaman web.
+- `vercel.json` (baru): build frontend dan deklarasi output statis Vercel.
+- `docs/deploy-vercel.md` (baru): prasyarat, environment variable, dan langkah setup/validasi Vercel.
 - `docs/mt5-ea-api.md`: kontrak HTTP untuk pembuatan EA MQL5 berikutnya.
 - `plan.md` dan `TODO.md`: keputusan desain/implementasi serta status outcome.
 

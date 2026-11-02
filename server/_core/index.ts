@@ -1,33 +1,11 @@
 import "dotenv/config";
-import express from "express";
 import { createServer } from "http";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { publicPlatformScript } from "./publicConfig";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { registerMt5Routes } from "../mt5";
+import { createApp } from "./app";
 
 async function startServer() {
-  const app = express();
+  const app = createApp();
   const server = createServer(app);
-  app.use(express.json({ limit: "32kb" }));
-  app.use(express.urlencoded({ limit: "16kb", extended: true }));
-  app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
-  app.get("/api/platform/config.js", (_req, res) => {
-    res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
-  });
-  registerOAuthRoutes(app);
-  registerMt5Routes(app);
-  // tRPC API
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
