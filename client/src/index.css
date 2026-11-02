@@ -795,3 +795,16 @@ h1, h2, h3, p { margin: 0; }
   .pilot-brand strong { font-size: 16px; }
   .pilot-brand small { font-size: 6px; letter-spacing: .08em; }
 }
+
+/* Keep the mobile header in one row with the menu button at top right. */
+@media (max-width: 650px) {
+  .pilot-topbar {
+    min-height: 70px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .pilot-menu-button { flex: 0 0 auto; }
+}
