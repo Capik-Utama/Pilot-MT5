@@ -989,3 +989,20 @@ h1, h2, h3, p { margin: 0; }
   .pilot-card-summary .metric-profit > span,
   .pilot-card-summary .metric-profit strong { font-size: 20px; }
 }
+
+.pilot-card-summary .metric-profit > span { font-size: clamp(11px, calc(.62vw + 4px), 13px); font-weight: 700; }
+.pilot-card-summary .metric-profit strong { font-size: clamp(11px, calc(.68vw + 4px), 14px); font-weight: 700; }
+.pilot-card-summary .metric-running > span { font-size: clamp(9px, calc(.62vw + 2px), 11px); }
+.pilot-card-summary .metric-running strong { font-size: clamp(9px, calc(.68vw + 2px), 12px); }
+@media (min-width: 1200px) {
+  .pilot-card-summary .metric-profit > span,
+  .pilot-card-summary .metric-profit strong { font-size: 18px; }
+  .pilot-card-summary .metric-running > span,
+  .pilot-card-summary .metric-running strong { font-size: 14px; }
+}
+@media (max-width: 650px) {
+  .pilot-card-summary .metric-profit > span,
+  .pilot-card-summary .metric-profit strong { font-size: 16px; }
+  .pilot-card-summary .metric-running > span,
+  .pilot-card-summary .metric-running strong { font-size: 12px; }
+}
