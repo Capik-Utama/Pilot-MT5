@@ -25,8 +25,8 @@ type ConnectionToken = { label: string; token: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
-  LotAwal: 0.01, PenggandaLot: 1.5, LotMaksimal: 15, LangkahLayer: 5, JarakGrid: 1000, JarakTrailingPending: 500,
-  JenisBatasRugi: 0, BatasKerugian: 10000, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
+  LotAwal: 0.01, PenggandaLot: 1.2, LotMaksimal: 12, LangkahLayer: 1, JarakGrid: 2000, JarakTrailingPending: 500,
+  JenisBatasRugi: 0, BatasKerugian: 30000, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
   MulaiTrailingPoin: 1500, KunciProfitPoin: 1000, LangkahTrailingPoin: 500,
 };
 const coreConfigFields = [
@@ -187,7 +187,10 @@ export default function Home() {
 
   const openConfigEditor = (account: Account) => {
     setEditingAccount(account);
-    setEditingConfig({ ...defaultEaConfig, ...(account.ea_config ?? {}) });
+    const savedConfig = account.ea_config ?? {};
+    setEditingConfig(Object.fromEntries(
+      Object.entries(defaultEaConfig).map(([key, defaultValue]) => [key, savedConfig[key] ?? defaultValue]),
+    ) as EaConfig);
   };
 
   const saveConfig = async (event: FormEvent<HTMLFormElement>) => {

@@ -92,6 +92,7 @@ bool isAutoTradingActive = false; // Default aman: Manual sampai pemilik memilih
 uint LastPilotTelemetryAt = 0;
 uint LastPilotPollAt = 0;
 int LastPilotLatencyMs = 0;
+string InputConfigSnapshot = "";
 
 void CreateDashboard();
 void RefreshDashboardUI();
@@ -124,6 +125,11 @@ bool PilotCloseMagic(const int magic, int &closedCount, string &details);
 double PilotJsonNumber(const string json, const string key, const double fallback);
 bool PilotJsonBool(const string json, const string key, const bool fallback);
 string PilotJsonObject(const string json, const string key);
+string PilotConfigJson(const bool fromInputs);
+string PilotConfigStateFile();
+string PilotReadConfigState();
+void PilotSaveConfigState();
+bool PilotRestoreConfigState();
 bool PilotApplyConfig(const string json);
 
 int OnInit() {
@@ -146,6 +152,7 @@ int OnInit() {
    MulaiTrailingPoin = InputMulaiTrailingPoin;
    KunciProfitPoin = InputKunciProfitPoin;
    LangkahTrailingPoin = InputLangkahTrailingPoin;
+   InputConfigSnapshot = PilotConfigJson(true);
    ResetTime = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
    LastDayReset = ResetTime;
    trade.LogLevel(LOG_LEVEL_NO);
@@ -158,6 +165,7 @@ int OnInit() {
 
    isAutoTradingActive = false;
    CreateDashboard();
+   PilotRestoreConfigState();
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetTimer(2);
    if(EnablePilotRemote && EAConnectionToken == "")
       Print("Fast-Grid Pilot: tempel EAConnectionToken dari dashboard agar telemetri aktif.");
@@ -556,6 +564,94 @@ string PilotJsonObject(const string json, const string key) {
    return StringSubstr(json, p, end - p + 1);
 }
 
+string PilotConfigJson(const bool fromInputs) {
+   return "{\"ModePerdagangan\":" + IntegerToString(fromInputs ? (int)InputModePerdagangan : (int)ModePerdagangan) +
+      ",\"MataUangTampilan\":" + IntegerToString(fromInputs ? (int)InputMataUangTampilan : (int)MataUangTampilan) +
+      ",\"KursUSD_IDR\":" + DoubleToString(fromInputs ? InputKursUSD_IDR : KursUSD_IDR, 8) +
+      ",\"MagicBeli\":" + IntegerToString(fromInputs ? InputMagicBeli : MagicBeli) +
+      ",\"MagicJual\":" + IntegerToString(fromInputs ? InputMagicJual : MagicJual) +
+      ",\"LotAwal\":" + DoubleToString(fromInputs ? InputLotAwal : LotAwal, 8) +
+      ",\"PenggandaLot\":" + DoubleToString(fromInputs ? InputPenggandaLot : PenggandaLot, 8) +
+      ",\"LotMaksimal\":" + DoubleToString(fromInputs ? InputLotMaksimal : LotMaksimal, 8) +
+      ",\"LangkahLayer\":" + IntegerToString(fromInputs ? InputLangkahLayer : LangkahLayer) +
+      ",\"JarakGrid\":" + IntegerToString(fromInputs ? InputJarakGrid : JarakGrid) +
+      ",\"JarakTrailingPending\":" + IntegerToString(fromInputs ? InputJarakTrailingPending : JarakTrailingPending) +
+      ",\"JenisBatasRugi\":" + IntegerToString(fromInputs ? (int)InputJenisBatasRugi : (int)JenisBatasRugi) +
+      ",\"BatasKerugian\":" + DoubleToString(fromInputs ? InputBatasKerugian : BatasKerugian, 8) +
+      ",\"TargetHarian\":" + DoubleToString(fromInputs ? InputTargetHarian : TargetHarian, 8) +
+      ",\"SetelahTargetTercapai\":" + IntegerToString(fromInputs ? (int)InputSetelahTargetTercapai : (int)SetelahTargetTercapai) +
+      ",\"ModeTrailing\":" + IntegerToString(fromInputs ? (int)InputModeTrailing : (int)ModeTrailing) +
+      ",\"MulaiTrailingPoin\":" + IntegerToString(fromInputs ? InputMulaiTrailingPoin : MulaiTrailingPoin) +
+      ",\"KunciProfitPoin\":" + IntegerToString(fromInputs ? InputKunciProfitPoin : KunciProfitPoin) +
+      ",\"LangkahTrailingPoin\":" + IntegerToString(fromInputs ? InputLangkahTrailingPoin : LangkahTrailingPoin) + "}";
+}
+
+string PilotConfigStateFile() {
+   string tokenSuffix = StringSubstr(EAConnectionToken, MathMax(0, StringLen(EAConnectionToken) - 8));
+   if(tokenSuffix == "") tokenSuffix = "LOCAL";
+   return "MT5Pilot_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + tokenSuffix + ".json";
+}
+
+string PilotReadConfigState() {
+   int handle = FileOpen(PilotConfigStateFile(), FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(handle == INVALID_HANDLE) return "";
+   string state = FileReadString(handle);
+   FileClose(handle);
+   return state;
+}
+
+void PilotSaveConfigState() {
+   if(!EnablePilotRemote || EAConnectionToken == "" || InputConfigSnapshot == "" || MQLInfoInteger(MQL_TESTER)) return;
+   int handle = FileOpen(PilotConfigStateFile(), FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(handle == INVALID_HANDLE) {
+      Print("MT5 Pilot: konfigurasi tidak dapat disimpan ke Common Files terminal.");
+      return;
+   }
+   FileWriteString(handle, "{\"inputs\":" + InputConfigSnapshot + ",\"active\":" + PilotConfigJson(false) + "}");
+   FileFlush(handle);
+   FileClose(handle);
+}
+
+bool PilotRestoreConfigState() {
+   if(!EnablePilotRemote || EAConnectionToken == "" || MQLInfoInteger(MQL_TESTER)) return false;
+   string state = PilotReadConfigState();
+   string savedInputs = PilotJsonObject(state, "inputs");
+   string savedActive = PilotJsonObject(state, "active");
+   if(savedInputs == "" || savedActive == "") {
+      PilotSaveConfigState();
+      return false;
+   }
+
+   PilotApplyConfig(savedActive);
+   if(PilotJsonNumber(savedInputs, "ModePerdagangan", -1) != (int)InputModePerdagangan) ModePerdagangan = InputModePerdagangan;
+   if(PilotJsonNumber(savedInputs, "MataUangTampilan", -1) != (int)InputMataUangTampilan) MataUangTampilan = InputMataUangTampilan;
+   if(PilotJsonNumber(savedInputs, "KursUSD_IDR", -1) != InputKursUSD_IDR) KursUSD_IDR = InputKursUSD_IDR;
+   if(PilotJsonNumber(savedInputs, "MagicBeli", -1) != InputMagicBeli) MagicBeli = InputMagicBeli;
+   if(PilotJsonNumber(savedInputs, "MagicJual", -1) != InputMagicJual) MagicJual = InputMagicJual;
+   if(PilotJsonNumber(savedInputs, "LotAwal", -1) != InputLotAwal) LotAwal = InputLotAwal;
+   if(PilotJsonNumber(savedInputs, "PenggandaLot", -1) != InputPenggandaLot) PenggandaLot = InputPenggandaLot;
+   if(PilotJsonNumber(savedInputs, "LotMaksimal", -1) != InputLotMaksimal) LotMaksimal = InputLotMaksimal;
+   if(PilotJsonNumber(savedInputs, "LangkahLayer", -1) != InputLangkahLayer) LangkahLayer = InputLangkahLayer;
+   if(PilotJsonNumber(savedInputs, "JarakGrid", -1) != InputJarakGrid) JarakGrid = InputJarakGrid;
+   if(PilotJsonNumber(savedInputs, "JarakTrailingPending", -1) != InputJarakTrailingPending) JarakTrailingPending = InputJarakTrailingPending;
+   if(PilotJsonNumber(savedInputs, "JenisBatasRugi", -1) != (int)InputJenisBatasRugi) JenisBatasRugi = InputJenisBatasRugi;
+   if(PilotJsonNumber(savedInputs, "BatasKerugian", -1) != InputBatasKerugian) BatasKerugian = InputBatasKerugian;
+   if(PilotJsonNumber(savedInputs, "TargetHarian", -1) != InputTargetHarian) TargetHarian = InputTargetHarian;
+   if(PilotJsonNumber(savedInputs, "SetelahTargetTercapai", -1) != (int)InputSetelahTargetTercapai) SetelahTargetTercapai = InputSetelahTargetTercapai;
+   if(PilotJsonNumber(savedInputs, "ModeTrailing", -1) != (int)InputModeTrailing) ModeTrailing = InputModeTrailing;
+   if(PilotJsonNumber(savedInputs, "MulaiTrailingPoin", -1) != InputMulaiTrailingPoin) MulaiTrailingPoin = InputMulaiTrailingPoin;
+   if(PilotJsonNumber(savedInputs, "KunciProfitPoin", -1) != InputKunciProfitPoin) KunciProfitPoin = InputKunciProfitPoin;
+   if(PilotJsonNumber(savedInputs, "LangkahTrailingPoin", -1) != InputLangkahTrailingPoin) LangkahTrailingPoin = InputLangkahTrailingPoin;
+
+   if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
+   else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
+   else CurrentCurrencyMode = 0;
+   InpUsdToIdr = KursUSD_IDR;
+   RefreshDashboardUI();
+   PilotSaveConfigState();
+   return true;
+}
+
 bool PilotApplyConfig(const string json) {
    ModePerdagangan = (ENUM_TRADE_MODE)PilotJsonNumber(json, "ModePerdagangan", ModePerdagangan);
    MataUangTampilan = (ENUM_DISPLAY_CURRENCY)PilotJsonNumber(json, "MataUangTampilan", MataUangTampilan);
@@ -580,6 +676,7 @@ bool PilotApplyConfig(const string json) {
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
    else CurrentCurrencyMode = 0;
    InpUsdToIdr = KursUSD_IDR;
+   PilotSaveConfigState();
    RefreshDashboardUI();
    return true;
 }
@@ -636,25 +733,7 @@ void PilotSendTelemetry() {
       int magic = (int)PositionGetInteger(POSITION_MAGIC);
       if(magic == MagicBeli || magic == MagicJual) openPositions++;
    }
-   string activeConfig = "{\"ModePerdagangan\":" + IntegerToString((int)ModePerdagangan) +
-      ",\"MataUangTampilan\":" + IntegerToString((int)MataUangTampilan) +
-      ",\"KursUSD_IDR\":" + DoubleToString(KursUSD_IDR, 8) +
-      ",\"MagicBeli\":" + IntegerToString(MagicBeli) +
-      ",\"MagicJual\":" + IntegerToString(MagicJual) +
-      ",\"LotAwal\":" + DoubleToString(LotAwal, 8) +
-      ",\"PenggandaLot\":" + DoubleToString(PenggandaLot, 8) +
-      ",\"LotMaksimal\":" + DoubleToString(LotMaksimal, 8) +
-      ",\"LangkahLayer\":" + IntegerToString(LangkahLayer) +
-      ",\"JarakGrid\":" + IntegerToString(JarakGrid) +
-      ",\"JarakTrailingPending\":" + IntegerToString(JarakTrailingPending) +
-      ",\"JenisBatasRugi\":" + IntegerToString((int)JenisBatasRugi) +
-      ",\"BatasKerugian\":" + DoubleToString(BatasKerugian, 8) +
-      ",\"TargetHarian\":" + DoubleToString(TargetHarian, 8) +
-      ",\"SetelahTargetTercapai\":" + IntegerToString((int)SetelahTargetTercapai) +
-      ",\"ModeTrailing\":" + IntegerToString((int)ModeTrailing) +
-      ",\"MulaiTrailingPoin\":" + IntegerToString(MulaiTrailingPoin) +
-      ",\"KunciProfitPoin\":" + IntegerToString(KunciProfitPoin) +
-      ",\"LangkahTrailingPoin\":" + IntegerToString(LangkahTrailingPoin) + "}";
+   string activeConfig = PilotConfigJson(false);
    string body = "{\"accountName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_NAME)) +
       "\",\"login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) +
       ",\"serverName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER)) +
