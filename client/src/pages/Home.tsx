@@ -91,9 +91,23 @@ export default function Home() {
 
   useEffect(() => {
     if (!session) { setAccounts([]); return; }
+    let debounceTimer: number | undefined;
+    const refresh = () => {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => void loadAccounts(), 120);
+    };
     void loadAccounts();
-    const timer = window.setInterval(() => void loadAccounts(), 2500);
-    return () => window.clearInterval(timer);
+    const fallbackTimer = window.setInterval(() => void loadAccounts(), 15_000);
+    const channel = supabase
+      .channel(`mt5-dashboard:${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mt5_accounts", filter: `owner_id=eq.${session.user.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mt5_commands", filter: `owner_id=eq.${session.user.id}` }, refresh)
+      .subscribe();
+    return () => {
+      window.clearTimeout(debounceTimer);
+      window.clearInterval(fallbackTimer);
+      void supabase.removeChannel(channel);
+    };
   }, [loadAccounts, session]);
 
   const onlineCount = useMemo(() => accounts.filter((account) => account.connection_status === "online").length, [accounts]);
