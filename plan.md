@@ -4,7 +4,7 @@
 
 Proyek memiliki dashboard untuk source EA Fast-Grid: login Supabase Auth, pembuatan token koneksi satu kali, ringkasan data telemetry, status heartbeat, serta antrean tombol Manual/Auto/Close Buy/Close Sell/Close All. Pendaftaran publik ditutup; owner membuat pengguna `read_only` dari menu sidebar, sedangkan role dan otorisasi diperiksa di Supabase Edge Function dan database. Frontend dipublikasikan sebagai aplikasi statis Vite di Vercel; data dan kontrol melewati Supabase Edge Function `mt5-api`. Source yang sudah diadaptasi berada di `ea/Fast-Grid-Pilot.mq5`.
 
-Akun awal dan data demo tidak dibuat otomatis. Dashboard menampilkan nilai kosong/offline hingga EA mengirim heartbeat asli. EA menyertakan validasi token koneksi EA dan mode awal Manual; tombol close beralih ke Manual, membatasi penutupan pada simbol chart dan Magic Number Fast-Grid. Fitur kontrol masih harus dikompilasi dan diuji di MetaTrader milik pengguna.
+Akun MT5 tidak dibuat otomatis oleh dashboard. Nilai akun tampil kosong/offline hingga EA mengirim heartbeat asli. Dashboard tidak memfilter jenis akun; pemilik harus memastikan terminal MT5 yang dipilih adalah akun real yang dimaksud. Koneksi baru otomatis disetel AUTO dan mengantrekan perintah AUTO saat EA tersambung, sehingga dapat membuka posisi mengikuti konfigurasi risiko. EA menyertakan validasi token koneksi; tombol close beralih ke Manual dan membatasi penutupan pada simbol chart serta Magic Number Fast-Grid. File MQL5 perlu dikompilasi dan dijalankan pada terminal MT5 milik pengguna.
 
 ## Arsitektur
 
@@ -32,5 +32,5 @@ Kontrol trading bukan pengganti pengawasan MT5/broker. WebRequest bersifat sinkr
 - `supabase/migrations/20261102150000_mt5_pilot.sql`: schema tabel, indeks, RLS, dan hak akses.
 - `supabase/migrations/20261102200000_pilot_read_only_users.sql`: role owner/read-only, sharing Realtime scoped, serta pencegahan signup mandiri.
 - `supabase/functions/mt5-api/index.ts`: API dashboard, telemetry, polling perintah, dan acknowledgement.
-- `ea/Fast-Grid-Pilot.mq5`: EA Fast-Grid bertelemetri dan kontrol akun demo maupun real.
+- `ea/Fast-Grid-Pilot.mq5`: EA Fast-Grid bertelemetri dan kontrol akun MT5.
 - `docs/mt5-ea-api.md`: langkah instalasi, allow-list WebRequest, semantik nilai, serta referensi resmi.

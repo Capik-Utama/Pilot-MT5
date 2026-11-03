@@ -471,10 +471,6 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-title { display:flex; min-width:0; align-items:center; gap:12px; }
 .pilot-account-title h3 { overflow:hidden; color:#e4edf4; font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .pilot-account-title p { overflow:hidden; margin:4px 0 0; color:#7d8fa3; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
-.pilot-account-tags { display:flex; flex-wrap:wrap; align-items:center; gap:10px 17px; min-height:39px; padding:8px 21px; border-bottom:1px solid var(--p-line); color:#8899aa; background:rgba(6,15,27,.32); font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:8px; }
-.pilot-account-tags > span { display:inline-flex; align-items:center; gap:6px; }
-.pilot-account-tags > span.demo { color:#72d9b1; }
-.pilot-account-tags > span.live { color:#f09a8b; }
 .pilot-mode { color:#8bd8d0; }
 .pilot-running .run { width:5px; height:5px; border-radius:50%; background:#58d5a5; box-shadow:0 0 7px rgba(82,223,172,.45); }
 .pilot-running .stop { width:5px; height:5px; border-radius:50%; background:#8392a4; }
@@ -566,7 +562,6 @@ h1, h2, h3, p { margin: 0; }
  .pilot-toolbar-actions .pilot-icon-button { width:32px; height:34px; }
  .pilot-toolbar-actions .pilot-add-button { padding:0 9px; font-size:9px; }
  .pilot-account-header { padding:12px 12px 11px 17px; }
- .pilot-account-tags { gap:9px 12px; padding:9px 14px; font-size:7px; }
  .pilot-metrics { padding:15px; }
  .pilot-metrics > div > span { font-size:7px; }
  .pilot-metrics strong { font-size:14px; }
@@ -610,7 +605,6 @@ h1, h2, h3, p { margin: 0; }
 .pilot-account-title { justify-content: center; text-align: center; }
 .pilot-account-title h3 { color: #00ff00; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: clamp(18px, calc(1.35vw + 4px), 25px); font-weight: 800; letter-spacing: .025em; text-shadow: 0 0 10px rgba(48,255,0,.35); }
 .pilot-account-title p { color: #a4b1c5; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 7px; }
-.pilot-account-tags { display: none; }
 .pilot-panel-buttons { display: grid; gap: 2px; padding: 6px 7px 4px; }
 .pilot-button-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 2px; }
 .pilot-panel-buttons button, .pilot-reset-row button { min-width: 0; min-height: 21px; padding: 0 3px; border: 1px solid rgba(152,164,214,.55); border-radius: 0; color: #ffffff; background: #20283f; font: 700 12px "IBM Plex Mono",ui-monospace,monospace; letter-spacing: .025em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }

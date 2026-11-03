@@ -722,7 +722,6 @@ double PilotDailyProfit() {
 void PilotSendTelemetry() {
    UpdateFloatingStats();
    double floating = PilotFloatingProfit();
-   bool demo = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO);
    string mode = isAutoTradingActive ? "auto" : "manual";
    string eaStatus = "ACTIVE";
    if(IsStoppedByTarget) eaStatus = "TARGET HIT";
@@ -755,7 +754,6 @@ void PilotSendTelemetry() {
       ",\"profit\":" + DoubleToString(PilotDailyProfit(), 2) +
       ",\"floatingProfit\":" + DoubleToString(floating, 2) +
       ",\"running\":" + (isAutoTradingActive && !IsStoppedByTarget ? "true" : "false") +
-      ",\"isDemo\":" + (demo ? "true" : "false") +
       ",\"isCentAccount\":" + (IsCentAccount() ? "true" : "false") +
       ",\"displayCurrency\":\"" + (CurrentCurrencyMode == 1 ? "CENT" : CurrentCurrencyMode == 2 ? "IDR" : "USD") + "\"" +
       ",\"displayRate\":" + DoubleToString(InpUsdToIdr, 2) +

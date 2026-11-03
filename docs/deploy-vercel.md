@@ -1,21 +1,23 @@
 # Deploy MT5 Pilot ke Vercel
 
-## Arsitektur aktif
+## Arsitektur
 
-Vercel membangun frontend React/Vite dari root repository dengan `pnpm build:vercel`, lalu menyajikan folder statis `public/`. Browser menggunakan URL dan publishable key Supabase yang memang boleh tampil di client. Autentikasi, tabel, telemetry EA, dan antrean kontrol berada pada proyek Supabase `Pilot-MT5`; Vercel tidak menerima database/service-role key.
+Vercel membangun frontend React/Vite dari root repository dengan `pnpm build:vercel`, lalu menyajikan folder statis `public/`. Browser menggunakan URL dan publishable key Supabase. Autentikasi, database, telemetry EA, dan antrean kontrol berada pada project Supabase `Pilot-MT5`; service-role key hanya berada di lingkungan server Supabase.
 
 ## Proses publish
 
-Impor repository pada root repo, jangan pilih subfolder `client`. Pastikan framework preset Vite, build command `pnpm build:vercel`, dan output directory `public/`. Deploy setelah perubahan masuk ke branch produksi. Setelah deploy, buka root domain, verifikasi layar login/registrasi, lalu tes Edge Function Supabase dengan request tanpa sesi/token (harus ditolak). Preview branch dapat memerlukan autentikasi Vercel dan tidak otomatis berarti produksi sudah diperbarui.
+Hubungkan repository pada root repo, gunakan preset Vite, build command `pnpm build:vercel`, dan output directory `public/`. Push ke branch produksi akan memicu deployment Vercel. Setelah deployment, halaman `/` harus menampilkan login saja; tidak ada pendaftaran publik. Request ke Edge Function tanpa sesi pengguna atau token EA yang valid harus ditolak.
 
-Tidak diperlukan server Express, variabel MySQL, OAuth Manus, atau secret Supabase di Vercel untuk konfigurasi ini. Jangan menambahkan service-role key atau token koneksi EA ke frontend, file `.env` yang dikomit, atau HTML statis.
+Vercel tidak memerlukan server Express, variabel MySQL, OAuth Manus, atau secret service-role Supabase untuk konfigurasi ini. Jangan menambahkan service-role key atau token koneksi EA ke frontend, `.env` yang dikomit, atau HTML statis.
 
 ## Supabase dan MT5
 
-Schema ada di `supabase/migrations/`; Edge Function `mt5-api` harus dideploy pada proyek yang sama. Fungsi menggunakan secret standar Supabase di server dan autentikasi internal untuk JWT pengguna / token EA. Function gateway memakai `verify_jwt=false` karena EA membawa token kustom; jangan mengubahnya menjadi endpoint tanpa autentikasi. Tabel RLS aktif, dan role browser tidak mendapat grant langsung.
+Schema berada di `supabase/migrations/`; Edge Function `mt5-api` berjalan pada project Supabase yang sama. Function memvalidasi JWT pengguna atau token EA khusus sebelum mengakses tabel. Gateway menggunakan `verify_jwt=false` karena EA memakai token kustom; autentikasi internal tetap wajib dan tidak boleh dihapus. RLS aktif dan role browser tidak memperoleh grant langsung ke tabel.
 
-Pada tahap demo, pendaftaran Supabase Auth terbuka agar pemilik dapat membuat login. Data dan perintah tetap dipisahkan dengan `owner_id`, sehingga satu akun tidak bisa membaca milik akun lain. Perintah web hanya diizinkan jika sesi pemilik valid, EA terhubung dengan token yang benar, dan heartbeat masih aktif; source EA juga memvalidasi token EA. Untuk uji, tambahkan origin `https://qqdsultliybypiuvihli.supabase.co` ke allow-list WebRequest MT5.
+Signup publik Supabase Auth ditutup. Owner mengelola user dari dashboard; data tetap dibatasi menurut owner dan izin akun. Pada terminal MT5, izinkan WebRequest ke origin `https://qqdsultliybypiuvihli.supabase.co`.
+
+Aplikasi tidak mengklasifikasikan jenis akun MT5. Pastikan terminal yang dipilih adalah akun real yang dimaksud sebelum memasang EA. Koneksi baru otomatis memulai dalam AUTO dan mengantrekan perintah AUTO; setelah EA terhubung, entry dapat dimulai mengikuti konfigurasi. Perilaku ini dipertahankan sesuai permintaan owner. Tinjau parameter risiko terlebih dahulu.
 
 ## Verifikasi pascadeploy
 
-Pastikan dashboard `/` menampilkan login/daftar. Setelah login, halaman harus menunjukkan empty state (tanpa angka simulasi) sampai token dibuat dan EA mengirim heartbeat. Test endpoint `mt5-api` tanpa Authorization harus menghasilkan 401. Buat akun MT5, uji satu command per satu, periksa status acknowledgement dan transaksi broker, lalu cek tab Experts/Journal MT5. Pastikan pengaturan risiko sesuai sebelum mengirim perintah.
+Pastikan halaman login tidak menyediakan signup. Setelah owner masuk, akun yang belum mengirim telemetry harus tampil kosong/offline, tanpa angka sintetis. Endpoint `mt5-api` tanpa Authorization/token harus ditolak. Sebelum menghubungkan EA pada akun real, cek terminal MT5, simbol, lot, Magic Number, batas rugi dan target. Setelah tersambung, cocokkan nama, login, server, saldo, equity, status AUTO/MANUAL, serta perintah yang masuk di tab Experts/Journal dan riwayat broker.

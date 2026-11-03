@@ -105,7 +105,7 @@ async function authenticateEa(req: Request) {
   const token = bearer(req);
   if (token.length < 40 || token.length > 128) return null;
   const tokenHash = await sha256(token);
-  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,is_demo,poll_interval_ms,ea_mode")
+  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,poll_interval_ms,ea_mode")
     .eq("token_hash", tokenHash).maybeSingle();
   if (error || !data) return null;
   return data;
@@ -331,7 +331,7 @@ async function handleDashboard(req: Request, path: string) {
       allowedAccountIds = (assignments ?? []).map((row) => String(row.account_id));
       if (!allowedAccountIds.length) return respond(200, { accounts: [] });
     }
-    const accountColumns = "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,poll_interval_ms,created_at";
+    const accountColumns = "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,poll_interval_ms,created_at";
     let accountQuery = admin.from("mt5_accounts").select(access.access_role === "owner" ? `${accountColumns},ea_config` : accountColumns)
       .eq("owner_id", access.owner_id).order("created_at", { ascending: true }).limit(25);
     if (allowedAccountIds) accountQuery = accountQuery.in("id", allowedAccountIds);
@@ -491,7 +491,7 @@ async function handleEa(req: Request, path: string) {
       (body.openPositions !== undefined && (!Number.isInteger(body.openPositions) || Number(body.openPositions) < 0 || Number(body.openPositions) > 1e6)) ||
       (body.eaStatus !== undefined && (typeof body.eaStatus !== "string" || body.eaStatus.length > 80)) ||
       (typeof body.basketSlType !== "string" || !["money", "percent"].includes(body.basketSlType)) ||
-      typeof body.running !== "boolean" || typeof body.isDemo !== "boolean" ||
+      typeof body.running !== "boolean" ||
       typeof body.isCentAccount !== "boolean" ||
       typeof body.displayCurrency !== "string" || !["USD", "CENT", "IDR"].includes(body.displayCurrency) ||
       !finite(body.displayRate, 0.0001, 1e9) ||
@@ -527,7 +527,6 @@ async function handleEa(req: Request, path: string) {
       broker_account_name: body.accountName,
       mt5_login: body.login ?? null,
       server_name: body.serverName ?? null,
-      is_demo: body.isDemo,
       is_cent_account: body.isCentAccount,
       display_currency: body.displayCurrency,
       display_rate: body.displayRate,

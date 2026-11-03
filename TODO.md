@@ -1,6 +1,6 @@
 # TODO — MT5 Pilot
 
-## Selesai untuk tahap demo
+## Fitur aktif
 
 - [x] Dashboard Supabase Auth dipublikasikan di Vercel.
 - [x] Schema Supabase dan Edge Function `mt5-api` aktif.
@@ -10,10 +10,10 @@
 
 ## Langkah pengguna
 
-- [ ] Daftar/masuk di https://pilot-mt5.vercel.app/ dan buat koneksi untuk mengambil token.
+- [ ] Owner masuk di https://pilot-mt5.vercel.app/ dan buat koneksi untuk mengambil token; signup publik ditutup.
 - [ ] Compile `ea/Fast-Grid-Pilot.mq5` di MetaEditor; MetaEditor tidak tersedia di sandbox.
 - [ ] Pasang di akun MT5 yang dipilih, tempel token EA, dan izinkan WebRequest untuk origin Supabase.
-- [ ] Pastikan heartbeat/status online muncul sebelum mencoba Auto atau tombol close.
+- [ ] Untuk akun real, verifikasi login MT5, simbol, lot, batas risiko, dan parameter EA sebelum koneksi; koneksi baru otomatis mengirim perintah AUTO saat EA tersambung.
 - [ ] Uji tiap tombol dan hasil eksekusi melalui tab Experts/Journal MT5 serta history broker.
 
 ## Pengaturan dashboard dan akses pengguna

@@ -11,7 +11,7 @@ type EaConfigValue = number | boolean | "";
 type EaConfig = Record<string, EaConfigValue>;
 type Account = {
   id: string; label: string; broker_account_name: string | null; mt5_login: number | null;
-  server_name: string | null; currency: string; token_hint: string; is_demo: boolean;
+  server_name: string | null; currency: string; token_hint: string;
   is_cent_account: boolean; display_currency: DisplayCurrency; display_rate: number;
   telemetry_received: boolean; balance: number; equity: number; max_dd_buy: number; max_dd_sell: number;
   basket_sl_set: number; basket_sl_type: "money" | "percent"; daily_target_set: number; max_float_buy: number; max_float_sell: number;
@@ -106,7 +106,7 @@ function AccountTelemetry({ account, displayMode }: { account: Account; displayM
       <div className={`metric-profit ${account.profit >= 0 ? "profit-positive" : "profit-negative"}`}><span>Profit</span><strong>{showMoney(account.profit)}</strong></div>
       <div className="metric-status"><span>Status</span><strong>{account.telemetry_received ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL") : "MENUNGGU EA"}</strong></div>
     </div>
-    <footer className="pilot-account-footer pilot-config-footer"><span>Token EA •••• {account.token_hint}</span><span>{account.is_demo ? "Akun demo" : "Akun real"}</span></footer>
+    <footer className="pilot-account-footer pilot-config-footer"><span>Token EA •••• {account.token_hint}</span></footer>
   </>;
 }
 export default function Home() {

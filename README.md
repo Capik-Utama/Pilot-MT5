@@ -1,18 +1,26 @@
-# MT5 Pilot — dashboard EA demo
+# MT5 Pilot — dashboard privat Fast-Grid
 
-MT5 Pilot menampilkan dashboard privat untuk source `Fast-Grid` yang dilampirkan pemilik. Frontend React/Vite diterbitkan statis di Vercel; Supabase Auth menangani akun login, sedangkan Edge Function `mt5-api` memvalidasi sesi browser atau token EA sebelum membaca/menulis database. Koneksi EA menggunakan HTTPS WebRequest dari MT5.
+MT5 Pilot menyediakan dashboard privat untuk memantau dan mengendalikan source EA Fast-Grid. Frontend React/Vite disajikan oleh Vercel. Supabase Auth menangani login, sementara Edge Function `mt5-api` memvalidasi sesi dashboard atau token EA sebelum membaca dan mengubah data. EA terhubung melalui HTTPS WebRequest dari MetaTrader 5.
 
-Pada tahap demo, pendaftaran Supabase Auth terbuka supaya pemilik dapat membuat login sendiri. Data tetap dipisahkan berdasarkan pengguna; login lain tidak dapat membaca telemetry, token, atau perintah milik akun Anda. Auto, BUY/SELL manual, RESET, dan perintah tutup yang dikirim melalui dashboard tersedia untuk akun demo maupun real setelah pemilik login dan EA terhubung.
+Dashboard hanya menerima telemetry langsung dari MT5; tidak ada saldo atau transaksi sintetis. Aplikasi tidak mengklasifikasikan jenis akun dan tidak mencegah EA dipasang pada jenis akun lain. Pastikan terminal MT5 yang dipilih benar-benar akun real yang Anda maksud sebelum memasang EA.
 
-## Uji EA
+## Menghubungkan akun MT5
 
-1. Buka `https://pilot-mt5.vercel.app/`, buat akun/masuk dan buat token koneksi.
-2. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang di chart akun MT5.
-3. Masukkan token pada input `EAConnectionToken`.
-4. Izinkan WebRequest untuk `https://qqdsultliybypiuvihli.supabase.co` pada Tools → Options → Expert Advisors.
-5. Pastikan EA menunjukkan heartbeat online. **Kartu yang baru dibuat akan menerima satu perintah AUTO saat EA tersambung; AUTO dapat langsung membuka posisi sesuai konfigurasi risiko.** Uji hanya pada akun dan konfigurasi yang memang Anda setujui.
+1. Owner masuk di `https://pilot-mt5.vercel.app/`. Pendaftaran publik ditutup; akun tambahan dibuat owner dari menu pengguna.
+2. Pilih **Tambah EA** untuk membuat koneksi dan simpan token yang hanya ditampilkan satu kali.
+3. Buka `ea/Fast-Grid-Pilot.mq5` di MetaEditor, compile, lalu pasang EA pada chart akun dan simbol yang dimaksud.
+4. Masukkan token pada input `EAConnectionToken` dan izinkan WebRequest ke `https://qqdsultliybypiuvihli.supabase.co` pada Tools → Options → Expert Advisors.
+5. Verifikasi nama akun, login, server, saldo, dan equity yang muncul di dashboard sebelum membiarkan EA berdagang.
 
-EA menolak inisialisasi pada akun real dan memulihkan mode AUTO/MANUAL terakhir yang tersimpan setelah polling pertamanya. Jika mode terakhir AUTO, EA kembali AUTO setelah reload dan dapat melanjutkan entry sesuai konfigurasi risiko; pilih MANUAL sebelum reload jika Anda tidak ingin entry otomatis dilanjutkan. AUTO awal untuk kartu baru diantrekan Pilot satu kali dan dijalankan setelah koneksi EA aktif. Terapkan migrasi Supabase terbaru secara berurutan dari `supabase/migrations/`, termasuk `20261102210000_pilot_staff_account_access.sql`, `20261102220000_pilot_new_account_auto_start.sql`, dan `20261103101635_pilot_account_polling_interval.sql`, lalu deploy ulang Edge Function `mt5-api` bila source function berubah. Owner dapat mengubah nama kartu EA dan menghapus koneksi dari Pilot dengan verifikasi sandi; penghapusan mencabut token dashboard tetapi tidak menghentikan EA di terminal MT5. Tombol aksi kartu mengirim perintah tanpa dialog konfirmasi tambahan. Owner juga dapat membuat role Staff dan mencentang akun yang boleh diakses; Staff hanya dapat menjalankan tombol pada kartu akun terpilih, tanpa akses mengubah parameter EA atau mengelola akun/pengguna. Owner dapat mengatur polling per akun ke 500 ms, 1 detik (default), atau 2 detik; interval ini hanya mengatur pemeriksaan tombol/perubahan parameter dan tidak mengubah frekuensi telemetry. Setelah memperbarui file MQL5, compile di MetaEditor dan pasang versi baru di terminal MT5. Lihat [panduan integrasi Fast-Grid](docs/mt5-ea-api.md) untuk arti setiap metrik dan batas kontrol. MetaEditor tidak tersedia di sandbox, jadi file MQL5 perlu dikompilasi dan dijalankan di terminal MT5 milik pengguna.
+**Penting untuk akun real:** setiap koneksi baru otomatis disetel ke **AUTO** dan server mengantrekan perintah AUTO. Ketika EA tersambung, EA dapat langsung membuka posisi mengikuti parameter dan batas risiko yang berlaku. Perilaku ini memang dipertahankan. Periksa akun, lot, batas rugi, target, simbol, Magic Number, dan izin Algo Trading sebelum menyambungkan EA. Pilih **MANUAL** terlebih dahulu jika Anda tidak ingin entry otomatis.
+
+Mode trading yang tersimpan juga dipulihkan setelah EA melakukan polling. Karena itu, jika akun tersimpan dalam AUTO, EA dapat kembali membuka posisi setelah reload atau sambung ulang. Memilih MANUAL sebelum melepas atau memulai ulang EA menghentikan entry otomatis; perlindungan SL dan trailing yang sudah berjalan tetap bekerja.
+
+## Fitur dan keselamatan
+
+Dashboard menyediakan metrik telemetry dan antrean perintah Manual/Auto, BUY/SELL, reset, penutupan posisi, serta editor parameter remote. Perintah penutupan hanya menargetkan posisi Fast-Grid pada simbol chart dan Magic Number yang dikonfigurasi. Akses read-only dapat melihat data tanpa mengirim perintah. Role staff dapat mengendalikan hanya kartu akun yang diizinkan owner.
+
+Token EA disimpan sebagai hash di Supabase; token mentah hanya ditampilkan saat koneksi dibuat. Jangan bagikan token. Jangan menaruh service-role key atau kredensial broker di frontend, EA, atau Git. Perintah trading dapat berdampak langsung pada dana akun real; awasi tab Experts/Journal dan konfirmasi hasil transaksi di terminal serta riwayat broker.
 
 ## Pengembangan
 
@@ -21,4 +29,4 @@ EA menolak inisialisasi pada akun real dan memulihkan mode AUTO/MANUAL terakhir 
 - `pnpm build:vercel` membangun frontend ke direktori `public/`.
 - `pnpm test` menjalankan test aplikasi.
 
-Skema Supabase berada di `supabase/migrations/`; kode Edge Function ada di `supabase/functions/mt5-api/`. Jangan pernah memasukkan service-role key atau kredensial broker ke frontend, EA, atau Git. Publishable key di browser bukan rahasia; akses tabel langsung dari anon/authenticated dicabut dan RLS aktif.
+Skema Supabase berada di `supabase/migrations/`; kode Edge Function ada di `supabase/functions/mt5-api/`. Browser hanya menggunakan publishable key; tabel tetap dilindungi RLS dan tidak memberi akses langsung ke role anon/authenticated.
