@@ -17,7 +17,7 @@ const corsHeaders = {
 const ONLINE_WINDOW_MS = 20_000;
 const COMMAND_TTL_MS = 45_000;
 const actions = new Set(["auto", "manual", "buy", "sell", "close_buy", "close_sell", "close_all", "reset"]);
-const configKeys = new Set(["ModePerdagangan", "MataUangTampilan", "KursUSD_IDR", "MagicBeli", "MagicJual", "LotAwal", "PenggandaLot", "LotMaksimal", "LangkahLayer", "JarakGrid", "JarakTrailingPending", "JenisBatasRugi", "BatasKerugian", "TargetHarian", "SetelahTargetTercapai", "ModeTrailing", "MulaiTrailingPoin", "KunciProfitPoin", "LangkahTrailingPoin"]);
+const configKeys = new Set(["ModePerdagangan", "MataUangTampilan", "KursUSD_IDR", "MagicBeli", "MagicJual", "LotAwal", "PenggandaLot", "LotMaksimal", "LangkahLayer", "JarakGrid", "JarakTrailingPending", "JenisBatasRugi", "BatasKerugian", "JedaSetelahSLMenit", "TargetHarian", "SetelahTargetTercapai", "ModeTrailing", "MulaiTrailingPoin", "KunciProfitPoin", "LangkahTrailingPoin"]);
 
 function validConfig(value: unknown): value is Json {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

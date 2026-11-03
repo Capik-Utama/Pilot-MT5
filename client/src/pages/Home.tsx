@@ -34,7 +34,7 @@ const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", bu
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
   LotAwal: 0.01, PenggandaLot: 1.2, LotMaksimal: 12, LangkahLayer: 1, JarakGrid: 2000, JarakTrailingPending: 500,
-  JenisBatasRugi: 0, BatasKerugian: 30000, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
+  JenisBatasRugi: 0, BatasKerugian: 30000, JedaSetelahSLMenit: 30, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
   MulaiTrailingPoin: 1500, KunciProfitPoin: 1000, LangkahTrailingPoin: 500,
 };
 const coreConfigFields = [
@@ -43,7 +43,7 @@ const coreConfigFields = [
   ["KursUSD_IDR", "Kurs USD / IDR", "number"], ["MagicBeli", "Magic BUY", "number"], ["MagicJual", "Magic SELL", "number"],
   ["LotAwal", "Lot awal", "number"], ["PenggandaLot", "Pengganda lot", "number"], ["LotMaksimal", "Lot maksimal", "number"],
   ["LangkahLayer", "Langkah layer", "number"], ["JarakGrid", "Jarak grid (poin)", "number"], ["JarakTrailingPending", "Jarak trailing pending", "number"],
-  ["JenisBatasRugi", "Jenis batas rugi", "select", [[0, "Nilai uang"], [1, "Persen"]]], ["BatasKerugian", "Batas kerugian", "number"], ["TargetHarian", "Target harian", "number"],
+  ["JenisBatasRugi", "Jenis batas rugi", "select", [[0, "Nilai uang"], [1, "Persen"]]], ["BatasKerugian", "Batas kerugian", "number"], ["JedaSetelahSLMenit", "Jeda setelah SL (menit)", "number"], ["TargetHarian", "Target harian", "number"],
   ["SetelahTargetTercapai", "Setelah target tercapai", "select", [[0, "Stop hari ini"], [1, "Lanjut"]]], ["ModeTrailing", "Mode trailing", "select", [[0, "Per arah"], [1, "Semua arah"]]],
   ["MulaiTrailingPoin", "Mulai trailing (poin)", "number"], ["KunciProfitPoin", "Kunci profit (poin)", "number"], ["LangkahTrailingPoin", "Langkah trailing (poin)", "number"],
 ] as const;

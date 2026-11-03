@@ -44,6 +44,7 @@ input group "== Pengaman Perdagangan =="
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
 input double    InputBatasKerugian    = 30000.0;
+input int       InputJedaSetelahSLMenit = 30;
 input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
@@ -67,6 +68,7 @@ int JarakGrid = InputJarakGrid;
 int JarakTrailingPending = InputJarakTrailingPending;
 ENUM_CL_TYPE JenisBatasRugi = InputJenisBatasRugi;
 double BatasKerugian = InputBatasKerugian;
+int JedaSetelahSLMenit = InputJedaSetelahSLMenit;
 double TargetHarian = InputTargetHarian;
 ENUM_AFTER_LOGIC SetelahTargetTercapai = InputSetelahTargetTercapai;
 ENUM_TS_MODE ModeTrailing = InputModeTrailing;
@@ -81,6 +83,7 @@ double MaxFloatBuy = 0, MaxFloatSell = 0;
 double MaxDrawdownBuy = 0, MaxDrawdownSell = 0;
 datetime ResetTime = 0, LastDayReset = 0;
 bool IsStoppedByTarget = false;
+datetime StopLossCooldownUntil = 0;
 
 double PendingTrail_BuyPrice = 0;
 double PendingTrail_SellPrice = 0;
@@ -102,6 +105,8 @@ void BulkCloseAll();
 void BulkCloseDirection(int m);
 bool OpenOrder(ENUM_ORDER_TYPE type, double lot, int magic);
 void CheckStopLossPerDirection();
+bool IsStopLossCooldownActive();
+void StartStopLossCooldown();
 bool CheckDailyTarget();
 void ApplyGlobalTrailingPoints();
 void ManageTrailingVisualLines();
@@ -147,6 +152,7 @@ int OnInit() {
    JarakTrailingPending = InputJarakTrailingPending;
    JenisBatasRugi = InputJenisBatasRugi;
    BatasKerugian = InputBatasKerugian;
+   JedaSetelahSLMenit = InputJedaSetelahSLMenit;
    TargetHarian = InputTargetHarian;
    SetelahTargetTercapai = InputSetelahTargetTercapai;
    ModeTrailing = InputModeTrailing;
@@ -362,6 +368,7 @@ void RefreshDashboardUI() {
 
    string statusText = "Status: ACTIVE";
    if(IsStoppedByTarget) statusText = "Status: TARGET HIT";
+   else if(IsStopLossCooldownActive()) statusText = "Status: SL COOLDOWN";
    else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) statusText = "Status: TS PER ARAH";
    else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) statusText = StringFormat("Status: TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
 
@@ -377,6 +384,7 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
          // Reset TOTAL state: clear target lock, restart the daily calculation
          // from the moment RESET is pressed, and clear all trailing state.
          IsStoppedByTarget = false;
+         StopLossCooldownUntil = 0;
          ResetTime = TimeCurrent();
          LastDayReset = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
 
@@ -579,6 +587,7 @@ string PilotConfigJson(const bool fromInputs) {
       ",\"JarakTrailingPending\":" + IntegerToString(fromInputs ? InputJarakTrailingPending : JarakTrailingPending) +
       ",\"JenisBatasRugi\":" + IntegerToString(fromInputs ? (int)InputJenisBatasRugi : (int)JenisBatasRugi) +
       ",\"BatasKerugian\":" + DoubleToString(fromInputs ? InputBatasKerugian : BatasKerugian, 8) +
+      ",\"JedaSetelahSLMenit\":" + IntegerToString(fromInputs ? InputJedaSetelahSLMenit : JedaSetelahSLMenit) +
       ",\"TargetHarian\":" + DoubleToString(fromInputs ? InputTargetHarian : TargetHarian, 8) +
       ",\"SetelahTargetTercapai\":" + IntegerToString(fromInputs ? (int)InputSetelahTargetTercapai : (int)SetelahTargetTercapai) +
       ",\"ModeTrailing\":" + IntegerToString(fromInputs ? (int)InputModeTrailing : (int)ModeTrailing) +
@@ -637,6 +646,7 @@ bool PilotRestoreConfigState() {
    if(PilotJsonNumber(savedInputs, "JarakTrailingPending", -1) != InputJarakTrailingPending) JarakTrailingPending = InputJarakTrailingPending;
    if(PilotJsonNumber(savedInputs, "JenisBatasRugi", -1) != (int)InputJenisBatasRugi) JenisBatasRugi = InputJenisBatasRugi;
    if(PilotJsonNumber(savedInputs, "BatasKerugian", -1) != InputBatasKerugian) BatasKerugian = InputBatasKerugian;
+   if(PilotJsonNumber(savedInputs, "JedaSetelahSLMenit", -1) != InputJedaSetelahSLMenit) JedaSetelahSLMenit = InputJedaSetelahSLMenit;
    if(PilotJsonNumber(savedInputs, "TargetHarian", -1) != InputTargetHarian) TargetHarian = InputTargetHarian;
    if(PilotJsonNumber(savedInputs, "SetelahTargetTercapai", -1) != (int)InputSetelahTargetTercapai) SetelahTargetTercapai = InputSetelahTargetTercapai;
    if(PilotJsonNumber(savedInputs, "ModeTrailing", -1) != (int)InputModeTrailing) ModeTrailing = InputModeTrailing;
@@ -667,6 +677,8 @@ bool PilotApplyConfig(const string json) {
    JarakTrailingPending = (int)PilotJsonNumber(json, "JarakTrailingPending", JarakTrailingPending);
    JenisBatasRugi = (ENUM_CL_TYPE)PilotJsonNumber(json, "JenisBatasRugi", JenisBatasRugi);
    BatasKerugian = PilotJsonNumber(json, "BatasKerugian", BatasKerugian);
+   JedaSetelahSLMenit = (int)PilotJsonNumber(json, "JedaSetelahSLMenit", JedaSetelahSLMenit);
+   if(JedaSetelahSLMenit < 0) JedaSetelahSLMenit = 0;
    TargetHarian = PilotJsonNumber(json, "TargetHarian", TargetHarian);
    SetelahTargetTercapai = (ENUM_AFTER_LOGIC)PilotJsonNumber(json, "SetelahTargetTercapai", SetelahTargetTercapai);
    ModeTrailing = (ENUM_TS_MODE)PilotJsonNumber(json, "ModeTrailing", ModeTrailing);
@@ -723,6 +735,7 @@ void PilotSendTelemetry() {
    string mode = isAutoTradingActive ? "auto" : "manual";
    string eaStatus = "ACTIVE";
    if(IsStoppedByTarget) eaStatus = "TARGET HIT";
+   else if(IsStopLossCooldownActive()) eaStatus = "SL COOLDOWN";
    else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) eaStatus = "TS PER ARAH";
    else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) eaStatus = StringFormat("TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
    int openPositions = 0;
@@ -890,7 +903,7 @@ void OnTick() {
 
    CheckStopLossPerDirection();
 
-   if(!IsStoppedByTarget && isAutoTradingActive) {
+   if(!IsStoppedByTarget && !IsStopLossCooldownActive() && isAutoTradingActive) {
       // Start a completely new basket when there are no positions.
       if(!HasOpenPositions()) {
          CheckInitialEntry();
@@ -912,6 +925,16 @@ void OnTick() {
    ApplyGlobalTrailingPoints();
    RefreshDashboardUI();
    ManageTrailingVisualLines();
+}
+
+bool IsStopLossCooldownActive() {
+   return StopLossCooldownUntil > TimeCurrent();
+}
+
+void StartStopLossCooldown() {
+   if(JedaSetelahSLMenit <= 0) return;
+   StopLossCooldownUntil = TimeCurrent() + (JedaSetelahSLMenit * 60);
+   PrintFormat("MT5 Pilot: jeda setelah SL aktif selama %d menit.", JedaSetelahSLMenit);
 }
 
 bool HasOpenPositions() {
@@ -1282,10 +1305,12 @@ void CheckStopLossPerDirection() {
 
    if(pB <= -stopAmount && pB != 0) {
       BulkCloseDirection(MagicBeli);
+      StartStopLossCooldown();
       MaxFloatBuy = 0;
    }
    if(pS <= -stopAmount && pS != 0) {
       BulkCloseDirection(MagicJual);
+      StartStopLossCooldown();
       MaxFloatSell = 0;
    }
 }
