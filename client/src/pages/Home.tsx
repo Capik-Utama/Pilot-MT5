@@ -117,6 +117,10 @@ export default function Home() {
     const stored = Number(localStorage.getItem("pilot-refresh-seconds"));
     return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 5;
   });
+  const [refreshDraftSeconds, setRefreshDraftSeconds] = useState(() => {
+    const stored = Number(localStorage.getItem("pilot-refresh-seconds"));
+    return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 5;
+  });
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accountName, setAccountName] = useState("");
@@ -169,7 +173,13 @@ export default function Home() {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 
-  useEffect(() => { localStorage.setItem("pilot-refresh-seconds", String(refreshSeconds)); }, [refreshSeconds]);
+  const saveRefreshSettings = () => {
+    const value = Math.max(1, Math.min(60, Number.isInteger(refreshDraftSeconds) ? refreshDraftSeconds : 5));
+    setRefreshDraftSeconds(value);
+    setRefreshSeconds(value);
+    localStorage.setItem("pilot-refresh-seconds", String(value));
+    toast.success(`Delay refresh disimpan: ${value} detik.`);
+  };
 
   const refreshAccessToken = useCallback(async () => {
     if (!sessionRefreshRef.current) {
@@ -485,8 +495,9 @@ export default function Home() {
         <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select>{canWrite && <button className="pilot-add-button pilot-sidebar-add" onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button>}</div>
         {accessRole !== "staff" && <div className="pilot-sidebar-section pilot-settings-section">
           <span className="pilot-kicker">PREFERENSI</span>
-          <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshSeconds} onChange={(event) => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshSeconds(value); }} onBlur={() => setRefreshSeconds((value) => Math.max(1, Math.min(60, value || 5)))} /></label>
+          <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshDraftSeconds} onChange={(event) => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshDraftSeconds(value); }} onBlur={() => setRefreshDraftSeconds((value) => Math.max(1, Math.min(60, value || 5)))} /></label>
           <small className="pilot-sidebar-hint">Default 5 detik. Realtime tetap memperbarui data seketika.</small>
+          <button type="button" className="pilot-add-button pilot-sidebar-add" onClick={saveRefreshSettings}>Simpan</button>
           <label className="pilot-sidebar-setting"><span>Tema</span><select value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="dark">Gelap (default)</option><option value="light">Terang</option><option value="blue-black">Biru hitam</option><option value="blue-white">Biru putih</option></select></label>
           <button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Kelola pengguna" : "Hanya owner yang dapat mengelola pengguna"} onClick={() => void openUserManager()}><Users size={15} /> Kelola pengguna</button>
         </div>}
