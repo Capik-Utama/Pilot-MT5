@@ -482,15 +482,16 @@ async function handleEa(req: Request, path: string) {
     if (error) return respond(500, { error: "Antrean tidak dapat dibaca." });
     const command = (commands ?? []).find((item) => item.status === "queued" || Date.parse(item.expires_at) > now.getTime());
     if (!command) return respond(204);
+    let responseExpiresAt = command.expires_at;
     if (command.status === "queued") {
-      const expiresAt = new Date(now.getTime() + COMMAND_TTL_MS).toISOString();
-      const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString(), expires_at: expiresAt })
+      responseExpiresAt = new Date(now.getTime() + COMMAND_TTL_MS).toISOString();
+      const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString(), expires_at: responseExpiresAt })
         .eq("id", command.id).eq("status", "queued").select("id").maybeSingle();
       if (updateError) return respond(500, { error: "Perintah tidak dapat diambil." });
       if (!updated) return respond(204);
       await writeEvent(command, "delivered");
     }
-    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: command.expires_at });
+    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: responseExpiresAt });
   }
 
   const ackMatch = path.match(/^\/commands\/([0-9a-f-]{36})\/ack$/i);

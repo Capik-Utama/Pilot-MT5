@@ -107,7 +107,8 @@ export function registerMt5Routes(app: Express) {
         const current = rows.find((item) => item.status === "queued" || item.expiresAt > now);
         if (!current) return null;
         if (current.status === "queued") {
-          await tx.update(mt5Commands).set({ status: "delivered", deliveredAt: now, expiresAt: new Date(now.getTime() + COMMAND_TTL_MS) }).where(eq(mt5Commands.id, current.id));
+          current.expiresAt = new Date(now.getTime() + COMMAND_TTL_MS);
+          await tx.update(mt5Commands).set({ status: "delivered", deliveredAt: now, expiresAt: current.expiresAt }).where(eq(mt5Commands.id, current.id));
           await tx.insert(mt5CommandEvents).values(eventRow(current, "delivered"));
         }
         return current;
