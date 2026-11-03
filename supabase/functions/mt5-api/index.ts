@@ -139,6 +139,28 @@ async function handleDashboard(req: Request, path: string) {
     });
   }
 
+  if (path === "/dashboard/logs" && req.method === "GET") {
+    const { data: commands, error: commandError } = await admin.from("mt5_commands").select(
+      "id,account_id,action,status,result_message,created_at,completed_at,requested_by_user_id",
+    ).eq("owner_id", access.owner_id).order("created_at", { ascending: false }).limit(200);
+    if (commandError) return respond(500, { error: "Log aktivitas tidak dapat dimuat." });
+    const accountIds = [...new Set((commands ?? []).map((command) => command.account_id))];
+    const userIds = [...new Set((commands ?? []).map((command) => command.requested_by_user_id).filter(Boolean))];
+    const [accountsResult, usersResult] = await Promise.all([
+      accountIds.length ? admin.from("mt5_accounts").select("id,label").eq("owner_id", access.owner_id).in("id", accountIds).limit(25) : Promise.resolve({ data: [], error: null }),
+      userIds.length ? admin.from("pilot_user_access").select("user_id,email,access_role").eq("owner_id", access.owner_id).in("user_id", userIds).limit(100) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (accountsResult.error || usersResult.error) return respond(500, { error: "Detail log aktivitas tidak dapat dimuat." });
+    const labels = new Map((accountsResult.data ?? []).map((account) => [account.id, account.label]));
+    const actors = new Map((usersResult.data ?? []).map((item) => [item.user_id, { name: item.email, role: item.access_role }]));
+    return respond(200, { logs: (commands ?? []).map((command) => ({
+      ...command,
+      account_label: labels.get(command.account_id) ?? "Akun EA",
+      actor_name: actors.get(command.requested_by_user_id)?.name ?? "Sistem",
+      actor_role: actors.get(command.requested_by_user_id)?.role ?? "system",
+    })) });
+  }
+
   if (path === "/dashboard/users" && req.method === "GET") {
     if (access.access_role !== "owner") return respond(403, { error: "Hanya owner yang dapat mengelola pengguna." });
     const { data, error } = await admin.from("pilot_user_access")

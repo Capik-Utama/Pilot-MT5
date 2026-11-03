@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, ClipboardList, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -27,6 +27,7 @@ type AccessRole = "owner" | "read_only" | "staff";
 type ManagedUser = { user_id: string; email: string; access_role: "read_only" | "staff"; created_at: string; account_ids?: string[]; account_labels?: string[] };
 type CreatedUserCredential = { username: string; password: string };
 type BackgroundCommand = { accountId: string; label: string; toastId: string | number; lastStatus: string; startedAt: number };
+type ActivityLog = { id: string; account_id: string; account_label: string; action: Action | "config"; status: string; result_message: string | null; created_at: string; completed_at: string | null; actor_name: string; actor_role: string };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
@@ -135,6 +136,9 @@ export default function Home() {
   const [accountSearch, setAccountSearch] = useState("");
   const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePage, setActivePage] = useState<"dashboard" | "logs">("dashboard");
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [editingAccountLabel, setEditingAccountLabel] = useState("");
   const [editingConfig, setEditingConfig] = useState<EaConfig>(defaultEaConfig);
@@ -321,6 +325,18 @@ export default function Home() {
     finally { setAuthBusy(false); }
   };
 
+  const loadActivityLogs = useCallback(async () => {
+    if (!session) return;
+    setLoadingLogs(true);
+    try {
+      const result = await callApi("/dashboard/logs");
+      setActivityLogs(result.logs ?? []);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Log aktivitas gagal dimuat."); }
+    finally { setLoadingLogs(false); }
+  }, [callApi, session]);
+
+  useEffect(() => { if (activePage === "logs") void loadActivityLogs(); }, [activePage, loadActivityLogs]);
+
   const openUserManager = async () => {
     if (!canWrite) return;
     setShowUserManager(true);
@@ -493,6 +509,7 @@ export default function Home() {
         <div className="pilot-sidebar-head"><div><span className="pilot-kicker"><span /> MENU PANEL</span><strong>MT5 PILOT</strong></div><button className="pilot-icon-button" title="Tutup menu" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)}><X size={17} /></button></div>
         <div className="pilot-sidebar-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong><button className="pilot-icon-button" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={14} className={loadingAccounts ? "pilot-spin" : ""} /></button></div>
         <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select>{canWrite && <button className="pilot-add-button pilot-sidebar-add" onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button>}</div>
+        <button type="button" className="pilot-add-button pilot-sidebar-add" onClick={() => { setActivePage("logs"); setSidebarOpen(false); }}><ClipboardList size={15} /> Log aktivitas</button>
         {accessRole !== "staff" && <div className="pilot-sidebar-section pilot-settings-section">
           <span className="pilot-kicker">PREFERENSI</span>
           <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshDraftSeconds} onChange={(event) => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshDraftSeconds(value); }} onBlur={() => setRefreshDraftSeconds((value) => Math.max(1, Math.min(60, value || 5)))} /></label>
@@ -504,6 +521,7 @@ export default function Home() {
         <div className="pilot-sidebar-account"><span className="pilot-owner-pill"><ShieldCheck size={14} /> {accessRole === "read_only" ? "AKSES READ ONLY" : accessRole === "staff" ? "AKSES STAFF" : accessRole === "owner" ? "AKSES OWNER" : "MEMERIKSA AKSES"}</span><button className="pilot-sidebar-logout" onClick={() => void supabase.auth.signOut()}><LogOut size={15} /> Keluar</button></div>
       </aside>
       <section className="pilot-main">
+        {activePage === "logs" ? <section className="pilot-log-page"><div className="pilot-page-heading"><div><span className="pilot-kicker"><span /> AUDIT AKTIVITAS</span><h1>Log aktivitas</h1><p>Riwayat perintah yang dikirim dari Pilot dan pengguna terdaftar ke EA.</p></div><button type="button" className="pilot-icon-button" title="Muat ulang log" aria-label="Muat ulang log" onClick={() => void loadActivityLogs()}><RefreshCw size={15} className={loadingLogs ? "pilot-spin" : ""} /></button></div>{loadingLogs && !activityLogs.length ? <div className="pilot-log-empty">Memuat log aktivitas…</div> : activityLogs.length ? <div className="pilot-log-list">{activityLogs.map((log) => { const date = new Date(log.created_at); const action = log.action === "config" ? "Edit parameter EA" : actionLabel[log.action]; const role = log.actor_role === "staff" ? "staff" : log.actor_role === "read_only" ? "read-only" : "owner"; return <article className="pilot-log-entry" key={log.id}><div className="pilot-log-icon"><ClipboardList size={15} /></div><div className="pilot-log-content"><strong>{action} oleh {role} {log.actor_name}</strong><span>{log.account_label} · {date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}, {date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>{log.result_message && <small>{log.result_message}</small>}</div><b className={`pilot-log-status status-${log.status}`}>{log.status}</b></article>; })}</div> : <div className="pilot-log-empty">Belum ada aktivitas.</div>}</section> : <>
         {accounts.length === 0 && !loadingAccounts ? (
           <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA Fast-Grid</h2><p>Buat token koneksi untuk akun MT5. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>
         ) : null}
@@ -530,6 +548,7 @@ export default function Home() {
         </div>
         {accounts.length > 0 && filteredAccounts.length === 0 && <div className="pilot-search-empty"><span>Tidak ada panel EA yang cocok dengan pencarian atau filter.</span><button onClick={() => { setAccountSearch(""); setConnectionFilter("all"); }}>Hapus filter</button></div>}
         <footer className="pilot-copyright">© 2026 MT5 PILOT by CapikBinGozel - PRIVATE EA WORKSPACE</footer>
+        </>}
       </section>
 
       {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid MT5 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kartu baru akan mengaktifkan AUTO satu kali setelah EA tersambung, dan dapat langsung membuka posisi sesuai konfigurasi risiko. Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}
