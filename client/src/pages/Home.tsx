@@ -492,7 +492,7 @@ export default function Home() {
         <h1>Masuk ke MT5 Pilot</h1>
         <p>Akun hanya dapat dibuat oleh owner. Masuk dengan kredensial yang diberikan owner.</p>
         <form onSubmit={handleAuth}>
-          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@email.com" /></label>
+          <label>Nama pengguna atau email<input type="text" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama pengguna" /></label>
           <label>Kata sandi<input type="password" autoComplete="current-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Kata sandi" /></label>
           {authMessage && <div className="pilot-auth-message" role="status">{authMessage}</div>}
           <button className="pilot-primary-button" disabled={authBusy}>{authBusy ? "Memproses…" : "Masuk"}<ArrowUpRight size={16} /></button>
