@@ -59,6 +59,10 @@ function randomToken() {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
+function authEmailForUsername(username: string) {
+  return `${username.toLowerCase()}@pilot-mt5.local`;
+}
+
 async function jsonBody(req: Request): Promise<Json | null> {
   try {
     const value: unknown = await req.json();
@@ -165,14 +169,16 @@ async function handleDashboard(req: Request, path: string) {
       return respond(403, { error: "Hanya owner utama yang dapat mendaftarkan pengguna." });
     }
     const body = await jsonBody(req);
-    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
     const requestedRole = body?.accessRole === "staff" ? "staff" : body?.accessRole === "read_only" ? "read_only" : "";
     const accountIds = Array.isArray(body?.accountIds) && body.accountIds.every((id) => typeof id === "string")
       ? [...new Set(body.accountIds as string[])] : [];
     if (!requestedRole) return respond(400, { error: "Pilih role read-only atau staff." });
-    if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return respond(400, { error: "Alamat email tidak valid." });
+    if (!/^[a-z0-9][a-z0-9._-]{2,39}$/.test(username)) {
+      return respond(400, { error: "Nama pengguna harus 3–40 karakter: huruf, angka, titik, garis bawah, atau tanda hubung." });
     }
+    if (password.length < 8 || password.length > 128) return respond(400, { error: "Password harus berisi 8–128 karakter." });
     if (requestedRole === "staff" && (accountIds.length < 1 || accountIds.length > 25)) {
       return respond(400, { error: "Pilih minimal satu akun untuk staff (maksimal 25)." });
     }
@@ -183,21 +189,22 @@ async function handleDashboard(req: Request, path: string) {
       if (accountError) return respond(500, { error: "Akun staff tidak dapat divalidasi." });
       if ((validAccounts ?? []).length !== accountIds.length) return respond(400, { error: "Pilihan mencakup akun yang bukan milik owner." });
     }
-    const password = temporaryPassword();
+    const authEmail = authEmailForUsername(username);
     const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email,
+      email: authEmail,
       password,
       email_confirm: true,
       app_metadata: { pilot_role: requestedRole, pilot_provisioned_by: "owner" },
+      user_metadata: { username },
     });
     if (createError || !created.user) {
       console.error("[mt5-api] owner user creation failed", createError?.message ?? "unknown");
-      return respond(409, { error: "Akun tidak dapat dibuat. Periksa apakah email sudah terdaftar." });
+      return respond(409, { error: "Akun tidak dapat dibuat. Pastikan nama pengguna belum dipakai." });
     }
     const { error: roleError } = await admin.from("pilot_user_access").insert({
       user_id: created.user.id,
       owner_id: user.id,
-      email,
+      email: username,
       access_role: requestedRole,
     });
     if (roleError) {
@@ -215,7 +222,7 @@ async function handleDashboard(req: Request, path: string) {
         return respond(500, { error: "Pilihan akun staff gagal disimpan; akun baru dibatalkan." });
       }
     }
-    return respond(201, { user: { id: created.user.id, email, access_role: requestedRole, account_ids: accountIds }, temporaryPassword: password });
+    return respond(201, { user: { id: created.user.id, username, access_role: requestedRole, account_ids: accountIds } });
   }
 
   const accountAccessMatch = path.match(/^\/dashboard\/users\/([0-9a-f-]{36})$/i);
