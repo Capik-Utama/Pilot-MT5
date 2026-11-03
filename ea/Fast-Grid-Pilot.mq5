@@ -91,6 +91,7 @@ double InpUsdToIdr = 18000.0;
 bool isAutoTradingActive = false; // Default aman: Manual sampai pemilik memilih Auto.
 uint LastPilotTelemetryAt = 0;
 uint LastPilotPollAt = 0;
+int PilotPollingIntervalMs = 1000;
 int LastPilotLatencyMs = 0;
 string InputConfigSnapshot = "";
 
@@ -166,7 +167,7 @@ int OnInit() {
    isAutoTradingActive = false;
    CreateDashboard();
    PilotRestoreConfigState();
-   if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetTimer(2);
+   if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
    if(EnablePilotRemote && EAConnectionToken == "")
       Print("Fast-Grid Pilot: tempel EAConnectionToken dari dashboard agar telemetri aktif.");
    return(INIT_SUCCEEDED);
@@ -455,14 +456,14 @@ void OnTimer() {
 void PilotOnTimer() {
    if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "") return;
    uint now = GetTickCount();
+   if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+      LastPilotPollAt = now;
+      PilotPollCommands();
+   }
+   now = GetTickCount();
    if(now - LastPilotTelemetryAt >= 2500) {
       LastPilotTelemetryAt = now;
       PilotSendTelemetry();
-   }
-   now = GetTickCount();
-   if(now - LastPilotPollAt >= 1500) {
-      LastPilotPollAt = now;
-      PilotPollCommands();
    }
 }
 
@@ -797,6 +798,9 @@ void PilotPollCommands() {
       if(code >= 400) PrintFormat("MT5 Pilot: polling perintah gagal (HTTP %d).", code);
       return;
    }
+   int requestedInterval = (int)PilotJsonNumber(response, "pollIntervalMs", PilotPollingIntervalMs);
+   if(requestedInterval == 500 || requestedInterval == 1000 || requestedInterval == 2000)
+      PilotPollingIntervalMs = requestedInterval;
    string commandId = PilotJsonString(response, "commandId");
    string action = PilotJsonString(response, "action");
    string payload = PilotJsonObject(response, "payload");

@@ -105,7 +105,7 @@ async function authenticateEa(req: Request) {
   const token = bearer(req);
   if (token.length < 40 || token.length > 128) return null;
   const tokenHash = await sha256(token);
-  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,is_demo")
+  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,is_demo,poll_interval_ms")
     .eq("token_hash", tokenHash).maybeSingle();
   if (error || !data) return null;
   return data;
@@ -331,7 +331,7 @@ async function handleDashboard(req: Request, path: string) {
       allowedAccountIds = (assignments ?? []).map((row) => String(row.account_id));
       if (!allowedAccountIds.length) return respond(200, { accounts: [] });
     }
-    const accountColumns = "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,created_at";
+    const accountColumns = "id,label,broker_account_name,mt5_login,server_name,currency,token_hint,is_demo,is_cent_account,display_currency,display_rate,telemetry_received,balance,equity,max_dd_buy,max_dd_sell,basket_sl_set,daily_target_set,max_float_buy,max_float_sell,running_float,basket_sl_type,open_positions,ea_status,running,ea_mode,profit,floating_profit,latency_ms,last_seen_at,poll_interval_ms,created_at";
     let accountQuery = admin.from("mt5_accounts").select(access.access_role === "owner" ? `${accountColumns},ea_config` : accountColumns)
       .eq("owner_id", access.owner_id).order("created_at", { ascending: true }).limit(25);
     if (allowedAccountIds) accountQuery = accountQuery.in("id", allowedAccountIds);
@@ -379,6 +379,22 @@ async function handleDashboard(req: Request, path: string) {
     const { data, error } = await admin.from("mt5_accounts").insert(row).select("id,label,token_hint,created_at").single();
     if (error || !data) return respond(500, { error: "Akun koneksi gagal dibuat." });
     return respond(201, { account: data, token });
+  }
+
+  const pollingMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/polling$/i);
+  if (pollingMatch && req.method === "PATCH") {
+    if (access.access_role !== "owner") return respond(403, { error: "Pengaturan polling hanya tersedia untuk owner." });
+    const body = await jsonBody(req);
+    const intervalMs = body?.intervalMs;
+    if (intervalMs !== 500 && intervalMs !== 1000 && intervalMs !== 2000) {
+      return respond(400, { error: "Interval polling harus 500, 1000, atau 2000 ms." });
+    }
+    const { data: account, error } = await admin.from("mt5_accounts")
+      .update({ poll_interval_ms: intervalMs, updated_at: new Date().toISOString() })
+      .eq("id", pollingMatch[1]).eq("owner_id", user.id).select("id,poll_interval_ms").maybeSingle();
+    if (error) return respond(500, { error: "Interval polling gagal disimpan." });
+    if (!account) return respond(404, { error: "Akun tidak ditemukan." });
+    return respond(200, { pollIntervalMs: account.poll_interval_ms });
   }
 
   const configMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/config$/i);
@@ -550,17 +566,17 @@ async function handleEa(req: Request, path: string) {
       .order("created_at", { ascending: true }).limit(10);
     if (error) return respond(500, { error: "Antrean tidak dapat dibaca." });
     const command = (commands ?? []).find((item) => item.status === "queued" || Date.parse(item.expires_at) > now.getTime());
-    if (!command) return respond(204);
+    if (!command) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000 });
     let responseExpiresAt = command.expires_at;
     if (command.status === "queued") {
       responseExpiresAt = new Date(now.getTime() + COMMAND_TTL_MS).toISOString();
       const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString(), expires_at: responseExpiresAt })
         .eq("id", command.id).eq("status", "queued").select("id").maybeSingle();
       if (updateError) return respond(500, { error: "Perintah tidak dapat diambil." });
-      if (!updated) return respond(204);
+      if (!updated) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000 });
       await writeEvent(command, "delivered");
     }
-    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: responseExpiresAt });
+    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: responseExpiresAt, pollIntervalMs: account.poll_interval_ms ?? 1000 });
   }
 
   const ackMatch = path.match(/^\/commands\/([0-9a-f-]{36})\/ack$/i);
