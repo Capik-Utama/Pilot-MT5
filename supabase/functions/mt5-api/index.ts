@@ -314,7 +314,7 @@ async function handleDashboard(req: Request, path: string) {
         connection_status: account.last_seen_at && now - Date.parse(account.last_seen_at) <= ONLINE_WINDOW_MS ? "online" : "offline",
         commands: commands.filter((command) => command.account_id === account.id).slice(0, 5).map((command) => ({
           ...command,
-          status: ["queued", "delivered"].includes(String(command.status)) && Date.parse(String(command.expires_at)) <= now ? "expired" : command.status,
+          status: command.status === "delivered" && Date.parse(String(command.expires_at)) <= now ? "expired" : command.status,
         })),
       })),
     });
@@ -388,10 +388,6 @@ async function handleDashboard(req: Request, path: string) {
     if (!account.last_seen_at || Date.now() - Date.parse(account.last_seen_at) > ONLINE_WINDOW_MS) {
       return respond(409, { error: "EA offline atau heartbeat sudah kedaluwarsa." });
     }
-    const { data: pending, error: pendingError } = await admin.from("mt5_commands").select("id")
-      .eq("account_id", accountId).in("status", activeStatuses).gt("expires_at", new Date().toISOString()).limit(1);
-    if (pendingError) return respond(500, { error: "Antrean perintah gagal diperiksa." });
-    if (pending?.length) return respond(409, { error: "Masih ada perintah yang belum selesai." });
     const command = { account_id: accountId, owner_id: account.owner_id, requested_by_user_id: user.id, action, status: "queued", expires_at: new Date(Date.now() + COMMAND_TTL_MS).toISOString() };
     const { data, error } = await admin.from("mt5_commands").insert(command).select("id,action,status,created_at,expires_at").single();
     if (error || !data) return respond(500, { error: "Perintah gagal dimasukkan ke antrean." });
@@ -481,13 +477,14 @@ async function handleEa(req: Request, path: string) {
   if (path === "/commands/next" && req.method === "GET") {
     const now = new Date();
     const { data: commands, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,action,status,expires_at,payload")
-      .eq("account_id", account.id).in("status", ["queued", "delivered"]).gt("expires_at", now.toISOString())
-      .order("created_at", { ascending: true }).limit(1);
+      .eq("account_id", account.id).in("status", ["queued", "delivered"])
+      .order("created_at", { ascending: true }).limit(10);
     if (error) return respond(500, { error: "Antrean tidak dapat dibaca." });
-    const command = commands?.[0];
+    const command = (commands ?? []).find((item) => item.status === "queued" || Date.parse(item.expires_at) > now.getTime());
     if (!command) return respond(204);
     if (command.status === "queued") {
-      const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString() })
+      const expiresAt = new Date(now.getTime() + COMMAND_TTL_MS).toISOString();
+      const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString(), expires_at: expiresAt })
         .eq("id", command.id).eq("status", "queued").select("id").maybeSingle();
       if (updateError) return respond(500, { error: "Perintah tidak dapat diambil." });
       if (!updated) return respond(204);

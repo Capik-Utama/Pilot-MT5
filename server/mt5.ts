@@ -103,13 +103,11 @@ export function registerMt5Routes(app: Express) {
         const rows = await tx.select().from(mt5Commands).where(and(
           eq(mt5Commands.accountId, account.id),
           inArray(mt5Commands.status, [...UNACKNOWLEDGED_COMMAND_STATES]),
-          gt(mt5Commands.expiresAt, now),
-        )).orderBy(asc(mt5Commands.createdAt)).limit(1).for("update");
-        const current = rows[0];
+        )).orderBy(asc(mt5Commands.createdAt)).limit(10).for("update");
+        const current = rows.find((item) => item.status === "queued" || item.expiresAt > now);
         if (!current) return null;
-        if (current.expiresAt <= new Date()) return null;
         if (current.status === "queued") {
-          await tx.update(mt5Commands).set({ status: "delivered", deliveredAt: now }).where(eq(mt5Commands.id, current.id));
+          await tx.update(mt5Commands).set({ status: "delivered", deliveredAt: now, expiresAt: new Date(now.getTime() + COMMAND_TTL_MS) }).where(eq(mt5Commands.id, current.id));
           await tx.insert(mt5CommandEvents).values(eventRow(current, "delivered"));
         }
         return current;
@@ -258,14 +256,6 @@ export async function queueCommandForOwner(ownerOpenId: string, accountId: strin
     if (!account) throw new Error("ACCOUNT_NOT_FOUND");
     if (!account.lastSeenAt || Date.now() - account.lastSeenAt.getTime() > ONLINE_WINDOW_MS) throw new Error("ACCOUNT_OFFLINE");
     const now = new Date();
-    const existing = await tx.select({ id: mt5Commands.id }).from(mt5Commands).where(and(
-      eq(mt5Commands.accountId, accountId),
-      or(
-        eq(mt5Commands.status, "accepted"),
-        and(inArray(mt5Commands.status, [...UNACKNOWLEDGED_COMMAND_STATES]), gt(mt5Commands.expiresAt, now)),
-      ),
-    )).limit(1);
-    if (existing.length) throw new Error("COMMAND_IN_PROGRESS");
     const id = randomUUID().replaceAll("-", "").toLowerCase();
     const expiresAt = new Date(now.getTime() + COMMAND_TTL_MS);
     const command = { id, accountId, ownerOpenId };
