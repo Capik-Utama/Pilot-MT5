@@ -105,7 +105,7 @@ async function authenticateEa(req: Request) {
   const token = bearer(req);
   if (token.length < 40 || token.length > 128) return null;
   const tokenHash = await sha256(token);
-  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,is_demo,poll_interval_ms")
+  const { data, error } = await admin.from("mt5_accounts").select("id,owner_id,label,is_demo,poll_interval_ms,ea_mode")
     .eq("token_hash", tokenHash).maybeSingle();
   if (error || !data) return null;
   return data;
@@ -566,17 +566,17 @@ async function handleEa(req: Request, path: string) {
       .order("created_at", { ascending: true }).limit(10);
     if (error) return respond(500, { error: "Antrean tidak dapat dibaca." });
     const command = (commands ?? []).find((item) => item.status === "queued" || Date.parse(item.expires_at) > now.getTime());
-    if (!command) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000 });
+    if (!command) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000, eaMode: account.ea_mode ?? "manual" });
     let responseExpiresAt = command.expires_at;
     if (command.status === "queued") {
       responseExpiresAt = new Date(now.getTime() + COMMAND_TTL_MS).toISOString();
       const { data: updated, error: updateError } = await admin.from("mt5_commands").update({ status: "delivered", delivered_at: now.toISOString(), expires_at: responseExpiresAt })
         .eq("id", command.id).eq("status", "queued").select("id").maybeSingle();
       if (updateError) return respond(500, { error: "Perintah tidak dapat diambil." });
-      if (!updated) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000 });
+      if (!updated) return respond(200, { commandId: "", action: "", payload: null, pollIntervalMs: account.poll_interval_ms ?? 1000, eaMode: account.ea_mode ?? "manual" });
       await writeEvent(command, "delivered");
     }
-    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: responseExpiresAt, pollIntervalMs: account.poll_interval_ms ?? 1000 });
+    return respond(200, { commandId: command.id, action: command.action, payload: command.payload ?? null, expiresAt: responseExpiresAt, pollIntervalMs: account.poll_interval_ms ?? 1000, eaMode: account.ea_mode ?? "manual" });
   }
 
   const ackMatch = path.match(/^\/commands\/([0-9a-f-]{36})\/ack$/i);
@@ -603,6 +603,16 @@ async function handleEa(req: Request, path: string) {
       return respond(200, { ok: true, status: command.status, message: "Menunggu telemetry EA untuk verifikasi konfigurasi." });
     }
     const now = new Date().toISOString();
+    const persistedMode = status === "succeeded" && command.action === "auto"
+      ? "auto"
+      : ["manual", "close_buy", "close_sell", "close_all"].includes(command.action) && (status === "succeeded" || status === "failed")
+        ? "manual"
+        : null;
+    if (persistedMode) {
+      const { error: modeError } = await admin.from("mt5_accounts")
+        .update({ ea_mode: persistedMode, updated_at: now }).eq("id", account.id);
+      if (modeError) return respond(500, { error: "Mode EA tidak dapat disimpan." });
+    }
     const update: Json = { status, result_message: message };
     if (status === "succeeded" || status === "failed") update.completed_at = now;
     const { error: updateError } = await admin.from("mt5_commands").update(update).eq("id", command.id);
