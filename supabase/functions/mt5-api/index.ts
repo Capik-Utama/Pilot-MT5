@@ -72,6 +72,16 @@ function finite(value: unknown, min: number, max: number): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 }
 
+function sameConfig(expected: unknown, actual: unknown) {
+  if (!expected || typeof expected !== "object" || Array.isArray(expected) || !actual || typeof actual !== "object" || Array.isArray(actual)) return false;
+  const expectedEntries = Object.entries(expected as Json);
+  const actualRecord = actual as Json;
+  return expectedEntries.length === Object.keys(actualRecord).length && expectedEntries.every(([key, value]) => {
+    const current = actualRecord[key];
+    return typeof value === "number" && typeof current === "number" && Number.isFinite(current) && value === current;
+  });
+}
+
 async function dashboardUser(req: Request) {
   const token = bearer(req);
   if (!token) return null;
@@ -431,11 +441,22 @@ async function handleEa(req: Request, path: string) {
     }
     let syncEaConfig = false;
     if (body.eaConfig !== undefined) {
-      const { data: pendingConfig, error: pendingConfigError } = await admin.from("mt5_commands").select("id")
+      const { data: pendingConfig, error: pendingConfigError } = await admin.from("mt5_commands").select("id,account_id,owner_id,requested_by_user_id,status,payload")
         .eq("account_id", account.id).eq("action", "config").in("status", activeStatuses)
-        .gt("expires_at", new Date().toISOString()).limit(1);
+        .limit(1);
       if (pendingConfigError) return respond(500, { error: "Status konfigurasi EA tidak dapat diperiksa." });
-      syncEaConfig = !pendingConfig?.length;
+      const configCommand = pendingConfig?.[0];
+      if (!configCommand) {
+        syncEaConfig = true;
+      } else if (sameConfig(configCommand.payload, body.eaConfig)) {
+        const completedAt = new Date().toISOString();
+        const { error: verifyError } = await admin.from("mt5_commands").update({
+          status: "succeeded", completed_at: completedAt, result_message: "Konfigurasi terverifikasi melalui telemetry EA.",
+        }).eq("id", configCommand.id).in("status", ["delivered", "accepted"]);
+        if (verifyError) return respond(500, { error: "Konfigurasi EA terverifikasi, tetapi status command gagal diperbarui." });
+        await writeEvent(configCommand, "succeeded", "Konfigurasi terverifikasi melalui telemetry EA.");
+        syncEaConfig = true;
+      }
     }
     const now = new Date().toISOString();
     const telemetryUpdate: Json = {
@@ -500,7 +521,7 @@ async function handleEa(req: Request, path: string) {
     const status = typeof body?.status === "string" ? body.status : "";
     const message = typeof body?.message === "string" ? body.message.slice(0, 500) : null;
     if (!body || !["accepted", "succeeded", "failed"].includes(status)) return respond(400, { error: "Status acknowledgement tidak valid." });
-    const { data: command, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,status,expires_at")
+    const { data: command, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,requested_by_user_id,action,payload,status,expires_at")
       .eq("id", ackMatch[1]).eq("account_id", account.id).maybeSingle();
     if (error || !command) return respond(404, { error: "Perintah tidak ditemukan." });
     if (["succeeded", "failed", "expired"].includes(command.status)) return respond(200, { ok: true, status: command.status });
@@ -514,6 +535,9 @@ async function handleEa(req: Request, path: string) {
       ? ["queued", "delivered"].includes(command.status)
       : ["delivered", "accepted"].includes(command.status);
     if (!allowed && status !== command.status) return respond(409, { error: "Transisi status perintah tidak valid." });
+    if (command.action === "config" && status === "succeeded") {
+      return respond(200, { ok: true, status: command.status, message: "Menunggu telemetry EA untuk verifikasi konfigurasi." });
+    }
     const now = new Date().toISOString();
     const update: Json = { status, result_message: message };
     if (status === "succeeded" || status === "failed") update.completed_at = now;
