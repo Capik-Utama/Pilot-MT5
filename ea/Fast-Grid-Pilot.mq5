@@ -88,8 +88,7 @@ double PendingTrail_SellPrice = 0;
 string UIPrefix = "DG_";
 int CurrentCurrencyMode = 0;
 double InpUsdToIdr = 18000.0;
-bool isAutoTradingActive = false; // Fallback aman sampai mode terakhir dipulihkan dari Pilot.
-bool PilotModeRestored = false;
+bool isAutoTradingActive = true; // EA selalu mulai dalam mode AUTO saat chart dimuat.
 uint LastPilotTelemetryAt = 0;
 uint LastPilotPollAt = 0;
 int PilotPollingIntervalMs = 1000;
@@ -165,8 +164,7 @@ int OnInit() {
 
    InpUsdToIdr = KursUSD_IDR;
 
-   isAutoTradingActive = false;
-   PilotModeRestored = false;
+   isAutoTradingActive = true;
    CreateDashboard();
    PilotRestoreConfigState();
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
@@ -803,15 +801,6 @@ void PilotPollCommands() {
    int requestedInterval = (int)PilotJsonNumber(response, "pollIntervalMs", PilotPollingIntervalMs);
    if(requestedInterval == 500 || requestedInterval == 1000 || requestedInterval == 2000)
       PilotPollingIntervalMs = requestedInterval;
-   if(!PilotModeRestored) {
-      string serverMode = PilotJsonString(response, "eaMode");
-      if(serverMode == "auto" || serverMode == "manual") {
-         isAutoTradingActive = serverMode == "auto";
-         PilotModeRestored = true;
-         RefreshDashboardUI();
-         Print("MT5 Pilot: mode ", serverMode, " dipulihkan dari akun.");
-      }
-   }
    string commandId = PilotJsonString(response, "commandId");
    string action = PilotJsonString(response, "action");
    string payload = PilotJsonObject(response, "payload");
