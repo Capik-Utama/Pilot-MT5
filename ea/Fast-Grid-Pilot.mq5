@@ -1140,20 +1140,30 @@ void CheckAndLayer() {
 }
 
 void BulkCloseAll() {
-   trade.SetAsyncMode(true);
+   // Closing must be synchronous here. Async close requests can still be in
+   // flight when the trailing state is reset, leaving part of the basket open.
+   trade.SetAsyncMode(false);
 
-   for(int i=PositionsTotal()-1; i>=0; i--) {
-      ulong ticket = PositionGetTicket(i);
-      if(PositionSelectByTicket(ticket) && PositionGetString(POSITION_SYMBOL) == _Symbol) {
+   for(int pass=0; pass<3; pass++) {
+      bool foundPosition = false;
+      for(int i=PositionsTotal()-1; i>=0; i--) {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket == 0 || !PositionSelectByTicket(ticket)) continue;
+         if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
          int m = (int)PositionGetInteger(POSITION_MAGIC);
-         if(m == MagicBeli || m == MagicJual) {
-            trade.PositionClose(ticket);
+         if(m != MagicBeli && m != MagicJual) continue;
+
+         foundPosition = true;
+         bool closed = trade.PositionClose(ticket);
+         uint retcode = trade.ResultRetcode();
+         if(!closed || (retcode != TRADE_RETCODE_DONE && retcode != TRADE_RETCODE_DONE_PARTIAL)) {
+            PrintFormat("Fast-Grid: close-all failed. ticket=%I64u retcode=%u (%s)",
+                        ticket, retcode, trade.ResultRetcodeDescription());
          }
       }
+      if(!foundPosition) break;
+      Sleep(50);
    }
-
-   trade.SetAsyncMode(false);
-   Sleep(10);
 
    VSL_BuyPrice = 0;
    VSL_SellPrice = 0;
@@ -1400,9 +1410,11 @@ void ApplyGlobalTrailingPoints() {
             }
          }
 
-         if(MaxCombinedProfitPoints > 0) {
+         if(MaxCombinedProfitPoints >= MulaiTrailingPoin) {
             double targetStopPoints = MathMax((double)KunciProfitPoin, MaxCombinedProfitPoints - LangkahTrailingPoin);
-            if(combinedPoints <= targetStopPoints) {
+            // Close only after the combined profit has actually retraced from
+            // its peak; do not close immediately on the tick that arms TS ALL.
+            if(combinedPoints < MaxCombinedProfitPoints && combinedPoints <= targetStopPoints) {
                BulkCloseAll();
                MaxCombinedProfitPoints = 0;
             }
