@@ -518,7 +518,6 @@ export default function Home() {
         {accessRole !== "staff" && <div className="pilot-sidebar-section pilot-settings-section">
           <span className="pilot-kicker">PREFERENSI</span>
           <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshDraftSeconds} onChange={(event) => { if (event.target.value === "") { setRefreshDraftSeconds(""); return; } const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshDraftSeconds(value); }} onBlur={() => setRefreshDraftSeconds((value) => value === "" ? "" : Math.max(1, Math.min(60, value)))} /></label>
-          <small className="pilot-sidebar-hint">Default 5 detik. Realtime tetap memperbarui data seketika.</small>
           <button type="button" className="pilot-add-button pilot-sidebar-add" onClick={saveRefreshSettings}>Simpan</button>
           <label className="pilot-sidebar-setting"><span>Tema</span><select value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="dark">Gelap (default)</option><option value="light">Terang</option><option value="blue-black">Biru hitam</option><option value="blue-white">Biru putih</option></select></label>
           <button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Kelola pengguna" : "Hanya owner yang dapat mengelola pengguna"} onClick={() => void openUserManager()}><Users size={15} /> Kelola pengguna</button>
