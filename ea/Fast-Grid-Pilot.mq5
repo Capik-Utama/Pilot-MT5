@@ -462,6 +462,8 @@ void PilotOnTimer() {
       LastPilotPollAt = now;
       PilotPollCommands();
    }
+   // Do not let the temporary init default (MANUAL) overwrite the saved server mode.
+   if(!PilotModeRestored) return;
    now = GetTickCount();
    if(now - LastPilotTelemetryAt >= 2500) {
       LastPilotTelemetryAt = now;
