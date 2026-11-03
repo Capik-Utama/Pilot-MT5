@@ -121,6 +121,7 @@ export default function Home() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [busyAccountIds, setBusyAccountIds] = useState<Set<string>>(() => new Set());
   const backgroundCommands = useRef(new Map<string, BackgroundCommand>());
+  const sessionRefreshRef = useRef<Promise<string | null> | null>(null);
   const [currencyModes, setCurrencyModes] = useState<Record<string, DisplayCurrency>>({});
   const [accountSearch, setAccountSearch] = useState("");
   const [connectionFilter, setConnectionFilter] = useState<"all" | "online" | "offline">("all");
@@ -155,25 +156,45 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setAuthLoading(false); } });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => { setSession(nextSession); setAccessRole(null); setOwnerId(null); });
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      setSession(nextSession);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") { setAccessRole(null); setOwnerId(null); }
+    });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => { localStorage.setItem("pilot-refresh-seconds", String(refreshSeconds)); }, [refreshSeconds]);
 
+  const refreshAccessToken = useCallback(async () => {
+    if (!sessionRefreshRef.current) {
+      sessionRefreshRef.current = supabase.auth.refreshSession()
+        .then(({ data, error }) => error ? null : data.session?.access_token ?? null)
+        .finally(() => { sessionRefreshRef.current = null; });
+    }
+    return sessionRefreshRef.current;
+  }, []);
+
   const callApi = useCallback(async (path: string, method = "GET", body?: unknown) => {
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (!accessToken) throw new Error("Sesi login berakhir. Silakan masuk kembali.");
-    const response = await fetch(`${MT5_API_URL}?route=${encodeURIComponent(path)}`, {
+    const request = (accessToken: string) => fetch(`${MT5_API_URL}?route=${encodeURIComponent(path)}`, {
       method,
       headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
+    const { data } = await supabase.auth.getSession();
+    let accessToken = data.session?.access_token ?? await refreshAccessToken();
+    if (!accessToken) { setSession(null); throw new Error("Sesi login berakhir. Silakan masuk kembali."); }
+    let response = await request(accessToken);
+    if (response.status === 401) {
+      accessToken = await refreshAccessToken();
+      if (accessToken) response = await request(accessToken);
+    }
     const result = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(result?.error ?? `Permintaan gagal (${response.status}).`);
+    if (!response.ok) {
+      if (response.status === 401) { setSession(null); throw new Error("Sesi login berakhir. Silakan masuk kembali."); }
+      throw new Error(result?.error ?? `Permintaan gagal (${response.status}).`);
+    }
     return result;
-  }, []);
+  }, [refreshAccessToken]);
 
   const loadAccess = useCallback(async () => {
     if (!session) { setAccessRole(null); setOwnerId(null); return; }
