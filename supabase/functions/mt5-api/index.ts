@@ -360,7 +360,7 @@ async function handleDashboard(req: Request, path: string) {
     if (!validConfig(config)) return respond(400, { error: "Konfigurasi EA tidak valid atau berisi parameter yang tidak dikenal." });
     const accountId = configMatch[1];
     const { data: account, error: accountError } = await admin.from("mt5_accounts")
-      .select("id,owner_id,last_seen_at").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
+      .select("id,owner_id,last_seen_at,ea_mode").eq("id", accountId).eq("owner_id", user.id).maybeSingle();
     if (accountError || !account) return respond(404, { error: "Akun tidak ditemukan." });
     if (!account.last_seen_at || Date.now() - Date.parse(account.last_seen_at) > ONLINE_WINDOW_MS) return respond(409, { error: "EA offline atau heartbeat sudah kedaluwarsa." });
     const { data: pending, error: pendingError } = await admin.from("mt5_commands").select("id")
@@ -376,7 +376,26 @@ async function handleDashboard(req: Request, path: string) {
     if (updateError) { await admin.from("mt5_commands").delete().eq("id", command.id); return respond(500, { error: "Konfigurasi gagal disimpan ke Supabase." }); }
     try { await writeEvent({ id: command.id, account_id: accountId, owner_id: user.id }, "queued"); }
     catch { await admin.from("mt5_commands").delete().eq("id", command.id); return respond(500, { error: "Jejak audit gagal ditulis; konfigurasi dibatalkan." }); }
-    return respond(201, { command });
+    let restoreModeCommand = null;
+    if (account.ea_mode === "auto") {
+      const restoreMode = {
+        account_id: accountId, owner_id: user.id, requested_by_user_id: user.id,
+        action: "auto", status: "queued", expires_at: new Date(Date.now() + COMMAND_TTL_MS).toISOString(),
+      };
+      const { data: autoCommand, error: autoError } = await admin.from("mt5_commands")
+        .insert(restoreMode).select("id,action,status,created_at,expires_at").single();
+      if (autoError || !autoCommand) {
+        return respond(201, { command, warning: "Konfigurasi masuk antrean, tetapi pemulihan mode AUTO belum berhasil dibuat." });
+      }
+      try {
+        await writeEvent({ id: autoCommand.id, account_id: accountId, owner_id: user.id, requested_by_user_id: user.id }, "queued");
+        restoreModeCommand = autoCommand;
+      } catch {
+        await admin.from("mt5_commands").delete().eq("id", autoCommand.id);
+        return respond(201, { command, warning: "Konfigurasi masuk antrean, tetapi jejak pemulihan mode AUTO gagal ditulis." });
+      }
+    }
+    return respond(201, { command, restoreModeCommand });
   }
 
   const commandMatch = path.match(/^\/dashboard\/accounts\/([0-9a-f-]{36})\/commands$/i);
