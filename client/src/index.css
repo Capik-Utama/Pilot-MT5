@@ -1064,3 +1064,46 @@ h1, h2, h3, p { margin: 0; }
   .pilot-log-content span { font-size: 8px; }
   .pilot-log-status { font-size: 7px; }
 }
+
+
+/* Pilot ↔ EA transfer speed and ping indicator in the dashboard header. */
+.pilot-topbar-tools { display:flex; align-items:center; flex:0 0 auto; gap:9px; }
+.pilot-link-status { display:flex; align-items:center; gap:10px; padding:7px 9px; border:1px solid var(--p-line); border-radius:8px; color:var(--p-text); background:rgba(85,214,200,.035); }
+.pilot-link-speed { display:grid; gap:3px; }
+.pilot-link-title { color:var(--p-muted); font:700 7px "IBM Plex Mono",ui-monospace,monospace; letter-spacing:.08em; white-space:nowrap; }
+.pilot-link-rates { display:flex; align-items:center; gap:9px; }
+.pilot-link-rate { display:inline-flex; align-items:center; gap:2px; font:600 9px "IBM Plex Mono",ui-monospace,monospace; white-space:nowrap; }
+.pilot-link-upload { color:#55d6a3; }
+.pilot-link-download { color:#72b9ff; }
+.pilot-link-divider { width:1px; height:27px; background:var(--p-line); }
+.pilot-link-ping { display:flex; align-items:center; gap:5px; color:var(--p-cyan); }
+.pilot-link-ping > span { display:grid; gap:2px; }
+.pilot-link-ping small { color:var(--p-muted); font:700 7px "IBM Plex Mono",ui-monospace,monospace; letter-spacing:.08em; }
+.pilot-link-ping strong { color:var(--p-text); font:700 10px "IBM Plex Mono",ui-monospace,monospace; white-space:nowrap; }
+@media (max-width:650px) {
+  .pilot-topbar-tools { gap:6px; }
+  .pilot-link-status { gap:5px; padding:4px 5px; }
+  .pilot-link-title { font-size:6px; letter-spacing:.04em; }
+  .pilot-link-rates { align-items:flex-start; flex-direction:column; gap:0; }
+  .pilot-link-rate { gap:1px; font-size:7px; }
+  .pilot-link-rate svg { width:9px; height:9px; }
+  .pilot-link-divider { height:22px; }
+  .pilot-link-ping { gap:3px; }
+  .pilot-link-ping svg { width:12px; height:12px; }
+  .pilot-link-ping small { font-size:6px; }
+  .pilot-link-ping strong { font-size:8px; }
+  .pilot-brand { flex:1 1 auto; min-width:0; max-width:none; gap:8px; }
+  .pilot-brand-mark { flex:0 0 40px; }
+  .pilot-brand > span:last-child { display:grid; align-items:start; gap:2px; min-width:0; }
+  .pilot-brand strong { max-width:100%; font-size:16px; }
+  .pilot-brand small { max-width:100%; overflow:hidden; font-size:6px; letter-spacing:.07em; text-overflow:ellipsis; }
+}
+@media (max-width:380px) {
+  .pilot-link-status { gap:4px; padding:3px 4px; }
+  .pilot-link-ping small { display:none; }
+  .pilot-brand { gap:6px; }
+  .pilot-brand-mark { flex-basis:36px; width:36px; height:36px; }
+  .pilot-brand-mark svg { width:19px; height:19px; }
+  .pilot-brand strong { font-size:15px; }
+  .pilot-brand small { display:none; }
+}

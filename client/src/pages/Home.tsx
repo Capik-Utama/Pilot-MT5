@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Check, CircleDot, ClipboardList, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
+import { Activity, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, Check, CircleDot, ClipboardList, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
@@ -28,6 +28,7 @@ type ManagedUser = { user_id: string; email: string; access_role: "read_only" | 
 type CreatedUserCredential = { username: string; password: string };
 type BackgroundCommand = { accountId: string; label: string; toastId: string | number; lastStatus: string; startedAt: number };
 type ActivityLog = { id: string; account_id: string; account_label: string; action: Action | "config"; status: string; result_message: string | null; created_at: string; completed_at: string | null; actor_name: string; actor_role: string };
+type NetworkTrafficSample = { at: number; uploadedBytes: number; downloadedBytes: number };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
@@ -62,6 +63,9 @@ function age(value: string | null) {
   if (!value) return "belum menerima heartbeat";
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 1000));
   return seconds < 2 ? "baru saja" : seconds < 60 ? `${seconds} dtk lalu` : `${Math.floor(seconds / 60)} mnt lalu`;
+}
+function formatNetworkSpeed(bytesPerSecond: number) {
+  return `${(bytesPerSecond / 1024).toFixed(2)} KB/s`;
 }
 
 function authEmailForIdentifier(identifier: string) {
@@ -124,6 +128,8 @@ export default function Home() {
   });
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const networkTraffic = useRef<NetworkTrafficSample[]>([]);
+  const [networkRates, setNetworkRates] = useState({ uploadedBytesPerSecond: 0, downloadedBytesPerSecond: 0 });
   const [accountName, setAccountName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [tokenModal, setTokenModal] = useState<ConnectionToken | null>(null);
@@ -168,6 +174,21 @@ export default function Home() {
   const [createdUserCredential, setCreatedUserCredential] = useState<CreatedUserCredential | null>(null);
 
   useEffect(() => {
+    const updateRates = () => {
+      const now = Date.now();
+      const windowStart = now - 5_000;
+      const recent = networkTraffic.current.filter((sample) => sample.at >= windowStart);
+      networkTraffic.current = recent;
+      setNetworkRates({
+        uploadedBytesPerSecond: recent.reduce((sum, sample) => sum + sample.uploadedBytes, 0) / 5,
+        downloadedBytesPerSecond: recent.reduce((sum, sample) => sum + sample.downloadedBytes, 0) / 5,
+      });
+    };
+    const timer = window.setInterval(updateRates, 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setAuthLoading(false); } });
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -196,11 +217,19 @@ export default function Home() {
   }, []);
 
   const callApi = useCallback(async (path: string, method = "GET", body?: unknown) => {
-    const request = (accessToken: string) => fetch(`${MT5_API_URL}?route=${encodeURIComponent(path)}`, {
-      method,
-      headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    const serializedBody = body === undefined ? undefined : JSON.stringify(body);
+    const routeUrl = `${MT5_API_URL}?route=${encodeURIComponent(path)}`;
+    let uploadedBytes = 0;
+    const request = (accessToken: string) => {
+      const headers = { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, ...(serializedBody === undefined ? {} : { "Content-Type": "application/json" }) };
+      const requestHeaderText = Object.entries(headers).map(([key, value]) => `${key}: ${value}\r\n`).join("");
+      uploadedBytes = new TextEncoder().encode(`${method} ${routeUrl}\r\n${requestHeaderText}\r\n${serializedBody ?? ""}`).byteLength;
+      return fetch(routeUrl, {
+        method,
+        headers,
+        ...(serializedBody === undefined ? {} : { body: serializedBody }),
+      });
+    };
     const { data } = await supabase.auth.getSession();
     let accessToken = data.session?.access_token ?? await refreshAccessToken();
     if (!accessToken) { setSession(null); throw new Error("Sesi login berakhir. Silakan masuk kembali."); }
@@ -209,6 +238,10 @@ export default function Home() {
       accessToken = await refreshAccessToken();
       if (accessToken) response = await request(accessToken);
     }
+    const responseHeaderText = Array.from(response.headers.entries()).map(([key, value]) => `${key}: ${value}\r\n`).join("");
+    const downloadedBodyBytes = await response.clone().arrayBuffer().then((buffer) => buffer.byteLength).catch(() => 0);
+    const downloadedBytes = new TextEncoder().encode(responseHeaderText).byteLength + downloadedBodyBytes;
+    networkTraffic.current.push({ at: Date.now(), uploadedBytes, downloadedBytes });
     const result = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
       if (response.status === 401) { setSession(null); throw new Error("Sesi login berakhir. Silakan masuk kembali."); }
@@ -306,6 +339,12 @@ export default function Home() {
   const canUseCardActions = accessRole === "owner" || accessRole === "staff";
 
   const onlineCount = useMemo(() => accounts.filter((account) => account.connection_status === "online").length, [accounts]);
+  const averagePingMs = useMemo(() => {
+    const values = accounts
+      .filter((account) => account.connection_status === "online" && account.telemetry_received && account.latency_ms !== null && Number.isFinite(account.latency_ms))
+      .map((account) => account.latency_ms as number);
+    return values.length ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : null;
+  }, [accounts]);
   const filteredAccounts = useMemo(() => {
     const query = accountSearch.trim().toLocaleLowerCase();
     return accounts.filter((account) => {
@@ -507,7 +546,14 @@ export default function Home() {
     <main className="pilot-dashboard" data-theme={theme}>
       <header className="pilot-topbar">
         <a className="pilot-brand" href="/"><span className="pilot-brand-mark"><Activity size={19} /></span><span><strong>MT5 <i>PILOT</i></strong><small>PRIVATE EA WORKSPACE</small></span></a>
-        <button className="pilot-menu-button pilot-icon-button" title="Buka menu" aria-label="Buka menu" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={19} /></button>
+        <div className="pilot-topbar-tools">
+          <div className="pilot-link-status" title="Estimasi byte header dan payload request/respons Pilot API selama 5 detik terakhir. Ping adalah rata-rata RTT heartbeat dari EA yang online." aria-label={`Kecepatan komunikasi Pilot dan EA: unggah ${formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}, unduh ${formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}; ping rata-rata ${averagePingMs === null ? "belum tersedia" : `${averagePingMs} milidetik`}`}>
+            <div className="pilot-link-speed"><span className="pilot-link-title">KECEPATAN PILOT ↔ EA</span><div className="pilot-link-rates"><span className="pilot-link-rate pilot-link-upload"><ArrowUp size={12} aria-hidden="true" />{formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}</span><span className="pilot-link-rate pilot-link-download"><ArrowDown size={12} aria-hidden="true" />{formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}</span></div></div>
+            <span className="pilot-link-divider" aria-hidden="true" />
+            <div className="pilot-link-ping"><Signal size={15} aria-hidden="true" /><span><small>PING AVG</small><strong>{averagePingMs === null ? "—" : `${averagePingMs} ms`}</strong></span></div>
+          </div>
+          <button className="pilot-menu-button pilot-icon-button" title="Buka menu" aria-label="Buka menu" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={19} /></button>
+        </div>
       </header>
       {sidebarOpen && <button className="pilot-sidebar-backdrop" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)} />}
       <aside className={`pilot-sidebar ${sidebarOpen ? "open" : ""}`} aria-hidden={!sidebarOpen}>
