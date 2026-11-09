@@ -55,11 +55,21 @@ export function createApp(app: Express = express()) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const configError = message.includes("POCKETBASE_URL") || message.includes("POCKETBASE_SUPERUSER_");
+      const errorName = error instanceof Error ? error.name : "UnknownError";
+      const status = error && typeof error === "object" && "status" in error && typeof error.status === "number" ? error.status : 0;
+      const hint = configError
+        ? message
+        : status === 400 || status === 401
+          ? `PocketBase menolak autentikasi superuser (HTTP ${status}). Pastikan email dan password Vercel adalah kredensial superuser yang aktif.`
+          : status > 0
+            ? `PocketBase merespons error autentikasi superuser (HTTP ${status}). Periksa konfigurasi dan status server PocketBase.`
+            : `Tidak dapat memastikan autentikasi superuser karena koneksi gagal atau respons tidak terduga (${errorName}). Periksa URL PocketBase, TLS/firewall, dan kredensial superuser.`;
+      console.error("[PocketBase health] Admin authentication failed", { errorName, status: status || null });
       res.status(503).json({
         status: "unavailable",
         database: "pocketbase",
         checks: { superuser: false, collections: false, usersAuth: false },
-        ...(configError ? { hint: message } : {}),
+        hint,
       });
     }
   });
