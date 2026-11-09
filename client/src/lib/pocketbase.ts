@@ -1,6 +1,6 @@
 import PocketBase from "pocketbase";
 
-export const POCKETBASE_URL = `${window.location.origin}/pocketbase`;
+export const POCKETBASE_URL = `${window.location.origin}/api/pocketbase`;
 export const MT5_API_URL = `${window.location.origin}/api/pilot`;
 
 export const pocketbase = new PocketBase(POCKETBASE_URL);

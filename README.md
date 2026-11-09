@@ -1,6 +1,9 @@
 # MT5 Pilot — PocketBase lokal
 
-Dashboard Fast-Grid berjalan dengan server Express dan PocketBase lokal. PocketBase menangani login dan menyimpan akun EA, telemetry, konfigurasi, antrean command, dan log. Browser memakai PocketBase Auth; dashboard dan MetaTrader berbicara ke API lokal Express. Tidak diperlukan Supabase untuk runtime aplikasi.
+Dashboard Fast-Grid memakai Express API dan PocketBase. Untuk development keduanya dapat berjalan lokal; untuk publikasi, frontend/API berjalan di Vercel dan PocketBase tetap menjadi database persisten pada VPS ber-HTTPS. Browser login melalui Express proxy, bukan mengakses database langsung. Tidak diperlukan Supabase untuk runtime aplikasi.
+## Deploy Vercel
+
+Ikuti [docs/deploy-vercel.md](docs/deploy-vercel.md). Vercel memerlukan `POCKETBASE_URL` HTTPS, `POCKETBASE_SUPERUSER_EMAIL`, dan `POCKETBASE_SUPERUSER_PASSWORD` di Project Settings → Environment Variables. Jangan menyimpan credential VPS di Git. Setelah mengubah environment variables, lakukan redeploy.
 
 Dashboard hanya menerima telemetry langsung dari MT5; tidak ada saldo atau transaksi sintetis. Aplikasi tidak mengklasifikasikan jenis akun atau mencegah EA dipasang pada jenis akun lain. Pastikan terminal MT5 yang dipilih benar sebelum memasang EA.
 

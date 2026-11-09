@@ -29,8 +29,8 @@ function proxyPocketBaseAuth(path: string) {
 export function createApp(app: Express = express()) {
   app.use(express.json({ limit: "32kb" }));
   app.use(express.urlencoded({ limit: "16kb", extended: true }));
-  app.post("/pocketbase/api/collections/users/auth-with-password", proxyPocketBaseAuth("/api/collections/users/auth-with-password"));
-  app.post("/pocketbase/api/collections/users/auth-refresh", proxyPocketBaseAuth("/api/collections/users/auth-refresh"));
+  app.post("/api/pocketbase/api/collections/users/auth-with-password", proxyPocketBaseAuth("/api/collections/users/auth-with-password"));
+  app.post("/api/pocketbase/api/collections/users/auth-refresh", proxyPocketBaseAuth("/api/collections/users/auth-refresh"));
   app.get("/api/health", async (_req, res) => {
     try {
       const pb = await getPocketBaseAdmin();
