@@ -10,7 +10,16 @@ Frontend dan Express API berjalan pada Vercel; PocketBase tetap berjalan dengan 
 4. Tambahkan environment variables pada Vercel Project Settings → Environment Variables:
 	- `POCKETBASE_URL=https://personal-database.my.id` (origin saja, tanpa `/_/`).
 	- `POCKETBASE_SUPERUSER_EMAIL` dan `POCKETBASE_SUPERUSER_PASSWORD` untuk akun superuser PB. Isi langsung di dashboard Vercel; jangan commit atau kirim nilainya melalui chat.
-5. Redeploy agar environment variables digunakan. Pastikan `/api/health` mengembalikan `200` dan login/dashboard berfungsi.
+5. Jika host database baru belum memiliki collection Pilot, jalankan `pnpm pocketbase:setup` sekali dengan variabel superuser PocketBase dan kredensial owner yang disimpan lokal di `.env` (jangan masukkan rahasia di GitHub atau chat). Skrip menyiapkan collection dan membuat owner hanya jika akun tersebut belum ada.
+6. Redeploy agar environment variables digunakan. Buka `https://<domain-aplikasi>/api/health`; status harus `200` dengan `checks.superuser`, `checks.usersAuth`, dan semua collection bernilai `true`.
+
+## Setelah database dipindah
+
+- Mengubah URL saja tidak memindahkan data. Pastikan server PocketBase baru menggunakan salinan/pemulihan `pb_data` yang benar. Jika database baru kosong, jalankan `pnpm pocketbase:setup` untuk membuat skema dan owner, lalu buat ulang pengguna lain melalui owner.
+- Jika sumber lama adalah Supabase, akun dan passwordnya tidak otomatis dapat dipakai di PocketBase. Buat akun PocketBase baru atau reset password pengguna di PocketBase.
+- Login menerima username atau email. Username tanpa `@` dicoba sebagai email internal `<username>@pilot-mt5.local`; alamat email yang diketik digunakan apa adanya. Akun yang dibuat oleh skrip setup mengikuti format ini.
+- `503` dari `/api/health` berarti pemeriksaan superuser, konfigurasi auth `users`, atau collection belum lolos. Cek Environment Variables Vercel untuk salah eja/lingkungan yang belum dipilih (`Production`/`Preview`), lalu redeploy. Kode sekarang menolak URL PocketBase yang berisi halaman admin/path dan tidak lagi diam-diam memakai localhost di Vercel.
+- Jika health `200` tetapi login ditolak, verifikasi bahwa akun berada di database baru, collection auth bernama `users`, password benar, dan email/username sesuai format di atas. Jangan mengirim token atau password ke endpoint publik.
 
 PocketBase harus memiliki sertifikat HTTPS valid dan dapat dijangkau dari Vercel. Batasi akses port PocketBase ke reverse proxy dan jangan mengekspos port database secara langsung. Halaman Admin PB `/_/` sebaiknya dibatasi dengan firewall atau Cloudflare Access. Buat backup `pb_data` secara berkala.
 

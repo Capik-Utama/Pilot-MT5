@@ -1,9 +1,41 @@
 import PocketBase, { type RecordModel } from "pocketbase";
 
-export const pocketBaseUrl = process.env.POCKETBASE_URL || "http://127.0.0.1:8090";
+const LOCAL_POCKETBASE_URL = "http://127.0.0.1:8090";
+
+/** Resolve and validate the PocketBase origin at request time. */
+export function getPocketBaseUrl() {
+  const configuredUrl = process.env.POCKETBASE_URL?.trim();
+  const isVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+
+  if (!configuredUrl) {
+    if (isVercel) {
+      throw new Error("POCKETBASE_URL is required in Vercel. Set it to the PocketBase origin, e.g. https://personal-database.my.id.");
+    }
+    return LOCAL_POCKETBASE_URL;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(configuredUrl);
+  } catch {
+    throw new Error("POCKETBASE_URL must be a valid absolute URL containing only the PocketBase origin.");
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) {
+    throw new Error("POCKETBASE_URL must use HTTP or HTTPS and must not contain credentials.");
+  }
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error("POCKETBASE_URL must be the origin only, without a path, query, or hash.");
+  }
+  if (isVercel && parsed.protocol !== "https:") {
+    throw new Error("POCKETBASE_URL must use HTTPS when the app is deployed on Vercel.");
+  }
+
+  return parsed.origin;
+}
 
 function createClient() {
-  const client = new PocketBase(pocketBaseUrl);
+  const client = new PocketBase(getPocketBaseUrl());
   client.autoCancellation(false);
   return client;
 }
