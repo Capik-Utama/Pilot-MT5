@@ -423,7 +423,7 @@ h1, h2, h3, p { margin: 0; }
 }
 
 
-/* Dashboard telemetry Fast-Grid berbasis Supabase */
+/* Dashboard telemetry Fast-Grid berbasis PocketBase lokal */
 .pilot-dashboard, .pilot-auth-page, .pilot-loading { --p-bg:#08111f; --p-panel:#0d1929; --p-line:rgba(143,170,201,.15); --p-muted:#8091a5; --p-text:#dce6ef; --p-cyan:#55d6c8; min-height:100vh; color:var(--p-text); background:radial-gradient(ellipse 68% 33% at 59% -12%,rgba(45,212,191,.095),transparent 72%),var(--p-bg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 .pilot-dashboard *, .pilot-auth-page * { box-sizing:border-box; }
 .pilot-topbar { height:70px; display:flex; align-items:center; justify-content:space-between; padding:0 clamp(18px,4.8vw,76px); border-bottom:1px solid var(--p-line); background:rgba(8,17,31,.88); }

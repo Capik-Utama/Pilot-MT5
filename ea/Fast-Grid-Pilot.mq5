@@ -16,12 +16,12 @@ enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string SupabaseFunctionUrl = "https://qqdsultliybypiuvihli.supabase.co/functions/v1/mt5-api";
-input string SupabasePublishableKey = "sb_publishable_Kfj9_n9hWcuexbpXuPWGDQ_SiUzDaH2";
+input string PilotApiUrl = "http://127.0.0.1:3001/api/pilot";
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
 
 input group "== Mode Perdagangan =="
 input ENUM_TRADE_MODE InputModePerdagangan = MODE_BELI_JUAL;
+input double InputMinimumBalanceAuto = 1000.0;
 
 input group "== Mata Uang Tampilan =="
 input ENUM_DISPLAY_CURRENCY InputMataUangTampilan = MATA_IDR;
@@ -33,18 +33,18 @@ input int     InputMagicJual   = 2864385;
 
 input group "== Pengaturan Lot & Pengganda =="
 input double    InputLotAwal         = 0.01;
-input double    InputPenggandaLot   = 1.2;
-input double    InputLotMaksimal          = 12;
-input int       InputLangkahLayer       = 1;
-input int       InputJarakGrid        = 2000;
+input double    InputPenggandaLot   = 1.5;
+input double    InputLotMaksimal          = 15;
+input int       InputLangkahLayer       = 5;
+input int       InputJarakGrid        = 1000;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
-input double    InputBatasKerugian    = 30000.0;
-input int       InputJedaSetelahSLMenit = 30;
+input double    InputBatasKerugian    = 10000.0;
+input int       InputJedaSetelahSLMenit = 100;
 input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
@@ -56,6 +56,7 @@ input int        InputLangkahTrailingPoin  = 500;
 
 // Runtime values mirrored from the MT5 inputs and optionally updated from the dashboard.
 ENUM_TRADE_MODE ModePerdagangan = InputModePerdagangan;
+double MinimumBalanceAuto = InputMinimumBalanceAuto;
 ENUM_DISPLAY_CURRENCY MataUangTampilan = InputMataUangTampilan;
 double KursUSD_IDR = InputKursUSD_IDR;
 int MagicBeli = InputMagicBeli;
@@ -137,9 +138,11 @@ string PilotReadConfigState();
 void PilotSaveConfigState();
 bool PilotRestoreConfigState();
 bool PilotApplyConfig(const string json);
+bool HasMinimumBalanceForAuto(const bool notify);
 
 int OnInit() {
    ModePerdagangan = InputModePerdagangan;
+   MinimumBalanceAuto = InputMinimumBalanceAuto;
    MataUangTampilan = InputMataUangTampilan;
    KursUSD_IDR = InputKursUSD_IDR;
    MagicBeli = InputMagicBeli;
@@ -173,6 +176,11 @@ int OnInit() {
    isAutoTradingActive = true;
    CreateDashboard();
    PilotRestoreConfigState();
+   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) {
+      isAutoTradingActive = false;
+      PrintFormat("Fast-Grid Pilot: AUTO dinonaktifkan saat mulai; saldo di bawah minimum %.2f.", MinimumBalanceAuto);
+      RefreshDashboardUI();
+   }
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
    if(EnablePilotRemote && EAConnectionToken == "")
       Print("Fast-Grid Pilot: tempel EAConnectionToken dari dashboard agar telemetri aktif.");
@@ -433,7 +441,8 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
          ObjectSetInteger(0, UIPrefix + "BtnSell", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnAuto") {
-         isAutoTradingActive = true;
+         if(HasMinimumBalanceForAuto(true)) isAutoTradingActive = true;
+         else isAutoTradingActive = false;
          ObjectSetInteger(0, UIPrefix + "BtnAuto", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnManual") {
@@ -469,7 +478,7 @@ void PilotOnTimer() {
       PilotPollCommands();
    }
    now = GetTickCount();
-   if(now - LastPilotTelemetryAt >= 2500) {
+   if(now - LastPilotTelemetryAt >= 1000) {
       LastPilotTelemetryAt = now;
       PilotSendTelemetry();
    }
@@ -498,14 +507,13 @@ int PilotHttp(const string method, const string route, const string body, string
    }
    char result[];
    string resultHeaders;
-   string headers = "Content-Type: application/json\r\napikey: " + SupabasePublishableKey +
-                    "\r\nAuthorization: Bearer " + EAConnectionToken + "\r\n";
+   string headers = "Content-Type: application/json\r\nAuthorization: Bearer " + EAConnectionToken + "\r\n";
    ResetLastError();
-   int code = WebRequest(method, SupabaseFunctionUrl + "?route=" + route, headers, 3000, data, result, resultHeaders);
+   int code = WebRequest(method, PilotApiUrl + "?route=" + route, headers, 3000, data, result, resultHeaders);
    response = CharArrayToString(result, 0, -1, CP_UTF8);
    if(code < 0) {
       int err = GetLastError();
-      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan URL Supabase di Options > Expert Advisors.", err);
+      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan host Pilot API di Options > Expert Advisors.", err);
    }
    return code;
 }
@@ -575,6 +583,7 @@ string PilotJsonObject(const string json, const string key) {
 
 string PilotConfigJson(const bool fromInputs) {
    return "{\"ModePerdagangan\":" + IntegerToString(fromInputs ? (int)InputModePerdagangan : (int)ModePerdagangan) +
+   ",\"MinimumBalanceAuto\":" + DoubleToString(fromInputs ? InputMinimumBalanceAuto : MinimumBalanceAuto, 8) +
       ",\"MataUangTampilan\":" + IntegerToString(fromInputs ? (int)InputMataUangTampilan : (int)MataUangTampilan) +
       ",\"KursUSD_IDR\":" + DoubleToString(fromInputs ? InputKursUSD_IDR : KursUSD_IDR, 8) +
       ",\"MagicBeli\":" + IntegerToString(fromInputs ? InputMagicBeli : MagicBeli) +
@@ -634,6 +643,7 @@ bool PilotRestoreConfigState() {
 
    PilotApplyConfig(savedActive);
    if(PilotJsonNumber(savedInputs, "ModePerdagangan", -1) != (int)InputModePerdagangan) ModePerdagangan = InputModePerdagangan;
+   if(PilotJsonNumber(savedInputs, "MinimumBalanceAuto", -1) != InputMinimumBalanceAuto) MinimumBalanceAuto = InputMinimumBalanceAuto;
    if(PilotJsonNumber(savedInputs, "MataUangTampilan", -1) != (int)InputMataUangTampilan) MataUangTampilan = InputMataUangTampilan;
    if(PilotJsonNumber(savedInputs, "KursUSD_IDR", -1) != InputKursUSD_IDR) KursUSD_IDR = InputKursUSD_IDR;
    if(PilotJsonNumber(savedInputs, "MagicBeli", -1) != InputMagicBeli) MagicBeli = InputMagicBeli;
@@ -664,7 +674,10 @@ bool PilotRestoreConfigState() {
 }
 
 bool PilotApplyConfig(const string json) {
+   double minimumBalanceAuto = PilotJsonNumber(json, "MinimumBalanceAuto", MinimumBalanceAuto);
+   if(!MathIsValidNumber(minimumBalanceAuto) || minimumBalanceAuto < 0 || minimumBalanceAuto > 1e15) return false;
    ModePerdagangan = (ENUM_TRADE_MODE)PilotJsonNumber(json, "ModePerdagangan", ModePerdagangan);
+   MinimumBalanceAuto = minimumBalanceAuto;
    MataUangTampilan = (ENUM_DISPLAY_CURRENCY)PilotJsonNumber(json, "MataUangTampilan", MataUangTampilan);
    KursUSD_IDR = PilotJsonNumber(json, "KursUSD_IDR", KursUSD_IDR);
    MagicBeli = (int)PilotJsonNumber(json, "MagicBeli", MagicBeli);
@@ -685,6 +698,7 @@ bool PilotApplyConfig(const string json) {
    MulaiTrailingPoin = (int)PilotJsonNumber(json, "MulaiTrailingPoin", MulaiTrailingPoin);
    KunciProfitPoin = (int)PilotJsonNumber(json, "KunciProfitPoin", KunciProfitPoin);
    LangkahTrailingPoin = (int)PilotJsonNumber(json, "LangkahTrailingPoin", LangkahTrailingPoin);
+   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) isAutoTradingActive = false;
    if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
    else CurrentCurrencyMode = 0;
@@ -692,6 +706,13 @@ bool PilotApplyConfig(const string json) {
    PilotSaveConfigState();
    RefreshDashboardUI();
    return true;
+}
+
+bool HasMinimumBalanceForAuto(const bool notify) {
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   if(balance >= MinimumBalanceAuto) return true;
+   if(notify) PrintFormat("Fast-Grid Pilot: AUTO ditolak; saldo %.2f, minimum %.2f.", balance, MinimumBalanceAuto);
+   return false;
 }
 
 bool PilotAck(const string commandId, const string status, const string message) {
@@ -833,9 +854,15 @@ void PilotPollCommands() {
       success = true;
       result = "Mode Manual aktif. Entry baru berhenti; pengaman SL/trailing tetap berjalan.";
    } else if(action == "auto") {
-      isAutoTradingActive = true;
-      success = true;
-      result = "Mode Auto aktif.";
+      if(HasMinimumBalanceForAuto(true)) {
+         isAutoTradingActive = true;
+         success = true;
+         result = "Mode Auto aktif.";
+      } else {
+         isAutoTradingActive = false;
+         success = false;
+         result = "Mode Auto ditolak karena saldo di bawah minimum.";
+      }
    } else if(action == "buy" || action == "sell") {
       bool isBuy = action == "buy";
       success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
@@ -880,6 +907,11 @@ void PilotPollCommands() {
    Print("MT5 Pilot: ", result);
 }
 void OnTick() {
+   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) {
+      isAutoTradingActive = false;
+      PrintFormat("Fast-Grid Pilot: AUTO dihentikan; saldo turun di bawah minimum %.2f.", MinimumBalanceAuto);
+      RefreshDashboardUI();
+   }
    datetime currentDay = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
 
    if(currentDay > LastDayReset) {

@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Activity, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, Check, CircleDot, ClipboardList, Copy, Cpu, LogOut, Menu, Pencil, Plus, Radio, RefreshCw, Search, ShieldCheck, Signal, Users, Wallet, X, Zap } from "lucide-react";
 import { toast } from "sonner";
-import type { Session } from "@supabase/supabase-js";
-import { MT5_API_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
+import { authEmailForIdentifier, MT5_API_URL, pocketbase } from "@/lib/pocketbase";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type Action = "auto" | "manual" | "buy" | "sell" | "close_buy" | "close_sell" | "close_all" | "reset";
@@ -30,16 +29,18 @@ type CreatedUserCredential = { username: string; password: string };
 type BackgroundCommand = { accountId: string; label: string; toastId: string | number; lastStatus: string; startedAt: number };
 type ActivityLog = { id: string; account_id: string; account_label: string; action: Action | "config"; status: string; result_message: string | null; created_at: string; completed_at: string | null; actor_name: string; actor_role: string };
 type NetworkTrafficSample = { at: number; uploadedBytes: number; downloadedBytes: number };
+type AuthSession = { user: { id: string; email: string } };
 const actionLabel: Record<Action, string> = { auto: "Auto", manual: "Manual", buy: "BUY", sell: "SELL", close_buy: "Close Buy", close_sell: "Close Sell", close_all: "Close All", reset: "Reset All" };
 const defaultEaConfig: EaConfig = {
   ModePerdagangan: 0, MataUangTampilan: 2, KursUSD_IDR: 18000, MagicBeli: 2864384, MagicJual: 2864385,
   LotAwal: 0.01, PenggandaLot: 1.2, LotMaksimal: 12, LangkahLayer: 1, JarakGrid: 2000, JarakTrailingPending: 500,
-  JenisBatasRugi: 0, BatasKerugian: 30000, JedaSetelahSLMenit: 30, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
+  MinimumBalanceAuto: 1000, JenisBatasRugi: 0, BatasKerugian: 30000, JedaSetelahSLMenit: 30, TargetHarian: 100000, SetelahTargetTercapai: 0, ModeTrailing: 0,
   MulaiTrailingPoin: 1500, KunciProfitPoin: 1000, LangkahTrailingPoin: 500,
 };
 const coreConfigFields = [
   ["ModePerdagangan", "Mode perdagangan", "select", [[0, "Beli + Jual"], [1, "Beli saja"], [2, "Jual saja"]]],
   ["MataUangTampilan", "Mata uang tampilan", "select", [[0, "USD"], [1, "CENT"], [2, "IDR"]]],
+  ["MinimumBalanceAuto", "Saldo minimum untuk AUTO", "number"],
   ["KursUSD_IDR", "Kurs USD / IDR", "number"], ["MagicBeli", "Magic BUY", "number"], ["MagicJual", "Magic SELL", "number"],
   ["LotAwal", "Lot awal", "number"], ["PenggandaLot", "Pengganda lot", "number"], ["LotMaksimal", "Lot maksimal", "number"],
   ["LangkahLayer", "Langkah layer", "number"], ["JarakGrid", "Jarak grid (poin)", "number"], ["JarakTrailingPending", "Jarak trailing pending", "number"],
@@ -67,11 +68,6 @@ function age(value: string | null) {
 }
 function formatNetworkSpeed(bytesPerSecond: number) {
   return `${(bytesPerSecond / 1024).toFixed(2)} KB/s`;
-}
-
-function authEmailForIdentifier(identifier: string) {
-  const normalized = identifier.trim().toLowerCase();
-  return normalized.includes("@") ? normalized : `${normalized}@pilot-mt5.local`;
 }
 
 function AccountRunningProfit({ account, displayMode }: { account: Account; displayMode: DisplayCurrency }) {
@@ -111,7 +107,7 @@ function AccountTelemetry({ account, displayMode }: { account: Account; displayM
 }
 export default function Home() {
   const { theme, setTheme } = useTheme();
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -121,11 +117,11 @@ export default function Home() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [refreshSeconds, setRefreshSeconds] = useState(() => {
     const stored = Number(localStorage.getItem("pilot-refresh-seconds"));
-    return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 5;
+    return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 1;
   });
   const [refreshDraftSeconds, setRefreshDraftSeconds] = useState<number | "">(() => {
     const stored = Number(localStorage.getItem("pilot-refresh-seconds"));
-    return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 5;
+    return Number.isInteger(stored) && stored >= 1 && stored <= 60 ? stored : 1;
   });
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -192,18 +188,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setAuthLoading(false); } });
-    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      setSession(nextSession);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") { setAccessRole(null); setOwnerId(null); }
+    const getSession = (): AuthSession | null => {
+      const record = pocketbase.authStore.record;
+      return pocketbase.authStore.isValid && record
+        ? { user: { id: record.id, email: record.username || record.email } }
+        : null;
+    };
+    setSession(getSession());
+    setAuthLoading(false);
+    const unsubscribe = pocketbase.authStore.onChange((token, record) => {
+      setSession(token && record ? { user: { id: record.id, email: record.username || record.email } } : null);
+      setAccessRole(null);
+      setOwnerId(null);
     });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+    return unsubscribe;
   }, []);
 
   const saveRefreshSettings = () => {
     if (refreshDraftSeconds === "") { toast.error("Isi delay refresh atau gunakan nilai sebelumnya."); return; }
-    const value = Math.max(1, Math.min(60, Number.isInteger(refreshDraftSeconds) ? refreshDraftSeconds : 5));
+    const value = Math.max(1, Math.min(60, Number.isInteger(refreshDraftSeconds) ? refreshDraftSeconds : 1));
     setRefreshDraftSeconds(value);
     setRefreshSeconds(value);
     localStorage.setItem("pilot-refresh-seconds", String(value));
@@ -212,8 +215,9 @@ export default function Home() {
 
   const refreshAccessToken = useCallback(async () => {
     if (!sessionRefreshRef.current) {
-      sessionRefreshRef.current = supabase.auth.refreshSession()
-        .then(({ data, error }) => error ? null : data.session?.access_token ?? null)
+      sessionRefreshRef.current = pocketbase.collection("users").authRefresh()
+        .then(({ token }) => token)
+        .catch(() => null)
         .finally(() => { sessionRefreshRef.current = null; });
     }
     return sessionRefreshRef.current;
@@ -224,7 +228,7 @@ export default function Home() {
     const routeUrl = `${MT5_API_URL}?route=${encodeURIComponent(path)}`;
     let uploadedBytes = 0;
     const request = (accessToken: string) => {
-      const headers = { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, ...(serializedBody === undefined ? {} : { "Content-Type": "application/json" }) };
+      const headers = { Authorization: `Bearer ${accessToken}`, ...(serializedBody === undefined ? {} : { "Content-Type": "application/json" }) };
       const requestHeaderText = Object.entries(headers).map(([key, value]) => `${key}: ${value}\r\n`).join("");
       uploadedBytes = new TextEncoder().encode(`${method} ${routeUrl}\r\n${requestHeaderText}\r\n${serializedBody ?? ""}`).byteLength;
       return fetch(routeUrl, {
@@ -233,8 +237,7 @@ export default function Home() {
         ...(serializedBody === undefined ? {} : { body: serializedBody }),
       });
     };
-    const { data } = await supabase.auth.getSession();
-    let accessToken = data.session?.access_token ?? await refreshAccessToken();
+    let accessToken = pocketbase.authStore.token || await refreshAccessToken();
     if (!accessToken) { setSession(null); throw new Error("Sesi login berakhir. Silakan masuk kembali."); }
     let response = await request(accessToken);
     if (response.status === 401) {
@@ -281,22 +284,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!session || !ownerId) { if (!session) setAccounts([]); return; }
-    let debounceTimer: number | undefined;
-    const refresh = () => {
-      window.clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(() => void loadAccounts(), 120);
-    };
     void loadAccounts();
-    const fallbackTimer = window.setInterval(() => void loadAccounts(), refreshSeconds * 1_000);
-    const channel = supabase
-      .channel(`mt5-dashboard:${session.user.id}:${ownerId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mt5_accounts", filter: `owner_id=eq.${ownerId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mt5_commands", filter: `owner_id=eq.${ownerId}` }, refresh)
-      .subscribe();
+    const refreshTimer = window.setInterval(() => void loadAccounts(), refreshSeconds * 1_000);
     return () => {
-      window.clearTimeout(debounceTimer);
-      window.clearInterval(fallbackTimer);
-      void supabase.removeChannel(channel);
+      window.clearInterval(refreshTimer);
     };
   }, [loadAccounts, ownerId, refreshSeconds, session]);
 
@@ -362,8 +353,7 @@ export default function Home() {
   const handleAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setAuthBusy(true); setAuthMessage("");
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: authEmailForIdentifier(email), password });
-      if (error) throw error;
+      await pocketbase.collection("users").authWithPassword(authEmailForIdentifier(email), password);
     } catch (error) { setAuthMessage(error instanceof Error ? error.message : "Autentikasi gagal."); }
     finally { setAuthBusy(false); }
   };
@@ -546,7 +536,7 @@ export default function Home() {
     <main className="pilot-auth-page" data-theme={theme}>
       <a className="pilot-brand" href="/"><span className="pilot-brand-mark"><Activity size={19} /></span><span><strong>MT5 <i>PILOT</i></strong><small>PRIVATE EA WORKSPACE</small></span></a>
       <section className="pilot-auth-card">
-        <div className="pilot-kicker"><span /> AKSES PENGGUNA TERDAFTAR · SUPABASE AUTH</div>
+        <div className="pilot-kicker"><span /> AKSES PENGGUNA TERDAFTAR · POCKETBASE LOKAL</div>
         <h1>Masuk ke MT5 Pilot</h1>
         <p>Akun hanya dapat dibuat oleh owner. Masuk dengan kredensial yang diberikan owner.</p>
         <form onSubmit={handleAuth}>
@@ -564,67 +554,1018 @@ export default function Home() {
   return (
     <main className="pilot-dashboard" data-theme={theme}>
       <header className="pilot-topbar">
-        <a className="pilot-brand" href="/"><span className="pilot-brand-mark"><Activity size={19} /></span><span><strong>MT5 <i>PILOT</i></strong><small>PRIVATE EA WORKSPACE</small></span></a>
+        <a className="pilot-brand" href="/">
+          <span className="pilot-brand-mark">
+            <Activity size={19} />
+          </span>
+          <span>
+            <strong>
+              MT5 <i>PILOT</i>
+            </strong>
+            <small>PRIVATE EA WORKSPACE</small>
+          </span>
+        </a>
         <div className="pilot-topbar-tools">
-          <div className="pilot-link-status" title="Estimasi byte header dan payload request/respons Pilot API selama 5 detik terakhir. Ping adalah rata-rata RTT heartbeat dari EA yang online." aria-label={`Kecepatan komunikasi Pilot dan EA: unggah ${formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}, unduh ${formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}; ping rata-rata ${averagePingMs === null ? "belum tersedia" : `${averagePingMs} milidetik`}`}>
-            <div className="pilot-link-speed"><span className="pilot-link-title">KECEPATAN PILOT ↔ EA</span><div className="pilot-link-rates"><span className="pilot-link-rate pilot-link-upload"><ArrowUp size={12} aria-hidden="true" />{formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}</span><span className="pilot-link-rate pilot-link-download"><ArrowDown size={12} aria-hidden="true" />{formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}</span></div></div>
+          <div
+            className="pilot-link-status"
+            title="Estimasi byte header dan payload request/respons Pilot API selama 5 detik terakhir. Ping adalah rata-rata RTT heartbeat dari EA yang online."
+            aria-label={`Kecepatan komunikasi Pilot dan EA: unggah ${formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}, unduh ${formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}; ping rata-rata ${averagePingMs === null ? "belum tersedia" : `${averagePingMs} milidetik`}`}
+          >
+            <div className="pilot-link-speed">
+              <span className="pilot-link-title">KECEPATAN PILOT ↔ EA</span>
+              <div className="pilot-link-rates">
+                <span className="pilot-link-rate pilot-link-upload">
+                  <ArrowUp size={12} aria-hidden="true" />
+                  {formatNetworkSpeed(networkRates.uploadedBytesPerSecond)}
+                </span>
+                <span className="pilot-link-rate pilot-link-download">
+                  <ArrowDown size={12} aria-hidden="true" />
+                  {formatNetworkSpeed(networkRates.downloadedBytesPerSecond)}
+                </span>
+              </div>
+            </div>
             <span className="pilot-link-divider" aria-hidden="true" />
-            <div className="pilot-link-ping"><Signal size={15} aria-hidden="true" /><span><small>PING AVG</small><strong>{averagePingMs === null ? "—" : `${averagePingMs} ms`}</strong></span></div>
+            <div className="pilot-link-ping">
+              <Signal size={15} aria-hidden="true" />
+              <span>
+                <small>PING AVG</small>
+                <strong>
+                  {averagePingMs === null ? "—" : `${averagePingMs} ms`}
+                </strong>
+              </span>
+            </div>
           </div>
-          <button className="pilot-menu-button pilot-icon-button" title="Buka menu" aria-label="Buka menu" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={19} /></button>
+          <button
+            className="pilot-menu-button pilot-icon-button"
+            title="Buka menu"
+            aria-label="Buka menu"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu size={19} />
+          </button>
         </div>
       </header>
-      {sidebarOpen && <button className="pilot-sidebar-backdrop" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`pilot-sidebar ${sidebarOpen ? "open" : ""}`} aria-hidden={!sidebarOpen}>
-        <div className="pilot-sidebar-head"><div><span className="pilot-kicker"><span /> MENU PANEL</span><strong>MT5 PILOT</strong></div><button className="pilot-icon-button" title="Tutup menu" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)}><X size={17} /></button></div>
-        <div className="pilot-sidebar-status"><span className={onlineCount ? "is-live" : "is-waiting"} /><strong>{onlineCount}/{accounts.length} EA ONLINE</strong><button className="pilot-icon-button" title="Segarkan sekarang" aria-label="Segarkan sekarang" onClick={() => void loadAccounts()}><RefreshCw size={14} className={loadingAccounts ? "pilot-spin" : ""} /></button></div>
-        <div className="pilot-sidebar-section"><label className="pilot-search-box pilot-sidebar-search"><Search size={14} aria-hidden="true" /><input type="search" value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Cari panel EA…" aria-label="Cari akun EA" /></label><select className="pilot-filter-select pilot-sidebar-filter" value={connectionFilter} onChange={(event) => setConnectionFilter(event.target.value as "all" | "online" | "offline")} aria-label="Filter status koneksi"><option value="all">Semua</option><option value="online">Online</option><option value="offline">Offline</option></select>{canWrite && <button className="pilot-add-button pilot-sidebar-add" onClick={() => { setShowAdd(true); setSidebarOpen(false); }}><Plus size={15} /> Tambah EA</button>}</div>
-        <button type="button" className="pilot-add-button pilot-sidebar-add" onClick={() => { setActivePage("logs"); setSidebarOpen(false); }}><ClipboardList size={15} /> Log aktivitas</button>
-        {accessRole !== "staff" && <div className="pilot-sidebar-section pilot-settings-section">
-          <span className="pilot-kicker">PREFERENSI</span>
-          <label className="pilot-sidebar-setting"><span>Delay refresh (detik)</span><input type="number" min={1} max={60} step={1} value={refreshDraftSeconds} onChange={(event) => { if (event.target.value === "") { setRefreshDraftSeconds(""); return; } const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 60) setRefreshDraftSeconds(value); }} onBlur={() => setRefreshDraftSeconds((value) => value === "" ? "" : Math.max(1, Math.min(60, value)))} /></label>
-          <button type="button" className="pilot-add-button pilot-sidebar-add" onClick={saveRefreshSettings}>Simpan</button>
-          <label className="pilot-sidebar-setting"><span>Tema</span><select value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="dark">Gelap (default)</option><option value="light">Terang</option><option value="blue-black">Biru hitam</option><option value="blue-white">Biru putih</option></select></label>
-          <button className="pilot-add-button pilot-sidebar-add" disabled={!canWrite} title={canWrite ? "Kelola pengguna" : "Hanya owner yang dapat mengelola pengguna"} onClick={() => void openUserManager()}><Users size={15} /> Kelola pengguna</button>
-        </div>}
-        <div className="pilot-sidebar-account"><span className="pilot-owner-pill"><ShieldCheck size={14} /> {accessRole === "read_only" ? "AKSES READ ONLY" : accessRole === "staff" ? "AKSES STAFF" : accessRole === "owner" ? "AKSES OWNER" : "MEMERIKSA AKSES"}</span><button className="pilot-sidebar-logout" onClick={() => void supabase.auth.signOut()}><LogOut size={15} /> Keluar</button></div>
+      {sidebarOpen && (
+        <button
+          className="pilot-sidebar-backdrop"
+          aria-label="Tutup menu"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside
+        className={`pilot-sidebar ${sidebarOpen ? "open" : ""}`}
+        aria-hidden={!sidebarOpen}
+      >
+        <div className="pilot-sidebar-head">
+          <div>
+            <span className="pilot-kicker">
+              <span /> MENU PANEL
+            </span>
+            <strong>MT5 PILOT</strong>
+          </div>
+          <button
+            className="pilot-icon-button"
+            title="Tutup menu"
+            aria-label="Tutup menu"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X size={17} />
+          </button>
+        </div>
+        <div className="pilot-sidebar-status">
+          <span className={onlineCount ? "is-live" : "is-waiting"} />
+          <strong>
+            {onlineCount}/{accounts.length} EA ONLINE
+          </strong>
+          <button
+            className="pilot-icon-button"
+            title="Segarkan sekarang"
+            aria-label="Segarkan sekarang"
+            onClick={() => void loadAccounts()}
+          >
+            <RefreshCw
+              size={14}
+              className={loadingAccounts ? "pilot-spin" : ""}
+            />
+          </button>
+        </div>
+        <div className="pilot-sidebar-section">
+          <label className="pilot-search-box pilot-sidebar-search">
+            <Search size={14} aria-hidden="true" />
+            <input
+              type="search"
+              value={accountSearch}
+              onChange={event => setAccountSearch(event.target.value)}
+              placeholder="Cari panel EA…"
+              aria-label="Cari akun EA"
+            />
+          </label>
+          <select
+            className="pilot-filter-select pilot-sidebar-filter"
+            value={connectionFilter}
+            onChange={event =>
+              setConnectionFilter(
+                event.target.value as "all" | "online" | "offline"
+              )
+            }
+            aria-label="Filter status koneksi"
+          >
+            <option value="all">Semua</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+          </select>
+          {canWrite && (
+            <button
+              className="pilot-add-button pilot-sidebar-add"
+              onClick={() => {
+                setShowAdd(true);
+                setSidebarOpen(false);
+              }}
+            >
+              <Plus size={15} /> Tambah EA
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          className="pilot-add-button pilot-sidebar-add"
+          onClick={() => {
+            setActivePage("logs");
+            setSidebarOpen(false);
+          }}
+        >
+          <ClipboardList size={15} /> Log aktivitas
+        </button>
+        {accessRole !== "staff" && (
+          <div className="pilot-sidebar-section pilot-settings-section">
+            <span className="pilot-kicker">PREFERENSI</span>
+            <label className="pilot-sidebar-setting">
+              <span>Delay refresh (detik)</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={refreshDraftSeconds}
+                onChange={event => {
+                  if (event.target.value === "") {
+                    setRefreshDraftSeconds("");
+                    return;
+                  }
+                  const value = Number(event.target.value);
+                  if (Number.isInteger(value) && value >= 1 && value <= 60)
+                    setRefreshDraftSeconds(value);
+                }}
+                onBlur={() =>
+                  setRefreshDraftSeconds(value =>
+                    value === "" ? "" : Math.max(1, Math.min(60, value))
+                  )
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="pilot-add-button pilot-sidebar-add"
+              onClick={saveRefreshSettings}
+            >
+              Simpan
+            </button>
+            <label className="pilot-sidebar-setting">
+              <span>Tema</span>
+              <select
+                value={theme}
+                onChange={event => setTheme(event.target.value as typeof theme)}
+              >
+                <option value="dark">Gelap (default)</option>
+                <option value="light">Terang</option>
+                <option value="blue-black">Biru hitam</option>
+                <option value="blue-white">Biru putih</option>
+              </select>
+            </label>
+            <button
+              className="pilot-add-button pilot-sidebar-add"
+              disabled={!canWrite}
+              title={
+                canWrite
+                  ? "Kelola pengguna"
+                  : "Hanya owner yang dapat mengelola pengguna"
+              }
+              onClick={() => void openUserManager()}
+            >
+              <Users size={15} /> Kelola pengguna
+            </button>
+          </div>
+        )}
+        <div className="pilot-sidebar-account">
+          <span className="pilot-owner-pill">
+            <ShieldCheck size={14} />{" "}
+            {accessRole === "read_only"
+              ? "AKSES READ ONLY"
+              : accessRole === "staff"
+                ? "AKSES STAFF"
+                : accessRole === "owner"
+                  ? "AKSES OWNER"
+                  : "MEMERIKSA AKSES"}
+          </span>
+          <button
+            className="pilot-sidebar-logout"
+            onClick={() => pocketbase.authStore.clear()}
+          >
+            <LogOut size={15} /> Keluar
+          </button>
+        </div>
       </aside>
       <section className="pilot-main">
-        {activePage === "logs" ? <section className="pilot-log-page"><div className="pilot-page-heading"><div><span className="pilot-kicker"><span /> AUDIT AKTIVITAS</span><h1>Log aktivitas</h1><p>Riwayat perintah yang dikirim dari Pilot dan pengguna terdaftar ke EA.</p></div><button type="button" className="pilot-icon-button" title="Muat ulang log" aria-label="Muat ulang log" onClick={() => void loadActivityLogs()}><RefreshCw size={15} className={loadingLogs ? "pilot-spin" : ""} /></button></div>{loadingLogs && !activityLogs.length ? <div className="pilot-log-empty">Memuat log aktivitas…</div> : activityLogs.length ? <div className="pilot-log-list">{activityLogs.map((log) => { const date = new Date(log.created_at); const action = log.action === "config" ? "Edit parameter EA" : actionLabel[log.action]; const role = log.actor_role === "staff" ? "staff" : log.actor_role === "read_only" ? "read-only" : "owner"; return <article className="pilot-log-entry" key={log.id}><div className="pilot-log-icon"><ClipboardList size={15} /></div><div className="pilot-log-content"><strong>{action} oleh {role} {log.actor_name}</strong><span>{log.account_label} · {date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}, {date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>{log.result_message && <small>{log.result_message}</small>}</div><b className={`pilot-log-status status-${log.status}`}>{log.status}</b></article>; })}</div> : <div className="pilot-log-empty">Belum ada aktivitas.</div>}</section> : <>
-        {accounts.length === 0 && !loadingAccounts ? (
-          <section className="pilot-empty"><div className="pilot-empty-icon"><Radio size={24} /></div><div className="pilot-kicker">BELUM ADA KONEKSI</div><h2>Hubungkan EA_by_Capik</h2><p>Buat token koneksi untuk akun MT5. Setelah token dimasukkan ke EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown, profit, dan status EA akan muncul di sini.</p><small>Belum ada data akun yang dikirim atau disimulasikan.</small></section>
-        ) : null}
-
-        <div className="pilot-account-list">
-          {filteredAccounts.map((account) => {
-            const online = account.connection_status === "online";
-            const disabled = !canUseCardActions || !online || !account.telemetry_received;
-            const displayMode = currencyModes[account.id] ?? account.display_currency ?? "USD";
-            return <div className="pilot-account-shell" key={account.id}><div className="pilot-account-identity"><span className={`pilot-identity-led ${online ? "online" : "offline"}`} aria-label={online ? "Online" : "Offline"} /><span>{account.label} - {account.broker_account_name || "Menunggu nama akun dari EA"}</span></div><article className="pilot-account-card">
-              <div className="pilot-account-header">{canWrite ? <button type="button" className="pilot-account-title pilot-edit-title" onClick={() => openConfigEditor(account)} title="Edit seluruh parameter EA"><span><h3>*Grid_By_Capik*</h3></span></button> : <div className="pilot-account-title pilot-edit-title pilot-staff-card-title"><span><h3>*Grid_By_Capik*</h3></span></div>}</div>
-              {!canUseCardActions && <div className="pilot-readonly-note">AKSES READ ONLY · tombol aksi dinonaktifkan</div>}
-              <div className="pilot-panel-buttons">
-                <div className="pilot-button-row"><button className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "manual")}>MANUAL</button><button className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`} disabled={disabled} onClick={() => void sendAction(account, "auto")}>AUTO</button></div>
-                <div className="pilot-button-row"><button className="trade-sell" disabled={disabled} onClick={() => void sendAction(account, "sell")}>SELL</button><button className="trade-buy" disabled={disabled} onClick={() => void sendAction(account, "buy")}>BUY</button></div>
-                <div className="pilot-button-row"><button className="close-sell" disabled={disabled} onClick={() => void sendAction(account, "close_sell")}>CLOSE</button><button className="close-buy" disabled={disabled} onClick={() => void sendAction(account, "close_buy")}>CLOSE</button></div>
-                <button className="close-all" disabled={disabled} onClick={() => void sendAction(account, "close_all")}>CLOSE ALL</button>
-                <div className="pilot-currency-row" aria-label="Mata uang tampilan">{(["USD", "IDR", "CENT"] as const).map((mode) => <button key={mode} className={displayMode === mode ? "selected" : ""} onClick={() => setCurrencyModes((current) => ({ ...current, [account.id]: mode }))}>{mode}</button>)}</div>
+        {activePage === "logs" ? (
+          <section className="pilot-log-page">
+            <div className="pilot-page-heading">
+              <div>
+                <span className="pilot-kicker">
+                  <span /> AUDIT AKTIVITAS
+                </span>
+                <h1>Log aktivitas</h1>
+                <p>
+                  Riwayat perintah yang dikirim dari Pilot dan pengguna
+                  terdaftar ke EA.
+                </p>
               </div>
-              <AccountRunningProfit account={account} displayMode={displayMode} />
-              <div className="pilot-reset-row"><button className="reset-all" disabled={disabled} onClick={() => void sendAction(account, "reset")}>RESET ALL</button></div>
-            </article></div>;
-          })}
-        </div>
-        {accounts.length > 0 && filteredAccounts.length === 0 && <div className="pilot-search-empty"><span>Tidak ada panel EA yang cocok dengan pencarian atau filter.</span><button onClick={() => { setAccountSearch(""); setConnectionFilter("all"); }}>Hapus filter</button></div>}
-        <footer className="pilot-copyright">© 2026 MT5 PILOT by CapikBinGozel - PRIVATE EA WORKSPACE</footer>
-        </>}
+              <button
+                type="button"
+                className="pilot-icon-button"
+                title="Muat ulang log"
+                aria-label="Muat ulang log"
+                onClick={() => void loadActivityLogs()}
+              >
+                <RefreshCw
+                  size={15}
+                  className={loadingLogs ? "pilot-spin" : ""}
+                />
+              </button>
+            </div>
+            {loadingLogs && !activityLogs.length ? (
+              <div className="pilot-log-empty">Memuat log aktivitas…</div>
+            ) : activityLogs.length ? (
+              <div className="pilot-log-list">
+                {activityLogs.map(log => {
+                  const date = new Date(log.created_at);
+                  const action =
+                    log.action === "config"
+                      ? "Edit parameter EA"
+                      : actionLabel[log.action];
+                  const role =
+                    log.actor_role === "staff"
+                      ? "staff"
+                      : log.actor_role === "read_only"
+                        ? "read-only"
+                        : "owner";
+                  return (
+                    <article className="pilot-log-entry" key={log.id}>
+                      <div className="pilot-log-icon">
+                        <ClipboardList size={15} />
+                      </div>
+                      <div className="pilot-log-content">
+                        <strong>
+                          {action} oleh {role} {log.actor_name}
+                        </strong>
+                        <span>
+                          {log.account_label} ·{" "}
+                          {date.toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                          ,{" "}
+                          {date.toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {log.result_message && (
+                          <small>{log.result_message}</small>
+                        )}
+                      </div>
+                      <b className={`pilot-log-status status-${log.status}`}>
+                        {log.status}
+                      </b>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="pilot-log-empty">Belum ada aktivitas.</div>
+            )}
+          </section>
+        ) : (
+          <>
+            {accounts.length === 0 && !loadingAccounts ? (
+              <section className="pilot-empty">
+                <div className="pilot-empty-icon">
+                  <Radio size={24} />
+                </div>
+                <div className="pilot-kicker">BELUM ADA KONEKSI</div>
+                <h2>Hubungkan EA_by_Capik</h2>
+                <p>
+                  Buat token koneksi untuk akun MT5. Setelah token dimasukkan ke
+                  EA dan WebRequest diizinkan di MT5, saldo, equity, drawdown,
+                  profit, dan status EA akan muncul di sini.
+                </p>
+                <small>
+                  Belum ada data akun yang dikirim atau disimulasikan.
+                </small>
+              </section>
+            ) : null}
+
+            <div className="pilot-account-list">
+              {filteredAccounts.map(account => {
+                const online = account.connection_status === "online";
+                const disabled =
+                  !canUseCardActions || !online || !account.telemetry_received;
+                const minimumAutoBalance =
+                  finiteNumber(account.ea_config?.MinimumBalanceAuto) ?? 1000;
+                const autoDisabled = disabled || account.balance < minimumAutoBalance;
+                const displayMode =
+                  currencyModes[account.id] ??
+                  account.display_currency ??
+                  "USD";
+                return (
+                  <div className="pilot-account-shell" key={account.id}>
+                    <div className="pilot-account-identity">
+                      <span
+                        className={`pilot-identity-led ${online ? "online" : "offline"}`}
+                        aria-label={online ? "Online" : "Offline"}
+                      />
+                      <span>
+                        {account.label} -{" "}
+                        {account.broker_account_name ||
+                          "Menunggu nama akun dari EA"}
+                      </span>
+                    </div>
+                    <article className="pilot-account-card">
+                      <div className="pilot-account-header">
+                        {canWrite ? (
+                          <button
+                            type="button"
+                            className="pilot-account-title pilot-edit-title"
+                            onClick={() => openConfigEditor(account)}
+                            title="Edit seluruh parameter EA"
+                          >
+                            <span>
+                              <h3>*Grid_By_Capik*</h3>
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="pilot-account-title pilot-edit-title pilot-staff-card-title">
+                            <span>
+                              <h3>*Grid_By_Capik*</h3>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {!canUseCardActions && (
+                        <div className="pilot-readonly-note">
+                          AKSES READ ONLY · tombol aksi dinonaktifkan
+                        </div>
+                      )}
+                      <div className="pilot-panel-buttons">
+                        <div className="pilot-button-row">
+                          <button
+                            className={`mode ${account.ea_mode === "manual" ? "selected" : ""}`}
+                            disabled={disabled}
+                            onClick={() => void sendAction(account, "manual")}
+                          >
+                            MANUAL
+                          </button>
+                          <button
+                            className={`mode ${account.ea_mode === "auto" ? "selected" : ""}`}
+                            disabled={autoDisabled}
+                            title={account.balance < minimumAutoBalance ? `AUTO memerlukan saldo minimal ${minimumAutoBalance} ${account.currency}.` : undefined}
+                            onClick={() => void sendAction(account, "auto")}
+                          >
+                            AUTO
+                          </button>
+                        </div>
+                        <div className="pilot-button-row">
+                          <button
+                            className="trade-sell"
+                            disabled={disabled}
+                            onClick={() => void sendAction(account, "sell")}
+                          >
+                            SELL
+                          </button>
+                          <button
+                            className="trade-buy"
+                            disabled={disabled}
+                            onClick={() => void sendAction(account, "buy")}
+                          >
+                            BUY
+                          </button>
+                        </div>
+                        <div className="pilot-button-row">
+                          <button
+                            className="close-sell"
+                            disabled={disabled}
+                            onClick={() =>
+                              void sendAction(account, "close_sell")
+                            }
+                          >
+                            CLOSE
+                          </button>
+                          <button
+                            className="close-buy"
+                            disabled={disabled}
+                            onClick={() =>
+                              void sendAction(account, "close_buy")
+                            }
+                          >
+                            CLOSE
+                          </button>
+                        </div>
+                        <button
+                          className="close-all"
+                          disabled={disabled}
+                          onClick={() => void sendAction(account, "close_all")}
+                        >
+                          CLOSE ALL
+                        </button>
+                        <div
+                          className="pilot-currency-row"
+                          aria-label="Mata uang tampilan"
+                        >
+                          {(["USD", "IDR", "CENT"] as const).map(mode => (
+                            <button
+                              key={mode}
+                              className={displayMode === mode ? "selected" : ""}
+                              onClick={() =>
+                                setCurrencyModes(current => ({
+                                  ...current,
+                                  [account.id]: mode,
+                                }))
+                              }
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <AccountRunningProfit
+                        account={account}
+                        displayMode={displayMode}
+                      />
+                      <div className="pilot-reset-row">
+                        <button
+                          className="reset-all"
+                          disabled={disabled}
+                          onClick={() => void sendAction(account, "reset")}
+                        >
+                          RESET ALL
+                        </button>
+                      </div>
+                    </article>
+                  </div>
+                );
+              })}
+            </div>
+            {accounts.length > 0 && filteredAccounts.length === 0 && (
+              <div className="pilot-search-empty">
+                <span>
+                  Tidak ada panel EA yang cocok dengan pencarian atau filter.
+                </span>
+                <button
+                  onClick={() => {
+                    setAccountSearch("");
+                    setConnectionFilter("all");
+                  }}
+                >
+                  Hapus filter
+                </button>
+              </div>
+            )}
+            <footer className="pilot-copyright">
+              © 2026 MT5 PILOT by CapikBinGozel - PRIVATE EA WORKSPACE
+            </footer>
+          </>
+        )}
       </section>
 
-      {showAdd && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-create-title"><button className="pilot-modal-x" aria-label="Tutup" onClick={() => setShowAdd(false)}><X size={18} /></button><div className="pilot-kicker">KONEKSI BARU</div><h2 id="pilot-create-title">Buat token EA</h2><p>Nama ini membantu membedakan akun di dashboard. Token hanya ditampilkan sekali; jangan bagikan token EA.</p><form onSubmit={createAccount}><label>Label koneksi<input required maxLength={80} value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Contoh: Fast-Grid MT5 01" /></label><div className="pilot-info compact"><ShieldCheck size={14} /><span>Kartu baru akan mengaktifkan AUTO satu kali setelah EA tersambung, dan dapat langsung membuka posisi sesuai konfigurasi risiko. Kunci admin Supabase tidak pernah dikirim ke MT5.</span></div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" onClick={() => setShowAdd(false)}>Batal</button><button className="pilot-add-button" disabled={busyAction === "create"}>{busyAction === "create" ? "Membuat…" : "Buat token"}</button></div></form></section></div>}
+      {showAdd && (
+        <div
+          className="pilot-modal-backdrop"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) setShowAdd(false);
+          }}
+        >
+          <section
+            className="pilot-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilot-create-title"
+          >
+            <button
+              className="pilot-modal-x"
+              aria-label="Tutup"
+              onClick={() => setShowAdd(false)}
+            >
+              <X size={18} />
+            </button>
+            <div className="pilot-kicker">KONEKSI BARU</div>
+            <h2 id="pilot-create-title">Buat token EA</h2>
+            <p>
+              Nama ini membantu membedakan akun di dashboard. Token hanya
+              ditampilkan sekali; jangan bagikan token EA.
+            </p>
+            <form onSubmit={createAccount}>
+              <label>
+                Label koneksi
+                <input
+                  required
+                  maxLength={80}
+                  value={accountName}
+                  onChange={event => setAccountName(event.target.value)}
+                  placeholder="Contoh: Fast-Grid MT5 01"
+                />
+              </label>
+              <div className="pilot-info compact">
+                <ShieldCheck size={14} />
+                <span>
+                  Koneksi baru disetel ke AUTO. EA dapat mulai membuka posisi
+                  saat tersambung; pastikan pengaturan risikonya benar atau
+                  pilih MANUAL segera setelah tersambung.
+                </span>
+              </div>
+              <div className="pilot-modal-actions">
+                <button
+                  type="button"
+                  className="pilot-cancel"
+                  onClick={() => setShowAdd(false)}
+                >
+                  Batal
+                </button>
+                <button
+                  className="pilot-add-button"
+                  disabled={busyAction === "create"}
+                >
+                  {busyAction === "create" ? "Membuat…" : "Buat token"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
-      {tokenModal && <div className="pilot-modal-backdrop"><section className="pilot-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-token-title"><div className="pilot-success"><Check size={19} /></div><div className="pilot-kicker">KONEKSI DIBUAT</div><h2 id="pilot-token-title">Masukkan token ini ke EA</h2><p>Token untuk <b>{tokenModal.label}</b> hanya ditampilkan sekali. Saat EA tersambung, AUTO akan dijalankan satu kali dan dapat mulai membuka posisi sesuai konfigurasi risiko. Simpan token dengan aman.</p><div className="pilot-token-box"><code>{tokenModal.token}</code><button aria-label="Salin token" onClick={() => void copyToken()}>{copied ? <Check size={16} /> : <Copy size={16} />}</button></div><div className="pilot-setup"><strong>Pengaturan Fast-Grid</strong><span>SupabaseFunctionUrl =</span><code>{MT5_API_URL}</code><span>EAConnectionToken = token di atas</span><span>MetaTrader → Tools → Options → Expert Advisors → izinkan WebRequest untuk:</span><code>{SUPABASE_URL}</code></div><div className="pilot-modal-actions"><button className="pilot-cancel" onClick={() => void copyToken()}>{copied ? "Token disalin" : "Salin token"}</button><button className="pilot-add-button" onClick={() => setTokenModal(null)}>Saya sudah simpan</button></div></section></div>}
-      {editingAccount && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingConfig && !savingPollInterval && !savingAccountLabel && !deletingAccount) setEditingAccount(null); }}><section className="pilot-modal pilot-config-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-config-title"><button type="button" className="pilot-modal-x" aria-label="Tutup editor" disabled={savingConfig || savingPollInterval || savingAccountLabel || deletingAccount} onClick={() => setEditingAccount(null)}><X size={18} /></button><div className="pilot-kicker">KONFIGURASI REMOTE · SUPABASE</div><h2 id="pilot-config-title">Edit parameter EA</h2><div className="pilot-card-name-editor"><label>Nama kartu EA<input type="text" required maxLength={80} value={editingAccountLabel} onChange={(event) => setEditingAccountLabel(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} /></label><button type="button" className="pilot-cancel" disabled={savingAccountLabel || savingConfig || savingPollInterval || deletingAccount || !editingAccountLabel.trim() || editingAccountLabel.trim() === editingAccount.label} onClick={() => void saveAccountLabel()}>{savingAccountLabel ? "Menyimpan…" : "Simpan nama kartu"}</button></div><div className="pilot-config-account" aria-label="Informasi akun MT5"><span><strong>Login MT5</strong>{editingAccount.mt5_login ?? "Belum diterima dari EA"}</span><span><strong>Server</strong>{editingAccount.server_name || "Belum diterima dari EA"}</span></div><AccountTelemetry account={editingAccount} displayMode={currencyModes[editingAccount.id] ?? editingAccount.display_currency ?? "USD"} /><div className="pilot-polling-control"><div><strong>Interval polling perintah EA</strong><p>Frekuensi EA memeriksa tombol dan parameter baru. Interval telemetry tidak berubah.</p></div><div className="pilot-polling-row"><select aria-label="Interval polling perintah EA" value={editingPollIntervalMs} onChange={(event) => setEditingPollIntervalMs(Number(event.target.value))} disabled={savingPollInterval || savingConfig}><option value={2000}>Hemat · 2 detik</option><option value={1000}>Normal · 1 detik (default)</option><option value={500}>Cepat · 500 ms</option></select><button type="button" className="pilot-cancel" disabled={savingPollInterval || savingConfig || editingPollIntervalMs === (editingAccount.poll_interval_ms ?? 1000)} onClick={() => void savePollingInterval()}>{savingPollInterval ? "Menyimpan…" : "Simpan polling"}</button></div></div><p>Perubahan parameter dikirim ke EA melalui antrean aman. EA harus online untuk menerima konfigurasi.</p><form onSubmit={saveConfig}><div className="pilot-config-grid">{coreConfigFields.map(([key, label, kind, options]) => <label key={key}>{label}{kind === "select" ? <select value={Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: Number(event.target.value) }))}>{options?.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}</select> : <input type="number" step="any" required value={editingConfig[key] === "" ? "" : Number(editingConfig[key])} onChange={(event) => setEditingConfig((current) => ({ ...current, [key]: event.target.value === "" ? "" : Number(event.target.value) }))} />}</label>)}</div><div className="pilot-modal-actions"><button type="button" className="pilot-cancel" disabled={savingConfig || savingPollInterval || savingAccountLabel || deletingAccount} onClick={() => setEditingAccount(null)}>Batal</button><button className="pilot-add-button" disabled={!canWrite || savingConfig || savingPollInterval || savingAccountLabel || deletingAccount || !editingAccount.connection_status || editingAccount.connection_status === "offline"}>{savingConfig ? "Mengirim…" : "Simpan & kirim ke EA"}</button></div></form><div className="pilot-delete-zone"><strong>Hapus EA dari Pilot</strong><p>EA tetap berjalan di terminal MT5, tetapi koneksi, telemetri, dan kontrol remote Pilot untuk akun ini akan dicabut.</p><label>Sandi login {session?.user.email && <span>({session.user.email})</span>}<input type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Masukkan sandi login untuk konfirmasi" /></label><button type="button" className="pilot-delete-button" disabled={!deletePassword || deletingAccount || savingConfig || savingPollInterval || savingAccountLabel} onClick={() => void deleteAccountFromPilot()}>{deletingAccount ? "Menghapus…" : "Hapus EA dari Pilot"}</button></div></section></div>}
-      {showUserManager && <div className="pilot-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowUserManager(false); }}><section className="pilot-modal pilot-user-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-users-title"><button type="button" className="pilot-modal-x" aria-label="Tutup pengaturan pengguna" onClick={() => setShowUserManager(false)}><X size={18} /></button><div className="pilot-kicker">AKSES · OWNER ONLY</div><h2 id="pilot-users-title">Kelola pengguna</h2><p>Read-only hanya dapat melihat dashboard. Staff dapat menjalankan tombol pada kartu akun yang dipilih, tetapi tidak dapat mengubah parameter EA, pengaturan, atau pengguna.</p>{createdUserCredential && <div className="pilot-created-credential"><strong>Akun berhasil dibuat</strong><span>Nama pengguna: <b>{createdUserCredential.username}</b></span><span>Password pengguna:</span><code>{createdUserCredential.password}</code><button type="button" className="pilot-cancel" onClick={() => void copyTemporaryPassword()}><Copy size={14} /> Salin kata sandi</button></div>}<form className="pilot-user-create-form" onSubmit={createReadOnlyUser}><label>Nama pengguna<input type="text" autoComplete="off" required minLength={3} maxLength={40} pattern="[A-Za-z0-9._-]+" value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="contoh: staff01" /></label><label>Password<input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={newUserPassword} onChange={(event) => setNewUserPassword(event.target.value)} placeholder="Minimal 8 karakter" /></label><label>Role<select value={newUserRole} onChange={(event) => setNewUserRole(event.target.value as "read_only" | "staff")}><option value="read_only">Read-only</option><option value="staff">Staff</option></select></label>{newUserRole === "staff" && <fieldset className="pilot-staff-account-picker"><legend>Akun yang boleh diakses</legend>{accounts.length ? accounts.map((account, index) => <label key={account.id}><input type="checkbox" checked={selectedStaffAccountIds.includes(account.id)} onChange={(event) => setSelectedStaffAccountIds((current) => event.target.checked ? [...current, account.id] : current.filter((id) => id !== account.id))} /><span>{account.label}{account.broker_account_name ? ` - ${account.broker_account_name}` : ` · Akun ${index + 1}`}</span></label>) : <span className="pilot-sidebar-hint">Belum ada akun tersedia untuk dipilih.</span>}</fieldset>}<button className="pilot-add-button" disabled={creatingUser || !canWrite || (newUserRole === "staff" && selectedStaffAccountIds.length === 0)}>{creatingUser ? "Membuat akun…" : `Buat akun ${newUserRole === "staff" ? "staff" : "read-only"}`}</button></form><div className="pilot-managed-users"><strong>Pengguna terdaftar</strong>{loadingUsers ? <span>Memuat…</span> : managedUsers.length ? managedUsers.map((managedUser) => <div key={managedUser.user_id}><span>{managedUser.email}<small className="pilot-managed-scope">{managedUser.access_role === "staff" ? `STAFF · ${managedUser.account_labels?.join(", ") || "Tanpa akun"}` : "READ-ONLY · semua akun (lihat saja)"}</small></span><small>{new Date(managedUser.created_at).toLocaleDateString("id-ID")}</small></div>) : <span>Belum ada pengguna.</span>}</div></section></div>}
+      {tokenModal && (
+        <div className="pilot-modal-backdrop">
+          <section
+            className="pilot-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilot-token-title"
+          >
+            <div className="pilot-success">
+              <Check size={19} />
+            </div>
+            <div className="pilot-kicker">KONEKSI DIBUAT</div>
+            <h2 id="pilot-token-title">Masukkan token ini ke EA</h2>
+            <p>
+              Token untuk <b>{tokenModal.label}</b> hanya ditampilkan sekali.
+              Saat EA tersambung, AUTO akan dijalankan satu kali dan dapat mulai
+              membuka posisi sesuai konfigurasi risiko. Simpan token dengan
+              aman.
+            </p>
+            <div className="pilot-token-box">
+              <code>{tokenModal.token}</code>
+              <button aria-label="Salin token" onClick={() => void copyToken()}>
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+            <div className="pilot-setup">
+              <strong>Pengaturan Fast-Grid</strong>
+              <span>PilotApiUrl =</span>
+              <code>{MT5_API_URL}</code>
+              <span>EAConnectionToken = token di atas</span>
+              <span>
+                MetaTrader → Tools → Options → Expert Advisors → izinkan
+                WebRequest untuk:
+              </span>
+              <code>{window.location.origin}</code>
+            </div>
+            <div className="pilot-modal-actions">
+              <button className="pilot-cancel" onClick={() => void copyToken()}>
+                {copied ? "Token disalin" : "Salin token"}
+              </button>
+              <button
+                className="pilot-add-button"
+                onClick={() => setTokenModal(null)}
+              >
+                Saya sudah simpan
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {editingAccount && (
+        <div
+          className="pilot-modal-backdrop"
+          onMouseDown={event => {
+            if (
+              event.target === event.currentTarget &&
+              !savingConfig &&
+              !savingPollInterval &&
+              !savingAccountLabel &&
+              !deletingAccount
+            )
+              setEditingAccount(null);
+          }}
+        >
+          <section
+            className="pilot-modal pilot-config-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilot-config-title"
+          >
+            <button
+              type="button"
+              className="pilot-modal-x"
+              aria-label="Tutup editor"
+              disabled={
+                savingConfig ||
+                savingPollInterval ||
+                savingAccountLabel ||
+                deletingAccount
+              }
+              onClick={() => setEditingAccount(null)}
+            >
+              <X size={18} />
+            </button>
+            <div className="pilot-kicker">KONFIGURASI REMOTE · POCKETBASE LOKAL</div>
+            <h2 id="pilot-config-title">Edit parameter EA</h2>
+            <div className="pilot-card-name-editor">
+              <label>
+                Nama kartu EA
+                <input
+                  type="text"
+                  required
+                  maxLength={80}
+                  value={editingAccountLabel}
+                  onChange={event => setEditingAccountLabel(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Enter") event.preventDefault();
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="pilot-cancel"
+                disabled={
+                  savingAccountLabel ||
+                  savingConfig ||
+                  savingPollInterval ||
+                  deletingAccount ||
+                  !editingAccountLabel.trim() ||
+                  editingAccountLabel.trim() === editingAccount.label
+                }
+                onClick={() => void saveAccountLabel()}
+              >
+                {savingAccountLabel ? "Menyimpan…" : "Simpan nama kartu"}
+              </button>
+            </div>
+            <div
+              className="pilot-config-account"
+              aria-label="Informasi akun MT5"
+            >
+              <span>
+                <strong>Login MT5</strong>
+                {editingAccount.mt5_login ?? "Belum diterima dari EA"}
+              </span>
+              <span>
+                <strong>Server</strong>
+                {editingAccount.server_name || "Belum diterima dari EA"}
+              </span>
+            </div>
+            <AccountTelemetry
+              account={editingAccount}
+              displayMode={
+                currencyModes[editingAccount.id] ??
+                editingAccount.display_currency ??
+                "USD"
+              }
+            />
+            <div className="pilot-polling-control">
+              <div>
+                <strong>Interval polling perintah EA</strong>
+                <p>
+                  Frekuensi EA memeriksa tombol dan parameter baru. Interval
+                  telemetry tidak berubah.
+                </p>
+              </div>
+              <div className="pilot-polling-row">
+                <select
+                  aria-label="Interval polling perintah EA"
+                  value={editingPollIntervalMs}
+                  onChange={event =>
+                    setEditingPollIntervalMs(Number(event.target.value))
+                  }
+                  disabled={savingPollInterval || savingConfig}
+                >
+                  <option value={2000}>Hemat · 2 detik</option>
+                  <option value={1000}>Normal · 1 detik (default)</option>
+                  <option value={500}>Cepat · 500 ms</option>
+                </select>
+                <button
+                  type="button"
+                  className="pilot-cancel"
+                  disabled={
+                    savingPollInterval ||
+                    savingConfig ||
+                    editingPollIntervalMs ===
+                      (editingAccount.poll_interval_ms ?? 1000)
+                  }
+                  onClick={() => void savePollingInterval()}
+                >
+                  {savingPollInterval ? "Menyimpan…" : "Simpan polling"}
+                </button>
+              </div>
+            </div>
+            <p>
+              Perubahan parameter dikirim ke EA melalui antrean aman. EA harus
+              online untuk menerima konfigurasi.
+            </p>
+            <form onSubmit={saveConfig}>
+              <div className="pilot-config-grid">
+                {coreConfigFields.map(([key, label, kind, options]) => (
+                  <label key={key}>
+                    {label}
+                    {kind === "select" ? (
+                      <select
+                        value={Number(editingConfig[key])}
+                        onChange={event =>
+                          setEditingConfig(current => ({
+                            ...current,
+                            [key]: Number(event.target.value),
+                          }))
+                        }
+                      >
+                        {options?.map(([value, optionLabel]) => (
+                          <option key={value} value={value}>
+                            {optionLabel}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={
+                          editingConfig[key] === ""
+                            ? ""
+                            : Number(editingConfig[key])
+                        }
+                        onChange={event =>
+                          setEditingConfig(current => ({
+                            ...current,
+                            [key]:
+                              event.target.value === ""
+                                ? ""
+                                : Number(event.target.value),
+                          }))
+                        }
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+              <div className="pilot-modal-actions">
+                <button
+                  type="button"
+                  className="pilot-cancel"
+                  disabled={
+                    savingConfig ||
+                    savingPollInterval ||
+                    savingAccountLabel ||
+                    deletingAccount
+                  }
+                  onClick={() => setEditingAccount(null)}
+                >
+                  Batal
+                </button>
+                <button
+                  className="pilot-add-button"
+                  disabled={
+                    !canWrite ||
+                    savingConfig ||
+                    savingPollInterval ||
+                    savingAccountLabel ||
+                    deletingAccount ||
+                    !editingAccount.connection_status ||
+                    editingAccount.connection_status === "offline"
+                  }
+                >
+                  {savingConfig ? "Mengirim…" : "Simpan & kirim ke EA"}
+                </button>
+              </div>
+            </form>
+            <div className="pilot-delete-zone">
+              <strong>Hapus EA dari Pilot</strong>
+              <p>
+                EA tetap berjalan di terminal MT5, tetapi koneksi, telemetri,
+                dan kontrol remote Pilot untuk akun ini akan dicabut.
+              </p>
+              <label>
+                Sandi login{" "}
+                {session?.user.email && <span>({session.user.email})</span>}
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={event => setDeletePassword(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Enter") event.preventDefault();
+                  }}
+                  placeholder="Masukkan sandi login untuk konfirmasi"
+                />
+              </label>
+              <button
+                type="button"
+                className="pilot-delete-button"
+                disabled={
+                  !deletePassword ||
+                  deletingAccount ||
+                  savingConfig ||
+                  savingPollInterval ||
+                  savingAccountLabel
+                }
+                onClick={() => void deleteAccountFromPilot()}
+              >
+                {deletingAccount ? "Menghapus…" : "Hapus EA dari Pilot"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {showUserManager && (
+        <div
+          className="pilot-modal-backdrop"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) setShowUserManager(false);
+          }}
+        >
+          <section
+            className="pilot-modal pilot-user-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilot-users-title"
+          >
+            <button
+              type="button"
+              className="pilot-modal-x"
+              aria-label="Tutup pengaturan pengguna"
+              onClick={() => setShowUserManager(false)}
+            >
+              <X size={18} />
+            </button>
+            <div className="pilot-kicker">AKSES · OWNER ONLY</div>
+            <h2 id="pilot-users-title">Kelola pengguna</h2>
+            <p>
+              Read-only hanya dapat melihat dashboard. Staff dapat menjalankan
+              tombol pada kartu akun yang dipilih, tetapi tidak dapat mengubah
+              parameter EA, pengaturan, atau pengguna.
+            </p>
+            {createdUserCredential && (
+              <div className="pilot-created-credential">
+                <strong>Akun berhasil dibuat</strong>
+                <span>
+                  Nama pengguna: <b>{createdUserCredential.username}</b>
+                </span>
+                <span>Password pengguna:</span>
+                <code>{createdUserCredential.password}</code>
+                <button
+                  type="button"
+                  className="pilot-cancel"
+                  onClick={() => void copyTemporaryPassword()}
+                >
+                  <Copy size={14} /> Salin kata sandi
+                </button>
+              </div>
+            )}
+            <form
+              className="pilot-user-create-form"
+              onSubmit={createReadOnlyUser}
+            >
+              <label>
+                Nama pengguna
+                <input
+                  type="text"
+                  autoComplete="off"
+                  required
+                  minLength={3}
+                  maxLength={40}
+                  pattern="[A-Za-z0-9._-]+"
+                  value={newUserName}
+                  onChange={event => setNewUserName(event.target.value)}
+                  placeholder="contoh: staff01"
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  value={newUserPassword}
+                  onChange={event => setNewUserPassword(event.target.value)}
+                  placeholder="Minimal 8 karakter"
+                />
+              </label>
+              <label>
+                Role
+                <select
+                  value={newUserRole}
+                  onChange={event =>
+                    setNewUserRole(event.target.value as "read_only" | "staff")
+                  }
+                >
+                  <option value="read_only">Read-only</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </label>
+              {newUserRole === "staff" && (
+                <fieldset className="pilot-staff-account-picker">
+                  <legend>Akun yang boleh diakses</legend>
+                  {accounts.length ? (
+                    accounts.map((account, index) => (
+                      <label key={account.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedStaffAccountIds.includes(account.id)}
+                          onChange={event =>
+                            setSelectedStaffAccountIds(current =>
+                              event.target.checked
+                                ? [...current, account.id]
+                                : current.filter(id => id !== account.id)
+                            )
+                          }
+                        />
+                        <span>
+                          {account.label}
+                          {account.broker_account_name
+                            ? ` - ${account.broker_account_name}`
+                            : ` · Akun ${index + 1}`}
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <span className="pilot-sidebar-hint">
+                      Belum ada akun tersedia untuk dipilih.
+                    </span>
+                  )}
+                </fieldset>
+              )}
+              <button
+                className="pilot-add-button"
+                disabled={
+                  creatingUser ||
+                  !canWrite ||
+                  (newUserRole === "staff" &&
+                    selectedStaffAccountIds.length === 0)
+                }
+              >
+                {creatingUser
+                  ? "Membuat akun…"
+                  : `Buat akun ${newUserRole === "staff" ? "staff" : "read-only"}`}
+              </button>
+            </form>
+            <div className="pilot-managed-users">
+              <strong>Pengguna terdaftar</strong>
+              {loadingUsers ? (
+                <span>Memuat…</span>
+              ) : managedUsers.length ? (
+                managedUsers.map(managedUser => (
+                  <div key={managedUser.user_id}>
+                    <span>
+                      {managedUser.email}
+                      <small className="pilot-managed-scope">
+                        {managedUser.access_role === "staff"
+                          ? `STAFF · ${managedUser.account_labels?.join(", ") || "Tanpa akun"}`
+                          : "READ-ONLY · semua akun (lihat saja)"}
+                      </small>
+                    </span>
+                    <small>
+                      {new Date(managedUser.created_at).toLocaleDateString(
+                        "id-ID"
+                      )}
+                    </small>
+                  </div>
+                ))
+              ) : (
+                <span>Belum ada pengguna.</span>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

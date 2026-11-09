@@ -6,8 +6,8 @@ import { createApp } from "./app";
 async function startServer() {
   const app = createApp();
   const server = createServer(app);
-  // development mode uses Vite, production mode uses static files
-  if (process.env.NODE_ENV === "development") {
+  // Production serves the built app; all other modes use Vite.
+  if (process.env.NODE_ENV !== "production") {
     await setupVite(app, server);
   } else {
     serveStatic(app);

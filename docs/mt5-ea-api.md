@@ -1,46 +1,42 @@
 # Integrasi Pilot-MT5 ↔ Fast-Grid
 
-Dokumen ini menjelaskan koneksi EA `ea/Fast-Grid-Pilot.mq5` dengan dashboard Supabase. Source EA tidak mengirim password, investor password, atau kredensial broker. Token koneksi dashboard disimpan sebagai hash SHA-256 di Supabase dan tidak dapat dilihat kembali setelah dibuat.
+EA berkomunikasi dengan Express API lokal; PocketBase menyimpan token koneksi sebagai hash SHA-256. EA tidak mengirim password, investor password, atau kredensial broker.
 
 ## Batas keselamatan
 
-- EA dapat dipasang pada akun MT5 yang Anda pilih. Dashboard tidak mengklasifikasikan jenis akun atau mencegah pemasangan pada akun selain yang Anda maksud. Pastikan terminal yang dipilih adalah akun real yang benar.
-- WebRequest remote tidak dijalankan dalam Strategy Tester.
-- Mode trading dipulihkan dari server saat polling. Koneksi baru sengaja disetel AUTO dan menerima perintah AUTO ketika EA tersambung; hal ini dapat langsung membuka posisi pada akun real.
-- Tombol MANUAL menghentikan entry/layer otomatis. Pengelolaan risiko yang sudah ada, seperti stop loss dan trailing, tetap berjalan.
-- Perintah Close Buy, Close Sell, atau Close All mengalihkan EA ke MANUAL terlebih dahulu agar strategi tidak segera membuka ulang posisi pada tick berikutnya.
-- Close hanya menargetkan posisi pada simbol chart aktif (`_Symbol`) dengan Magic Number `MagicBeli` atau `MagicJual`. Order EA lain tidak ikut ditutup.
-- Backend menolak perintah jika EA tidak online. Perintah antrean memiliki masa berlaku dan acknowledgement menunjukkan hasil yang diterima dari EA.
-- WebRequest MQL5 bersifat sinkron, sehingga respons jaringan lambat dapat menunda pemrosesan EA. Awasi tab Experts/Journal dan hasil transaksi broker.
+- EA dapat dipasang pada akun yang dipilih. Dashboard tidak mengklasifikasikan akun atau mencegah pemasangan pada jenis akun lain; periksa terminal sebelum memasang.
+- Koneksi baru disetel AUTO dan memiliki command AUTO awal. EA dapat segera membuka posisi ketika tersambung. Gunakan MANUAL bila entry otomatis tidak diinginkan.
+- Mode tersimpan dipulihkan dari server saat polling. MANUAL menghentikan entry/layer baru; stop loss dan trailing yang sudah aktif tetap berjalan.
+- Saldo minimum untuk AUTO default `1000` dalam mata uang deposit akun. Nilai dapat diubah dari input EA atau editor parameter di kartu dashboard. Jika saldo di bawah ambang, AUTO ditolak/dinonaktifkan pada EA dan tombol dashboard; posisi yang sudah terbuka tidak ditutup otomatis.
+- Close Buy, Close Sell, dan Close All beralih ke MANUAL dahulu serta hanya menargetkan simbol chart dan Magic Number Fast-Grid yang dikonfigurasi.
+- API menolak command jika EA offline. Command memiliki masa berlaku dan acknowledgement menunjukkan hasil dari EA.
+- WebRequest MQL5 sinkron dan tidak berjalan di Strategy Tester. Pantau tab Experts/Journal dan riwayat broker.
 
-## Langkah mengaktifkan
+## Mengaktifkan
 
-1. Buka `https://pilot-mt5.vercel.app/` dan masuk memakai akun owner atau akun yang telah dibuat owner. Signup publik tidak tersedia.
-2. Pilih **Tambah EA**, beri label koneksi, lalu simpan token yang ditampilkan satu kali. Jangan bagikan token.
-3. Pastikan Anda memilih terminal dan login akun real yang benar. Periksa lot, batas rugi, target, simbol dan Magic Number di input EA sebelum menghubungkan.
-4. Buka MetaTrader 5, pasang `Fast-Grid-Pilot.mq5` pada chart simbol yang hendak dipantau, dan isi input `EAConnectionToken`.
-5. Di **Tools → Options → Expert Advisors**, aktifkan izin WebRequest dan tambahkan `https://qqdsultliybypiuvihli.supabase.co` ke daftar URL yang diizinkan.
-6. Perhatikan bahwa koneksi baru akan mengirim perintah AUTO saat EA pertama kali terhubung. Gunakan tombol MANUAL sebelum membiarkan EA berjalan jika Anda belum siap mengizinkan entry.
-7. Setelah heartbeat online muncul, cocokkan nama akun, login, server dan nilai saldo/equity di dashboard dengan terminal MT5. Periksa transaksi yang terjadi di Experts/Journal serta riwayat broker.
+1. Jalankan PocketBase lokal dan server app sesuai panduan di README, lalu buka dashboard lokal.
+2. Masuk dengan akun owner PocketBase. Pendaftaran publik ditutup; owner membuat pengguna tambahan.
+3. Pilih **Tambah EA**, lalu simpan token yang ditampilkan satu kali.
+4. Compile `ea/Fast-Grid-Pilot.mq5`. Isi `PilotApiUrl` dengan URL API di dialog koneksi dan `EAConnectionToken` dengan token tadi.
+5. Di MetaTrader → Tools → Options → Expert Advisors, izinkan WebRequest ke origin dashboard, misalnya `http://localhost:3000`.
+6. Cocokkan nama akun, login, server, saldo, dan equity dengan terminal sebelum membiarkan EA berjalan.
 
-## Telemetri
+Jika MT5 berjalan di komputer lain, gunakan alamat LAN komputer server pada `PilotApiUrl`, jalankan PocketBase agar dapat dijangkau di LAN, dan atur firewall. Jangan mengekspos port PocketBase ke internet.
 
-- **Nama akun**: nama akun dari server broker (`ACCOUNT_NAME`); dashboard juga menampilkan login MT5 dan server bila tersedia.
-- **Saldo / Equity**: nilai akun broker dalam mata uang deposit.
-- **Max DD Buy / Max DD Sell**: kerugian floating terbesar per sisi yang diamati sejak EA dipasang/dijalankan. Nilai ini di-reset ketika EA dimulai ulang; bukan persentase atau drawdown historis akun.
-- **Running**: status AUTO aktif dan EA tidak terkunci oleh target harian. EA dapat tetap online saat mode MANUAL.
-- **Profit hari ini**: hasil bersih strategi Fast-Grid sejak reset harian server MT5, termasuk profit, komisi, swap dan floating profit/swap posisi Fast-Grid yang masih terbuka.
-- **Floating**: P/L berjalan posisi Fast-Grid yang terbuka saat itu, ditampilkan terpisah.
-- **Online**: heartbeat terakhir diterima kurang dari 20 detik lalu.
+## Telemetri dan API
 
-## Alur API
+Dashboard menampilkan nama akun broker, login/server, saldo/equity, drawdown, profit/floating, mode, dan heartbeat. Status online berarti heartbeat diterima kurang dari 20 detik lalu.
 
-Edge Function: `https://qqdsultliybypiuvihli.supabase.co/functions/v1/mt5-api`.
+Base URL: `http://localhost:3000/api/pilot`.
 
-EA mengirim `POST ?route=/telemetry`, melakukan polling `GET ?route=/commands/next`, lalu mengirim acknowledgement ke `POST ?route=/commands/{id}/ack`. Dashboard mengirim tindakan melalui sesi pengguna terautentikasi. Function memvalidasi token EA atau JWT pengguna sebelum mengakses tabel yang dilindungi RLS.
+- `POST ?route=/telemetry` menyimpan telemetry dan konfigurasi EA.
+- `GET ?route=/commands/next` mengambil command atau parameter konfigurasi berikutnya.
+- `POST ?route=/commands/{id}/ack` mengirim acknowledgement.
 
-## Referensi teknis
+Request EA memakai `Authorization: Bearer <EAConnectionToken>`. Dashboard memakai token auth PocketBase; kedua jenis token hanya divalidasi server-side.
 
-- [MQL5 WebRequest](https://www.mql5.com/en/docs/network/webrequest): allow-list URL, pemanggilan sinkron, dan batasan Strategy Tester.
-- [MQL5 Account Properties](https://www.mql5.com/en/docs/constants/environment_state/accountinformation): pembacaan metadata terminal dan akun.
-- [Supabase Securing Edge Functions](https://supabase.com/docs/guides/functions/auth): validasi autentikasi pada function.
+## Referensi
+
+- [MQL5 WebRequest](https://www.mql5.com/en/docs/network/webrequest)
+- [MQL5 Account Properties](https://www.mql5.com/en/docs/constants/environment_state/accountinformation)
+- [PocketBase documentation](https://pocketbase.io/docs/)
