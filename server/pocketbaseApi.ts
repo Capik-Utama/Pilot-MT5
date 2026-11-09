@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import PocketBase, { type RecordModel } from "pocketbase";
-import { authenticatePilotUser, getPocketBaseAdmin, newPocketBaseClient, type PilotUser } from "./pocketbase";
+import { authenticatePilotUser, getPocketBaseAdmin, newPocketBaseClient, type PilotUser } from "./pocketbase.js";
 
 const ONLINE_WINDOW_MS = 20_000;
 const COMMAND_TTL_MS = 45_000;

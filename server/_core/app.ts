@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
-import { publicPlatformScript } from "./publicConfig";
-import { registerPocketBaseApi } from "../pocketbaseApi";
-import { getPocketBaseAdmin, getPocketBaseUrl } from "../pocketbase";
+import { publicPlatformScript } from "./publicConfig.js";
+import { registerPocketBaseApi } from "../pocketbaseApi.js";
+import { getPocketBaseAdmin, getPocketBaseUrl } from "../pocketbase.js";
 
 function proxyPocketBaseAuth(path: string) {
   return async (req: express.Request, res: express.Response) => {
