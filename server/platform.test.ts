@@ -5,6 +5,7 @@ import { sdk } from "./_core/sdk";
 import { listLLMModels } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
 import { COOKIE_NAME } from "../shared/const";
+import { getPocketBaseUrl } from "./pocketbase";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 describe("current platform integration", () => {
@@ -25,6 +26,23 @@ describe("current platform integration", () => {
     const request = vi.fn(); vi.stubGlobal("fetch", request);
     await expect(listLLMModels()).rejects.toThrow("MANUS_API_URL");
     expect(request).not.toHaveBeenCalled();
+  });
+  it("keeps the local PocketBase default only outside Vercel", () => {
+    vi.stubEnv("VERCEL", ""); vi.stubEnv("VERCEL_ENV", ""); vi.stubEnv("POCKETBASE_URL", "");
+    expect(getPocketBaseUrl()).toBe("http://127.0.0.1:8090");
+  });
+  it("fails clearly instead of silently targeting localhost when Vercel is misconfigured", () => {
+    vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("POCKETBASE_URL", "");
+    expect(() => getPocketBaseUrl()).toThrow("POCKETBASE_URL is required in Vercel");
+  });
+  it("accepts an HTTPS PocketBase origin and rejects dashboard paths or insecure Vercel URLs", () => {
+    vi.stubEnv("VERCEL", "1"); vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("POCKETBASE_URL", "https://personal-database.my.id/");
+    expect(getPocketBaseUrl()).toBe("https://personal-database.my.id");
+    vi.stubEnv("POCKETBASE_URL", "https://personal-database.my.id/_/#/collections");
+    expect(() => getPocketBaseUrl()).toThrow("origin only");
+    vi.stubEnv("POCKETBASE_URL", "http://personal-database.my.id");
+    expect(() => getPocketBaseUrl()).toThrow("must use HTTPS");
   });
   it("persists URL-only image results through current managed storage", async () => {
     vi.stubEnv("MANUS_API_URL", "https://api.example"); vi.stubEnv("MANUS_API_KEY", "test-only");

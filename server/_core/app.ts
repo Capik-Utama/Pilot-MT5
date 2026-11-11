@@ -1,12 +1,12 @@
 import express, { type Express } from "express";
-import { publicPlatformScript } from "./publicConfig";
-import { registerPocketBaseApi } from "../pocketbaseApi";
-import { getPocketBaseAdmin, pocketBaseUrl } from "../pocketbase";
+import { publicPlatformScript } from "./publicConfig.js";
+import { registerPocketBaseApi } from "../pocketbaseApi.js";
+import { getPocketBaseAdmin, getPocketBaseUrl } from "../pocketbase.js";
 
 function proxyPocketBaseAuth(path: string) {
   return async (req: express.Request, res: express.Response) => {
     try {
-      const response = await fetch(`${pocketBaseUrl}${path}`, {
+      const response = await fetch(`${getPocketBaseUrl()}${path}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,10 +34,43 @@ export function createApp(app: Express = express()) {
   app.get("/api/health", async (_req, res) => {
     try {
       const pb = await getPocketBaseAdmin();
-      await pb.collection("mt5_accounts").getList(1, 1);
-      res.json({ status: "ok", database: "pocketbase" });
-    } catch {
-      res.status(503).json({ status: "unavailable", database: "pocketbase" });
+      const expectedCollections = ["users", "mt5_accounts", "mt5_commands", "mt5_command_events"];
+      const results = await Promise.all(expectedCollections.map(async (name) => {
+        try { return [name, await pb.collections.getOne(name)] as const; }
+        catch { return [name, null] as const; }
+      }));
+      const collections = Object.fromEntries(results.map(([name, collection]) => [name, Boolean(collection)]));
+      const missingCollections = results.filter(([, collection]) => !collection).map(([name]) => name);
+      if (missingCollections.length) {
+        return res.status(503).json({ status: "unavailable", database: "pocketbase", checks: { superuser: true, collections, usersAuth: false }, missingCollections });
+      }
+      const users = results[0][1]!;
+      const identityFields = users.passwordAuth?.identityFields;
+      const authConfigured = users.type === "auth" && users.passwordAuth?.enabled === true &&
+        Array.isArray(identityFields) && identityFields.includes("email");
+      if (!authConfigured) {
+        return res.status(503).json({ status: "unavailable", database: "pocketbase", checks: { superuser: true, collections, usersAuth: false } });
+      }
+      res.json({ status: "ok", database: "pocketbase", checks: { superuser: true, collections, usersAuth: true } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const configError = message.includes("POCKETBASE_URL") || message.includes("POCKETBASE_SUPERUSER_");
+      const errorName = error instanceof Error ? error.name : "UnknownError";
+      const status = error && typeof error === "object" && "status" in error && typeof error.status === "number" ? error.status : 0;
+      const hint = configError
+        ? message
+        : status === 400 || status === 401
+          ? `PocketBase menolak autentikasi superuser (HTTP ${status}). Pastikan email dan password Vercel adalah kredensial superuser yang aktif.`
+          : status > 0
+            ? `PocketBase merespons error autentikasi superuser (HTTP ${status}). Periksa konfigurasi dan status server PocketBase.`
+            : `Tidak dapat memastikan autentikasi superuser karena koneksi gagal atau respons tidak terduga (${errorName}). Periksa URL PocketBase, TLS/firewall, dan kredensial superuser.`;
+      console.error("[PocketBase health] Admin authentication failed", { errorName, status: status || null });
+      res.status(503).json({
+        status: "unavailable",
+        database: "pocketbase",
+        checks: { superuser: false, collections: false, usersAuth: false },
+        hint,
+      });
     }
   });
   app.get("/api/platform/config.js", (_req, res) => {
