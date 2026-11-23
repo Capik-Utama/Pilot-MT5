@@ -16,8 +16,7 @@ enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string SupabaseFunctionUrl = "https://qqdsultliybypiuvihli.supabase.co/functions/v1/mt5-api";
-input string SupabasePublishableKey = "sb_publishable_Kfj9_n9hWcuexbpXuPWGDQ_SiUzDaH2";
+input string PilotApiBaseUrl = "https://personal-database.my.id/api/mt5";
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
 
 input group "== Mode Perdagangan =="
@@ -498,14 +497,13 @@ int PilotHttp(const string method, const string route, const string body, string
    }
    char result[];
    string resultHeaders;
-   string headers = "Content-Type: application/json\r\napikey: " + SupabasePublishableKey +
-                    "\r\nAuthorization: Bearer " + EAConnectionToken + "\r\n";
+   string headers = "Content-Type: application/json\r\nAuthorization: Bearer " + EAConnectionToken + "\r\n";
    ResetLastError();
-   int code = WebRequest(method, SupabaseFunctionUrl + "?route=" + route, headers, 3000, data, result, resultHeaders);
+   int code = WebRequest(method, PilotApiBaseUrl + route, headers, 3000, data, result, resultHeaders);
    response = CharArrayToString(result, 0, -1, CP_UTF8);
    if(code < 0) {
       int err = GetLastError();
-      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan URL Supabase di Options > Expert Advisors.", err);
+      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan API Pilot VPS di Options > Expert Advisors.", err);
    }
    return code;
 }

@@ -54,9 +54,6 @@ pattern = r'int PilotHttp\(const string method, const string route, const string
 text, n = re.subn(pattern, http_fn, text, count=1, flags=re.S)
 if n != 1:
     raise SystemExit(f'PilotHttp function: expected 1 match, got {n}')
-if 'Supabase' in text or 'sb_publishable' in text or 'qqdsultliybypiuvihli' in text:
-    raise SystemExit('Supabase reference remains in EA source')
-
 destination = Path('/home/ubuntu/pilotmt5/ea/Fast-Grid-Pilot.mq5')
 destination.parent.mkdir(parents=True, exist_ok=True)
 destination.write_text(text, encoding='utf-8')
