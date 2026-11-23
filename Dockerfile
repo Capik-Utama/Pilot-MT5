@@ -8,5 +8,6 @@ COPY . .
 RUN pnpm build
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV API_ONLY=true
 EXPOSE 3000
 CMD ["node", "dist/index.js"]

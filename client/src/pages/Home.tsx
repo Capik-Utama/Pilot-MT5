@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { startLogin } from "@/const";
+import { getSessionAuthorizationHeaders, startLogin } from "@/const";
+import { API_ORIGIN, apiUrl } from "@/lib/api";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type Action =
@@ -520,8 +521,8 @@ export default function Home() {
     ) => {
       const serializedBody =
         body === undefined ? undefined : JSON.stringify(body);
-      const routeUrl = `/api/mt5${path}`;
-      const headers: Record<string, string> = {};
+      const routeUrl = apiUrl(`/api/mt5${path}`);
+      const headers: Record<string, string> = getSessionAuthorizationHeaders();
       if (serializedBody !== undefined)
         headers["Content-Type"] = "application/json";
       const requestHeaderText = Object.entries(headers)
@@ -540,7 +541,7 @@ ${serializedBody ?? ""}`).byteLength;
       try {
         const response = await fetch(routeUrl, {
           method,
-          credentials: "same-origin",
+          credentials: "include",
           headers,
           ...(serializedBody === undefined ? {} : { body: serializedBody }),
           ...(controller ? { signal: controller.signal } : {}),
@@ -1931,7 +1932,7 @@ ${serializedBody ?? ""}`).byteLength;
               <span>PilotApiBaseUrl =</span>
               <code>
                 {typeof window !== "undefined"
-                  ? `${window.location.origin}/api/mt5`
+                  ? apiUrl("/api/mt5")
                   : "/api/mt5"}
               </code>
               <span>EAConnectionToken = token di atas</span>
@@ -1941,7 +1942,7 @@ ${serializedBody ?? ""}`).byteLength;
               </span>
               <code>
                 {typeof window !== "undefined"
-                  ? window.location.origin
+                  ? API_ORIGIN
                   : "HTTPS URL Manus"}
               </code>
             </div>

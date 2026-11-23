@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
+import { apiUrl } from "@/lib/api";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -40,7 +41,7 @@ queryClient.getMutationCache().subscribe(event => {
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: apiUrl("/api/trpc"),
       transformer: superjson,
       headers() {
         // Preview auto-login fallback: when the browser blocks iframe cookies
@@ -71,6 +72,22 @@ const trpcClient = trpc.createClient({
     }),
   ],
 });
+
+// Cross-origin OAuth redirects return a one-time session token in the URL
+// fragment. Move it to sessionStorage before the first authenticated request,
+// then immediately remove it from the address bar and browser history.
+const sessionFragment = new URLSearchParams(window.location.hash.slice(1));
+const oauthSession = sessionFragment.get("pilot_session");
+if (sessionFragment.has("pilot_session")) {
+  if (oauthSession && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(oauthSession)) {
+    try {
+      sessionStorage.setItem("manus-cookie", `${COOKIE_NAME}=${oauthSession}`);
+    } catch {
+      // If storage is unavailable, the backend's secure session cookie remains.
+    }
+  }
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

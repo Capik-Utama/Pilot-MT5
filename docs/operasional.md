@@ -2,9 +2,9 @@
 
 ## Batas migrasi
 
-Aplikasi memakai Manus OAuth, API Express same-origin, serta MySQL terkelola Manus. GitHub, Vercel, Supabase, Appwrite dan VPS pengguna tidak dipakai sebagai layanan runtime. Proyek Manus menggunakan penyimpanan/checkpoint internal Manus.
+Arsitektur target saat ini adalah frontend statis Vercel dan Express API pada VPS. Kode aplikasi masih menggunakan MySQL melalui Drizzle. Migrasi ke Supabase/PostgreSQL VPS belum dilakukan; migration lama di `supabase/migrations` belum direkonsiliasi dengan model aktif aplikasi.
 
-Database Manus baru tidak membawa isi project Supabase lama. User/password Supabase, daftar akun MT5, konfigurasi dan histori lama tidak otomatis termigrasi. Jangan menganggap nilai kosong/`—` sebagai data nyata; dashboard hanya menampilkan metrik setelah telemetry EA diterima.
+Jangan mengisi connection string PostgreSQL atau menjalankan migrasi sampai driver, schema, query, autentikasi, dan strategi data disiapkan pada fase migrasi tersendiri. Database Supabase VPS yang masih kosong tidak otomatis menerima daftar akun MT5, konfigurasi, atau histori yang mungkin berasal dari sumber lain. Dashboard hanya menampilkan metrik setelah telemetry EA diterima.
 
 ## Login dan role
 
@@ -16,8 +16,8 @@ Database Manus baru tidak membawa isi project Supabase lama. User/password Supab
 
 1. Kompilasi `ea/Fast-Grid-Pilot.mq5` di MetaEditor ke `.ex5` setelah meninjau source. Periksa tab Errors sebelum memasang EA.
 2. Login owner ke MT5 Pilot dan buat koneksi. Salin token yang ditampilkan satu kali; server menyimpan hash token, bukan token mentah. Jika token hilang, cabut koneksi lama lalu buat koneksi baru.
-3. Pada parameter EA, set `PilotApiBaseUrl` persis ke alamat yang ditampilkan di dialog koneksi (`https://<host-manus>/api/mt5`) dan isi `EAConnectionToken` dengan token tersebut. Interval default EA adalah `InputPengirimanInfoKePilotMs=500` dan `InputPengecekanPerintahPilotMs=1000`; jangan menambahkan `?route=` atau mengirim token ke orang lain.
-4. Di MetaTrader, buka **Tools → Options → Expert Advisors**, aktifkan izin WebRequest, dan masukkan hanya origin HTTPS yang ditampilkan aplikasi (contoh bentuk: `https://<host-manus>`), bukan path `/api/mt5`.
+3. Pada parameter EA, set `PilotApiBaseUrl` persis ke alamat API yang ditampilkan pada dialog koneksi (`https://<host-api>/api/mt5`) dan isi `EAConnectionToken` dengan token tersebut. Interval default EA adalah `InputPengirimanInfoKePilotMs=500` dan `InputPengecekanPerintahPilotMs=1000`; jangan menambahkan `?route=` atau mengirim token ke orang lain.
+4. Di MetaTrader, buka **Tools → Options → Expert Advisors**, aktifkan izin WebRequest, dan masukkan hanya origin HTTPS API yang ditampilkan aplikasi (contoh bentuk: `https://<host-api>`), bukan path `/api/mt5`.
 5. Gunakan akun demo dahulu. Periksa login/server MT5, simbol, mode Beli/Jual, lot, batas kerugian, target, Magic Number, dan semua parameter risiko.
 
 Koneksi EA remote baru dimulai dalam mode **MANUAL**. Setelah **AUTO** diaktifkan secara eksplisit dari chart/dashboard dan tersimpan di server, EA membaca mode tersebut lagi sebelum telemetry pertama setiap kali di-restart/re-attach. Perintah AUTO/MANUAL/Close yang sudah antre saat startup diproses lebih dahulu daripada mode lama di server; jika poll pertama gagal atau mode tidak bisa dipastikan, EA bertahan **MANUAL** dan tidak menulis state default ke server. Bila server saat ini menyimpan MANUAL (misalnya pernah tertimpa oleh EA versi lama), tekan AUTO sekali lagi. Perintah MANUAL dan perintah Close eksplisit tetap memindahkan EA ke MANUAL demi mencegah entry ulang otomatis setelah penutupan. AUTO dapat melanjutkan pembukaan posisi setelah restart; uji di akun demo dahulu. Selama migrasi dan validasi Manus, EA tidak dipasang ke akun broker live dan tidak ada order nyata yang dikirim.
@@ -35,16 +35,16 @@ Koneksi EA remote baru dimulai dalam mode **MANUAL**. Setelah **AUTO** diaktifka
 - Token EA dirahasiakan, disimpan sebagai hash di server, dan setiap token hanya memberi akses ke akun yang terikat padanya. Jangan menaruh token atau rahasia server di screenshot/log.
 - Menghapus koneksi mencabut token pada server dan menghapus histori command/audit milik akun tersebut. Lepas juga EA dari chart MT5 secara manual; API tidak dapat menghentikan terminal MT5 dari jarak jauh.
 
-## Operasi Manus
+## Operasi hosting dan database
 
-Server/API dan frontend diterbitkan sebagai satu aplikasi Manus dengan MySQL terkelola; health check publik aplikasi berada di `/api/health`. Publikasi memakai checkpoint Manus, bukan Vercel/GitHub deploy. Auto-publish dan always-on tidak diaktifkan otomatis; Autoscale/on-demand dapat mengalami cold start setelah tidak aktif. Pantau penggunaan hosting dan database pada dashboard billing Manus.
+Frontend statis dipublikasikan oleh Vercel. Express API berjalan terus-menerus pada VPS dan harus berada di belakang reverse proxy HTTPS; health check tanpa autentikasi tersedia di `/api/health`. Konfigurasikan CORS dengan origin frontend yang tepat. Host API dan port database internal tidak boleh dibuka langsung tanpa kebutuhan dan perlindungan yang sesuai.
 
-Migrasi proyek database baru memakai `pnpm db:migrate` dari daftar migration yang sudah tercatat. Database development dan production proyek Manus adalah database yang sama; jangan memasukkan test trade/saldo palsu atau menjalankan skrip destruktif untuk validasi. Backup/export data belum dikonfigurasi sebagai bagian migrasi ini; siapkan dan uji prosedur backup sebelum pemakaian operasional.
+Database aplikasi masih memakai MySQL sesuai schema aktif. Migrasi ke Supabase/PostgreSQL VPS ditunda dan perlu dilakukan sebagai perubahan terpisah setelah schema dan driver aplikasi direkonsiliasi. Jangan menjalankan `pnpm db:migrate` atau `pnpm db:push` untuk menyiapkan deployment frontend/API ini. Simpan backup sebelum fase migrasi dan validasi pada lingkungan non-live.
 
 ## Pemecahan masalah
 
 - **Login berhasil tetapi akses ditolak:** cek `PILOT_OWNER_EMAIL` untuk owner pertama; pengguna lain harus diundang dengan email Manus yang benar.
-- **Tidak ada telemetry:** periksa `PilotApiBaseUrl`, token, izin WebRequest untuk origin Manus, koneksi internet terminal, dan status EA. Token yang dicabut tidak dapat dipakai lagi.
+- **Tidak ada telemetry:** periksa `PilotApiBaseUrl`, token, izin WebRequest untuk origin API VPS, koneksi internet terminal, CORS/reverse proxy, dan status EA. Token yang dicabut tidak dapat dipakai lagi.
 - **EA offline:** heartbeat melewati 20 detik atau EA belum mengirim telemetry. Jangan mengirim command trading sampai status online dan identitas akun benar.
 - **Command kedaluwarsa:** cek koneksi MT5, WebRequest/allow-list dan Journal MT5. Jangan kirim ulang BUY/SELL sebelum memastikan tidak ada posisi/order yang sudah berubah.
 - **Konfigurasi belum terkonfirmasi:** tunggu telemetry EA yang mencerminkan konfigurasi baru dan cek log aktivitas sebelum mengulang.

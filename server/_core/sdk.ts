@@ -155,7 +155,7 @@ class SDKServer {
 
   private getSessionSecret() {
     const secret = ENV.cookieSecret;
-    if (!secret) throw new Error("MANUS_JWT_SECRET is unavailable");
+    if (!secret) throw new Error("APP_SESSION_SECRET is unavailable");
     return new TextEncoder().encode(secret);
   }
 

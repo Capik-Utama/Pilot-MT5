@@ -1,17 +1,20 @@
 # MT5 Pilot
 
-Dashboard privat untuk telemetry dan pengelolaan Fast-Grid EA MetaTrader 5, dioperasikan dalam satu project Manus dengan API Express dan database MySQL terkelola.
+Dashboard privat untuk telemetry dan pengelolaan Fast-Grid EA MetaTrader 5. Struktur deployment memisahkan frontend statis Vite di Vercel dan Express API di VPS. Database aplikasi masih MySQL; migrasi ke Supabase/PostgreSQL VPS belum dilakukan.
 
 ## Menjalankan dan memeriksa
 
-- `pnpm dev` menjalankan frontend dan server Express pada port project Manus.
+- `pnpm dev` menjalankan frontend Vite dan server Express untuk pengembangan lokal.
 - `pnpm check`, `pnpm test`, dan `pnpm build` menjalankan pemeriksaan, tes, dan build produksi.
-- `pnpm db:migrate` menerapkan migrasi Drizzle yang sudah tercatat. Jangan memakai `db:push` untuk mengganti atau menghapus skema/data.
+- `pnpm build:vercel` membangun frontend statis ke `dist/public` untuk Vercel.
+- `pnpm db:migrate` menerapkan migrasi MySQL Drizzle yang sudah tercatat. Jangan menjalankannya untuk setup hosting; jangan memakai `db:push` untuk mengganti atau menghapus skema/data.
 - `/api/health` adalah endpoint readiness yang tidak memerlukan login.
 
 ## Autentikasi dan data
 
-Login aplikasi memakai Manus OAuth. Akses role pertama owner dicocokkan dengan secret terlindungi `PILOT_OWNER_EMAIL`; owner kemudian mengundang email akun Manus untuk role read-only atau staff. Tidak ada password lokal. Data akun/password Supabase sebelumnya tidak ikut dipindahkan; database Manus baru tidak berisi saldo simulasi.
+Login aplikasi memakai Manus OAuth dan sesi diproses oleh Express API. Role owner dicocokkan dengan `PILOT_OWNER_EMAIL`; owner dapat mengundang email akun Manus lain untuk role read-only atau staff. Untuk deployment terpisah, URL API publik di frontend dikonfigurasi melalui `VITE_API_BASE_URL`. Lihat [panduan deployment](docs/deploy-vercel.md) dan [panduan operasional](docs/operasional.md).
+
+Database aktif masih memakai driver, schema, dan migration MySQL. Migrasi Supabase/PostgreSQL VPS ditunda; jangan masukkan connection string PostgreSQL atau jalankan migrasi sampai fase tersebut diminta dan schema direkonsiliasi.
 
 ## Integrasi EA
 
@@ -21,4 +24,4 @@ Setelah server menyimpan AUTO, EA memulihkan mode itu pada restart sebelum telem
 
 ## Platform
 
-Project ini tidak memerlukan GitHub sebagai runtime, Vercel, Supabase, Appwrite, atau VPS pengguna. Source, server, database, dan publikasi dikelola melalui project Manus. Auto-publish dan hosting always-on tidak diaktifkan oleh konfigurasi awal.
+Source disimpan di GitHub. Frontend dirancang untuk Vercel; Express API berjalan sebagai service persisten pada VPS di balik HTTPS reverse proxy. Database berada di luar Vercel dan masih membutuhkan MySQL selama fase persiapan ini. Struktur ini belum mengonfigurasi kredensial, menjalankan deployment, atau memigrasikan database.

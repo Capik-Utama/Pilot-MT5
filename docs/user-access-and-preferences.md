@@ -1,7 +1,7 @@
 # Akses pengguna dan preferensi dashboard
 
-Owner lokal dibuat oleh `pnpm pocketbase:setup`. Owner dapat membuat akun `read_only` atau `staff` dari sidebar. Read-only hanya dapat melihat dashboard; staff dapat mengirim command ke akun yang ditugaskan. API Express memeriksa role dan kepemilikan sebelum setiap operasi data.
+Owner mengelola akun aplikasi dari sidebar. Owner dapat memberi role read-only atau staff dan menugaskan akun yang boleh diakses staff. Read-only hanya dapat melihat dashboard; staff dapat mengirim command pada akun yang ditugaskan. API Express memeriksa role dan kepemilikan sebelum setiap operasi data. Data pengguna dan akses saat ini menggunakan schema MySQL aktif.
 
-Signup publik tidak tersedia. Owner membuat akun tambahan dengan username dan password sementara; kredensial itu disampaikan secara aman. Pengguna login melalui PocketBase Auth dan seluruh collection data hanya dapat diakses melalui server dengan kredensial superuser yang disimpan di `.env`.
+Signup publik tidak tersedia. Owner mengatur akun tambahan dan kredensial melalui fitur pengelolaan pengguna. Pengguna masuk melalui login aplikasi atau Manus OAuth. Frontend mengakses API VPS; database dan seluruh operasi data tetap di server. Jangan menaruh secret atau connection string database di Vercel.
 
-Delay refresh disimpan di browser (`pilot-refresh-seconds`), default 1 detik dengan rentang 1–60 detik. Dashboard menggunakan polling berkala. Telemetry EA dikirim tiap 1 detik; WebRequest bersifat sinkron sehingga jaringan lokal yang lambat tetap dapat menambah jeda. Tema disimpan per browser di `pilot-theme`.
+Preferensi tema dan tampilan dashboard disimpan per browser. EA mengirim telemetry secara default setiap 500 ms dan memeriksa command setiap 1000 ms; WebRequest MT5 bersifat sinkron, sehingga jaringan lambat menambah jeda dan menghasilkan request yang tinggi. Perubahan interval EA per akun tersedia dari pengaturan pada kartu EA.

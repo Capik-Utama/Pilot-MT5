@@ -20,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { COOKIE_NAME, startLogin } from "@/const";
+import { apiUrl } from "@/lib/api";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -59,9 +60,9 @@ export default function DashboardLayout({
     setPasswordLoginError("");
     setPasswordLoginPending(true);
     try {
-      const response = await fetch("/api/auth/password/login", {
+      const response = await fetch(apiUrl("/api/auth/password/login"), {
         method: "POST",
-        credentials: "same-origin",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
