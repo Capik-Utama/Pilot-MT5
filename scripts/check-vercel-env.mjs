@@ -1,8 +1,10 @@
 const value = process.env.VITE_API_BASE_URL?.trim();
 
 if (!value) {
-  console.error("Vercel build blocked: set VITE_API_BASE_URL to the public HTTPS API origin first.");
-  process.exit(1);
+  console.warn(
+    "VITE_API_BASE_URL is not set; the frontend will use its own origin until the public API origin is configured."
+  );
+  process.exit(0);
 }
 
 let apiUrl;
