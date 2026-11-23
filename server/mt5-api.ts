@@ -204,6 +204,24 @@ export function registerMt5ApiRoutes(app: Express) {
           typeof user.email === "string" ? normEmail(user.email) : "";
         if (!user.id || !email || !validEmail(email))
           return fail(res, 403, "Verified Supabase account must provide a valid email.");
+        if (path === "/dashboard/profile" && req.method === "PATCH") {
+          const existingAccess = await db
+            .select({ id: pilotUserAccess.id })
+            .from(pilotUserAccess)
+            .where(eq(pilotUserAccess.userId, user.id))
+            .limit(1);
+          if (!existingAccess[0])
+            return fail(res, 403, "MT5 access has not been provisioned by the owner.");
+          await db
+            .update(users)
+            .set({ email, updatedAt: new Date() })
+            .where(eq(users.id, user.id));
+          await db
+            .update(pilotUserAccess)
+            .set({ email })
+            .where(eq(pilotUserAccess.userId, user.id));
+          return res.json({ ok: true, email });
+        }
         const rows = await db
           .select()
           .from(pilotUserAccess)

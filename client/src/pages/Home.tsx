@@ -20,6 +20,7 @@ import {
   Search,
   ShieldCheck,
   Signal,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -468,6 +469,11 @@ export default function Home() {
     deletingAccount,
   ]);
   const [showUserManager, setShowUserManager] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -884,6 +890,74 @@ ${serializedBody ?? ""}`).byteLength;
       );
     } finally {
       setLoadingUsers(false);
+    }
+  };
+  const openProfileEditor = () => {
+    if (!user) return;
+    setProfileEmail(user.email);
+    setProfileName(user.name === user.email ? "" : user.name);
+    setProfilePassword("");
+    setShowProfileEditor(true);
+  };
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !user || savingProfile) return;
+    const name = profileName.trim();
+    const email = profileEmail.trim().toLowerCase();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast.error("Email login tidak valid.");
+      return;
+    }
+    if (name.length < 1 || name.length > 200) {
+      toast.error("Nama harus diisi, maksimal 200 karakter.");
+      return;
+    }
+    if (profilePassword && profilePassword.length < 8) {
+      toast.error("Kata sandi baru minimal 8 karakter.");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const updates: {
+        email?: string;
+        data: { name: string };
+        password?: string;
+      } = {
+        data: { name },
+      };
+      if (email !== user.email.toLowerCase()) updates.email = email;
+      if (profilePassword) updates.password = profilePassword;
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      const profileResponse = await fetch(apiUrl("/api/mt5/dashboard/profile"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getSessionAuthorizationHeaders()),
+        },
+      });
+      if (!profileResponse.ok) {
+        const payload = (await profileResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(payload?.error || "Profil aplikasi belum tersinkron.");
+      }
+      await refresh();
+      setProfilePassword("");
+      setShowProfileEditor(false);
+      toast.success(
+        profilePassword
+          ? "Profil dan kata sandi berhasil diperbarui."
+          : "Profil berhasil diperbarui."
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Profil tidak dapat diperbarui."
+      );
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -1571,6 +1645,13 @@ ${serializedBody ?? ""}`).byteLength;
             </button>
           </div>
         )}
+        <button
+          type="button"
+          className="pilot-add-button pilot-sidebar-add"
+          onClick={openProfileEditor}
+        >
+          <UserRound size={15} /> Edit akun saya
+        </button>
         <div className="pilot-sidebar-account">
           <span className="pilot-owner-pill">
             <ShieldCheck size={14} />{" "}
@@ -2250,6 +2331,96 @@ ${serializedBody ?? ""}`).byteLength;
                 {deletingAccount ? "Menghapus…" : "Hapus EA dari Pilot"}
               </button>
             </div>
+          </section>
+        </div>
+      )}
+      {showProfileEditor && (
+        <div
+          className="pilot-modal-backdrop"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget && !savingProfile)
+              setShowProfileEditor(false);
+          }}
+        >
+          <section
+            className="pilot-modal pilot-user-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pilot-profile-title"
+          >
+            <button
+              type="button"
+              className="pilot-modal-x"
+              aria-label="Tutup edit akun"
+              disabled={savingProfile}
+              onClick={() => setShowProfileEditor(false)}
+            >
+              <X size={18} />
+            </button>
+            <div className="pilot-kicker">AKUN SAYA · SUPABASE AUTH</div>
+            <h2 id="pilot-profile-title">Edit akun saya</h2>
+            <p>
+              Nama, email, dan kata sandi diperbarui melalui Supabase Auth.
+              Jika konfirmasi email aktif, alamat baru mulai digunakan setelah
+              tautan konfirmasi dibuka.
+            </p>
+            <form className="pilot-profile-form" onSubmit={saveProfile}>
+              <label>
+                Email login
+                <input
+                  type="email"
+                  autoComplete="username"
+                  required
+                  maxLength={320}
+                  value={profileEmail}
+                  onChange={event => setProfileEmail(event.target.value)}
+                />
+              </label>
+              <label>
+                Nama tampilan
+                <input
+                  type="text"
+                  autoComplete="name"
+                  required
+                  maxLength={200}
+                  value={profileName}
+                  onChange={event => setProfileName(event.target.value)}
+                  placeholder="Nama Anda"
+                />
+              </label>
+              <label>
+                Kata sandi baru
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={profilePassword}
+                  onChange={event => setProfilePassword(event.target.value)}
+                  placeholder="Kosongkan jika tidak ingin mengganti"
+                />
+              </label>
+              <p className="pilot-sidebar-hint">
+                Minimal 8 karakter. Kosongkan kolom password untuk mengubah
+                nama saja.
+              </p>
+              <div className="pilot-modal-actions">
+                <button
+                  type="button"
+                  className="pilot-cancel"
+                  disabled={savingProfile}
+                  onClick={() => setShowProfileEditor(false)}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="pilot-add-button"
+                  disabled={savingProfile || !profileName.trim()}
+                >
+                  {savingProfile ? "Menyimpan…" : "Simpan perubahan"}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}
