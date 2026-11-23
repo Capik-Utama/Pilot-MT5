@@ -26,12 +26,9 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="dark"
-        switchable
-      >
+      <ThemeProvider defaultTheme="dark" switchable>
         <TooltipProvider>
-          <Toaster position="top-center" richColors closeButton visibleToasts={3} />
+          <Toaster />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

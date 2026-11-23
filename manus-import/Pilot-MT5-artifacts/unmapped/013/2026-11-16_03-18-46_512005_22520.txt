@@ -1,0 +1,22 @@
+# Terminal Full Output
+# Terminal: pilot-manus
+# Command: test -s ea/Fast-Grid-Pilot.mq5 && test -s docs/operasional.md && test -s README.md && test -s public/manus-routes.json && git status --short && git show -s --format='checkpoint=%H%nsubject=%s' HEAD && grep -n 'pendingModeOverride\|PilotModeSynced = !EnablePilotRemote' ea/Fast-Grid-Pilot.mq5 && grep -n 'Koneksi EA remote baru\|remote MANUAL/Close bukan tombol' docs/operasional.md
+# PID: 22520
+# Timestamp: 2026-11-16_03-18-46.512005
+# Original Length: 2563 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/pilotmt5$ [0mtest -s ea/Fast-Grid-Pilot.mq5 && test -s docs/operasional.md && test -s README.md && test -s public/manus-routes.json && git status --short && git show -s --format='checkpoint=%H%nsubject=%s' HEAD && grep -n 'pendingModeOverride\|PilotModeSynced = !EnablePilotRemote' ea/Fast-Grid-Pilot.mq5 && grep -n 'Koneksi EA remote baru\|remote MANUAL/Close bukan tombol' docs/operasional.md
+{
+source /home/ubuntu/.user_env && source '/var/lib/manus/addon-projects/70d095261c351d5cd669ef3f5f4b26e281cc505e16eecbd2b35e5bc4eec3d835.env' && cd /home/ubuntu/pilotmt5 && test -s ea/Fast-Grid-Pilot.mq5 && test -s docs/operasional.md && test -s README.md && test -s public/manus-routes.json && git status --short && git show -s --format='checkpoint=%H%nsubject=%s' HEAD && grep -n 'pendingModeOverride\|PilotModeSynced = !EnablePilotRemote' ea/Fast-Grid-Pilot.mq5 && grep -n 'Koneksi EA remote baru\|
+remote MANUAL/Close bukan tombol' docs/operasional.md
+}
+checkpoint=7db3dc58fda8e0aaaa038763a034a7ee93b01240
+subject=Persist remote EA mode across restart
+174:   PilotModeSynced = !EnablePilotRemote;
+835:   bool pendingModeOverride = commandId != "" && (action == "auto" || action == "manual" || action == "close_buy" || action == "close_sell" || action == "close_all");
+836:   if(!PilotModeSynced && !pendingModeOverride) {
+23:Koneksi EA remote baru dimulai dalam mode **MANUAL**. Setelah **AUTO** diaktifkan secara eksplisit dari chart/dashboard dan tersimpan di server, EA membaca mode tersebut lagi sebelum telemetry pertama setiap kali di-restart/re-attach. Perintah AUTO/MANUAL/Close yang sudah antre saat startup diproses lebih dahulu daripada mode lama di server; jika poll pertama gagal atau mode tidak bisa dipastikan, EA bertahan **MANUAL** dan tidak menulis state default ke server. Bila server saat ini menyimpan
+ MANUAL (misalnya pernah tertimpa oleh EA versi lama), tekan AUTO sekali lagi. Perintah MANUAL dan perintah Close eksplisit tetap memindahkan EA ke MANUAL demi mencegah entry ulang otomatis setelah penutupan. AUTO dapat melanjutkan pembukaan posisi setelah restart; uji di akun demo dahulu. Selama migrasi dan validasi Manus, EA tidak dipasang ke akun broker live dan tidak ada order nyata yang dikirim.
+30:- Pada startup, perintah mode eksplisit AUTO/MANUAL/Close yang sudah antre diproses sebelum telemetry dan mendahului mode tersimpan yang lama. Perintah baru tetap bergantung pada interval polling dan latensi jaringan; remote MANUAL/Close bukan tombol emergency stop instan.
+[32mubuntu@sandbox:~/pilotmt5$ [0m

@@ -19,10 +19,11 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
+import { COOKIE_NAME, startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -46,7 +47,58 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const { loading, user, refresh } = useAuth();
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [passwordLoginError, setPasswordLoginError] = useState("");
+  const [passwordLoginPending, setPasswordLoginPending] = useState(false);
+
+  const submitPasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (passwordLoginPending) return;
+    setPasswordLoginError("");
+    setPasswordLoginPending(true);
+    try {
+      const response = await fetch("/api/auth/password/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || typeof result?.sessionToken !== "string")
+        throw new Error(result?.error ?? "Email atau kata sandi tidak valid.");
+      try {
+        sessionStorage.setItem(
+          "manus-cookie",
+          `${COOKIE_NAME}=${result.sessionToken}`
+        );
+      } catch {
+        // The regular secure cookie remains available when storage is blocked.
+      }
+      setLoginPassword("");
+      await refresh();
+    } catch (error) {
+      setPasswordLoginError(
+        error instanceof Error
+          ? error.message
+          : "Email atau kata sandi tidak valid."
+      );
+    } finally {
+      setPasswordLoginPending(false);
+    }
+  };
+
+  const startManusLogin = () => {
+    setPasswordLoginError("");
+    try {
+      startLogin();
+    } catch (error) {
+      setPasswordLoginError(
+        error instanceof Error ? error.message : "Login Manus tidak tersedia."
+      );
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -58,24 +110,63 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
-            </p>
-          </div>
-          <Button
-            onClick={() => startLogin()}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
+      <div className="pilot-auth-screen">
+        <section className="pilot-auth-card" aria-labelledby="pilot-auth-title">
+          <div className="pilot-auth-kicker">PILOT-MT5 · AKSES PRIVAT</div>
+          <h1 id="pilot-auth-title">Masuk ke Pilot</h1>
+          <p className="pilot-auth-copy">
+            Gunakan email dan kata sandi yang diberikan owner.
+          </p>
+          <form className="pilot-auth-form" onSubmit={submitPasswordLogin}>
+            <label>
+              Email
+              <input
+                type="email"
+                autoComplete="username"
+                required
+                maxLength={320}
+                value={loginEmail}
+                onChange={event => setLoginEmail(event.target.value)}
+                placeholder="nama@contoh.com"
+              />
+            </label>
+            <label>
+              Kata sandi
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={loginPassword}
+                onChange={event => setLoginPassword(event.target.value)}
+                placeholder="Masukkan kata sandi"
+              />
+            </label>
+            {passwordLoginError && (
+              <p className="pilot-auth-error" role="alert">
+                {passwordLoginError}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="pilot-auth-submit"
+              disabled={passwordLoginPending}
+            >
+              {passwordLoginPending ? "Memeriksa akses…" : "Masuk"}
+            </button>
+          </form>
+          <div className="pilot-auth-divider"><span>ATAU</span></div>
+          <button
+            type="button"
+            className="pilot-auth-manus"
+            onClick={startManusLogin}
           >
-            Sign in
-          </Button>
-        </div>
+            Masuk dengan Manus
+          </button>
+          <p className="pilot-auth-footnote">
+            Akun dibuat oleh owner. Jika lupa kata sandi, minta owner mengatur
+            ulang akses Anda.
+          </p>
+        </section>
       </div>
     );
   }

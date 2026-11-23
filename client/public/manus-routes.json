@@ -1,1 +1,5 @@
-{"routes":[{"path":"/","title":"MT5 Pilot"}]}
+{
+  "routes": [
+    { "path": "/", "title": "Dashboard MT5 Pilot" }
+  ]
+}

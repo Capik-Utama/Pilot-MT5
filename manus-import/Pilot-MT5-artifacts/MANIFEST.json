@@ -1,0 +1,399 @@
+{
+  "task": "Pilot-MT5",
+  "source_task_id": "gsfFiPKXq8qLzoNJDxfNFQ",
+  "listed_artifact_count": 65,
+  "downloaded_count": 65,
+  "errors": [],
+  "files": [
+    {
+      "name": "passwordAuth.ts",
+      "relative_path": "unmapped/001/passwordAuth.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/001/passwordAuth.ts",
+      "bytes": 5507
+    },
+    {
+      "name": "password.ts",
+      "relative_path": "unmapped/002/password.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/002/password.ts",
+      "bytes": 2379
+    },
+    {
+      "name": "main.tsx",
+      "relative_path": "unmapped/003/main.tsx",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/003/main.tsx",
+      "bytes": 2587
+    },
+    {
+      "name": "trpc.ts",
+      "relative_path": "unmapped/004/trpc.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/004/trpc.ts",
+      "bytes": 162
+    },
+    {
+      "name": "DashboardLayout.tsx",
+      "relative_path": "unmapped/005/DashboardLayout.tsx",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/005/DashboardLayout.tsx",
+      "bytes": 12076
+    },
+    {
+      "name": "Fast-Grid-Pilot.mq5",
+      "relative_path": "ea/Fast-Grid-Pilot.mq5",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/ea/Fast-Grid-Pilot.mq5",
+      "bytes": 75723
+    },
+    {
+      "name": "operasional.md",
+      "relative_path": "docs/operasional.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/docs/operasional.md",
+      "bytes": 7369
+    },
+    {
+      "name": "pilot-interval-code.diff",
+      "relative_path": "unmapped/008/pilot-interval-code.diff",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/008/pilot-interval-code.diff",
+      "bytes": 25962
+    },
+    {
+      "name": "README.md",
+      "relative_path": "unmapped/009/README.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/009/README.md",
+      "bytes": 2078
+    },
+    {
+      "name": "0002_pilot_interval_controls.sql",
+      "relative_path": "unmapped/010/0002_pilot_interval_controls.sql",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/010/0002_pilot_interval_controls.sql",
+      "bytes": 189
+    },
+    {
+      "name": "_journal.json",
+      "relative_path": "unmapped/011/_journal.json",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/011/_journal.json",
+      "bytes": 494
+    },
+    {
+      "name": "2026-11-16_22-10-22_720392_47212.txt",
+      "relative_path": "unmapped/012/2026-11-16_22-10-22_720392_47212.txt",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/012/2026-11-16_22-10-22_720392_47212.txt",
+      "bytes": 16623
+    },
+    {
+      "name": "2026-11-16_03-18-46_512005_22520.txt",
+      "relative_path": "unmapped/013/2026-11-16_03-18-46_512005_22520.txt",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/013/2026-11-16_03-18-46_512005_22520.txt",
+      "bytes": 3135
+    },
+    {
+      "name": "manus-routes.json",
+      "relative_path": "unmapped/014/manus-routes.json",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/014/manus-routes.json",
+      "bytes": 74
+    },
+    {
+      "name": "2026-11-16_03-13-40_257922_22520.txt",
+      "relative_path": "unmapped/015/2026-11-16_03-13-40_257922_22520.txt",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/015/2026-11-16_03-13-40_257922_22520.txt",
+      "bytes": 11866
+    },
+    {
+      "name": "TODO.md",
+      "relative_path": "unmapped/016/TODO.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/016/TODO.md",
+      "bytes": 8294
+    },
+    {
+      "name": "configuration.md",
+      "relative_path": "unmapped/017/configuration.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/017/configuration.md",
+      "bytes": 14331
+    },
+    {
+      "name": "Screenshot_2026-11-14-13-17-52-893_com.android.chrome.jpg",
+      "relative_path": "unmapped/018/Screenshot_2026-11-14-13-17-52-893_com.android.chrome.jpg",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/018/Screenshot_2026-11-14-13-17-52-893_com.android.chrome.jpg",
+      "bytes": 125477
+    },
+    {
+      "name": "diagnostics.md",
+      "relative_path": "unmapped/019/diagnostics.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/019/diagnostics.md",
+      "bytes": 11397
+    },
+    {
+      "name": ".gitignore",
+      "relative_path": "unmapped/020/.gitignore",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/020/.gitignore",
+      "bytes": 1369
+    },
+    {
+      "name": "app.config.ts",
+      "relative_path": "unmapped/021/app.config.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/021/app.config.ts",
+      "bytes": 140
+    },
+    {
+      "name": "auth.logout.test.ts",
+      "relative_path": "unmapped/022/auth.logout.test.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/022/auth.logout.test.ts",
+      "bytes": 1625
+    },
+    {
+      "name": "0001_massive_shiva.sql",
+      "relative_path": "unmapped/023/0001_massive_shiva.sql",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/023/0001_massive_shiva.sql",
+      "bytes": 4388
+    },
+    {
+      "name": "platform.test.ts",
+      "relative_path": "unmapped/024/platform.test.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/024/platform.test.ts",
+      "bytes": 4177
+    },
+    {
+      "name": "index.css",
+      "relative_path": "unmapped/025/index.css",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/025/index.css",
+      "bytes": 110799
+    },
+    {
+      "name": "fix_ea_http.py",
+      "relative_path": "unmapped/026/fix_ea_http.py",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/026/fix_ea_http.py",
+      "bytes": 1673
+    },
+    {
+      "name": "migrate_ea.py",
+      "relative_path": "unmapped/027/migrate_ea.py",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/027/migrate_ea.py",
+      "bytes": 3579
+    },
+    {
+      "name": "const.ts",
+      "relative_path": "unmapped/028/const.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/028/const.ts",
+      "bytes": 1614
+    },
+    {
+      "name": "cookies.ts",
+      "relative_path": "unmapped/029/cookies.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/029/cookies.ts",
+      "bytes": 702
+    },
+    {
+      "name": "useAuth.ts",
+      "relative_path": "unmapped/030/useAuth.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/030/useAuth.ts",
+      "bytes": 3117
+    },
+    {
+      "name": "env.ts",
+      "relative_path": "unmapped/031/env.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/031/env.ts",
+      "bytes": 733
+    },
+    {
+      "name": "const.ts",
+      "relative_path": "unmapped/032/const.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/032/const.ts",
+      "bytes": 2303
+    },
+    {
+      "name": "oauth.ts",
+      "relative_path": "unmapped/033/oauth.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/033/oauth.ts",
+      "bytes": 2898
+    },
+    {
+      "name": "index.html",
+      "relative_path": "unmapped/034/index.html",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/034/index.html",
+      "bytes": 1049
+    },
+    {
+      "name": "Dockerfile",
+      "relative_path": "unmapped/035/Dockerfile",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/035/Dockerfile",
+      "bytes": 327
+    },
+    {
+      "name": "package.json",
+      "relative_path": "unmapped/036/package.json",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/036/package.json",
+      "bytes": 3681
+    },
+    {
+      "name": "SKILL.md",
+      "relative_path": "unmapped/037/SKILL.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/037/SKILL.md",
+      "bytes": 688
+    },
+    {
+      "name": "git-checkpoints.md",
+      "relative_path": "unmapped/038/git-checkpoints.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/038/git-checkpoints.md",
+      "bytes": 14999
+    },
+    {
+      "name": "build-contracts.md",
+      "relative_path": "unmapped/039/build-contracts.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/039/build-contracts.md",
+      "bytes": 15929
+    },
+    {
+      "name": "0000_initial_users.sql",
+      "relative_path": "unmapped/040/0000_initial_users.sql",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/040/0000_initial_users.sql",
+      "bytes": 497
+    },
+    {
+      "name": "drizzle.config.ts",
+      "relative_path": "unmapped/041/drizzle.config.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/041/drizzle.config.ts",
+      "bytes": 353
+    },
+    {
+      "name": "index.ts",
+      "relative_path": "unmapped/042/index.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/042/index.ts",
+      "bytes": 1809
+    },
+    {
+      "name": "migrate_home.py",
+      "relative_path": "unmapped/043/migrate_home.py",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/043/migrate_home.py",
+      "bytes": 18452
+    },
+    {
+      "name": "mt5-api.ts",
+      "relative_path": "unmapped/044/mt5-api.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/044/mt5-api.ts",
+      "bytes": 51572
+    },
+    {
+      "name": "routers.ts",
+      "relative_path": "unmapped/045/routers.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/045/routers.ts",
+      "bytes": 980
+    },
+    {
+      "name": "relations.ts",
+      "relative_path": "unmapped/046/relations.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/046/relations.ts",
+      "bytes": 27
+    },
+    {
+      "name": "schema.ts",
+      "relative_path": "unmapped/047/schema.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/047/schema.ts",
+      "bytes": 7373
+    },
+    {
+      "name": "App.tsx",
+      "relative_path": "unmapped/048/App.tsx",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/048/App.tsx",
+      "bytes": 1227
+    },
+    {
+      "name": "Home.tsx",
+      "relative_path": "unmapped/049/Home.tsx",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/049/Home.tsx",
+      "bytes": 80126
+    },
+    {
+      "name": "manus-routes.json",
+      "relative_path": "unmapped/050/manus-routes.json",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/050/manus-routes.json",
+      "bytes": 46
+    },
+    {
+      "name": "db.ts",
+      "relative_path": "unmapped/051/db.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/051/db.ts",
+      "bytes": 2474
+    },
+    {
+      "name": "sdk.ts",
+      "relative_path": "unmapped/052/sdk.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/052/sdk.ts",
+      "bytes": 10413
+    },
+    {
+      "name": "Fast-Grid-Pilot.mq5",
+      "relative_path": "unmapped/053/Fast-Grid-Pilot.mq5",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/053/Fast-Grid-Pilot.mq5",
+      "bytes": 70373
+    },
+    {
+      "name": "index.ts",
+      "relative_path": "unmapped/054/index.ts",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/054/index.ts",
+      "bytes": 39628
+    },
+    {
+      "name": "Home.tsx",
+      "relative_path": "unmapped/055/Home.tsx",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/055/Home.tsx",
+      "bytes": 55143
+    },
+    {
+      "name": "plan.md",
+      "relative_path": "unmapped/056/plan.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/056/plan.md",
+      "bytes": 8357
+    },
+    {
+      "name": "hosting.md",
+      "relative_path": "unmapped/057/hosting.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/057/hosting.md",
+      "bytes": 13382
+    },
+    {
+      "name": "database.md",
+      "relative_path": "unmapped/058/database.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/058/database.md",
+      "bytes": 3590
+    },
+    {
+      "name": "dependency-setup.md",
+      "relative_path": "unmapped/059/dependency-setup.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/059/dependency-setup.md",
+      "bytes": 1765
+    },
+    {
+      "name": "authentication.md",
+      "relative_path": "unmapped/060/authentication.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/060/authentication.md",
+      "bytes": 8229
+    },
+    {
+      "name": "README.md",
+      "relative_path": "unmapped/061/README.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/061/README.md",
+      "bytes": 5378
+    },
+    {
+      "name": "reserved-hosting-reference.md",
+      "relative_path": "unmapped/062/reserved-hosting-reference.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/062/reserved-hosting-reference.md",
+      "bytes": 2210
+    },
+    {
+      "name": "SKILL.md",
+      "relative_path": "unmapped/063/SKILL.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/063/SKILL.md",
+      "bytes": 37219
+    },
+    {
+      "name": "SKILL.md",
+      "relative_path": "unmapped/064/SKILL.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/064/SKILL.md",
+      "bytes": 8416
+    },
+    {
+      "name": "SKILL.md",
+      "relative_path": "unmapped/065/SKILL.md",
+      "local_path": "/home/ubuntu/Pilot-MT5-artifacts/unmapped/065/SKILL.md",
+      "bytes": 8868
+    }
+  ]
+}

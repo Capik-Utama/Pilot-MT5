@@ -1,0 +1,352 @@
+# Terminal Full Output
+# Terminal: pilot-manus
+# Command: rg -ni -C 3 'polling-control|poll_interval|poll-interval|interval ms|interval perintah' client/src; printf '\nAPI ROUTES\n'; sed -n '790,835p' server/mt5-api.ts; sed -n '1125,1195p' server/mt5-api.ts; printf '\nEA TIMING\n'; sed -n '455,500p' ea/Fast-Grid-Pilot.mq5; sed -n '740,845p' ea/Fast-Grid-Pilot.mq5
+# PID: 47212
+# Timestamp: 2026-11-16_22-10-22.720392
+# Original Length: 16124 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/pilotmt5$ [0mrg -ni -C 3 'polling-control|poll_interval|poll-interval|interval ms|interval perintah' client/src; printf '\nAPI ROUTES\n'; sed -n '790,835p' server/mt5-api.ts; sed -n '1125,1195p' server/mt5-api.ts; printf '\nEA TIMING\n'; sed -n '455,500p' ea/Fast-Grid-Pilot.mq5; sed -n '740,845p' ea/Fast-Grid-Pilot.mq5
+[0m[35mclient/src/index.css
+[0m[0m[32m5297[0m-}
+[0m[32m5298[0m-
+[0m[32m5299[0m-/* Per-account command polling control inside the EA parameter editor. */
+[0m[32m5300[0m:.pilot-[0m[1m[31mpolling-control[0m {
+[0m[32m5301[0m-  display: grid;
+[0m[32m5302[0m-  gap: 9px;
+[0m[32m5303[0m-  margin: 13px 0;
+--
+[0m[32m5306[0m-  border-radius: 7px;
+[0m[32m5307[0m-  background: rgba(85, 214, 200, 0.035);
+[0m[32m5308[0m-}
+[0m[32m5309[0m:.pilot-[0m[1m[31mpolling-control[0m > div:first-child {
+[0m[32m5310[0m-  display: grid;
+[0m[32m5311[0m-  gap: 4px;
+[0m[32m5312[0m-}
+[0m[32m5313[0m:.pilot-[0m[1m[31mpolling-control[0m > div:first-child strong {
+[0m[32m5314[0m-  color: var(--p-text);
+[0m[32m5315[0m-  font-size: 11px;
+[0m[32m5316[0m-}
+[0m[32m5317[0m:.pilot-[0m[1m[31mpolling-control[0m p {
+[0m[32m5318[0m-  margin: 0;
+[0m[32m5319[0m-  color: var(--p-muted);
+[0m[32m5320[0m-  font-size: 9px;
+--
+[0m[32m5351[0m-    width: 100%;
+[0m[32m5352[0m-  }
+[0m[32m5353[0m-}
+[0m[32m5354[0m:.pilot-dashboard[data-theme="light"] .pilot-[0m[1m[31mpolling-control[0m,
+[0m[32m5355[0m:.pilot-dashboard[data-theme="blue-white"] .pilot-[0m[1m[31mpolling-control[0m {
+[0m[32m5356[0m-  background: rgba(225, 235, 247, 0.45);
+[0m[32m5357[0m-}
+[0m[35mclient/src/pages/Home.tsx
+[0m[0m[32m72[0m-  latency_ms: number | null;
+[0m[32m73[0m-  last_seen_at: string | null;
+[0m[32m74[0m-  connection_status: "online" | "offline";
+[0m[32m75[0m:  [0m[1m[31mpoll_interval[0m_ms: number;
+[0m[32m76[0m-  ea_config?: EaConfig | null;
+[0m[32m77[0m-  commands: {
+[0m[32m78[0m-    id: string;
+--
+[0m[32m1018[0m-    if (!canWrite) return;
+[0m[32m1019[0m-    setEditingAccount(account);
+[0m[32m1020[0m-    setEditingAccountLabel(account.label);
+[0m[32m1021[0m:    setEditingPollIntervalMs(account.[0m[1m[31mpoll_interval[0m_ms ?? 1000);
+[0m[32m1022[0m-    setDeleteConfirmation("");
+[0m[32m1023[0m-    const savedConfig = account.ea_config ?? {};
+[0m[32m1024[0m-    setEditingConfig(
+--
+[0m[32m1090[0m-      setAccounts(current =>
+[0m[32m1091[0m-        current.map(account =>
+[0m[32m1092[0m-          account.id === accountId
+[0m[32m1093[0m:            ? { ...account, [0m[1m[31mpoll_interval[0m_ms: editingPollIntervalMs }
+[0m[32m1094[0m-            : account
+[0m[32m1095[0m-        )
+[0m[32m1096[0m-      );
+[0m[32m1097[0m-      setEditingAccount(current =>
+[0m[32m1098[0m-        current?.id === accountId
+[0m[32m1099[0m:          ? { ...current, [0m[1m[31mpoll_interval[0m_ms: editingPollIntervalMs }
+[0m[32m1100[0m-          : current
+[0m[32m1101[0m-      );
+[0m[32m1102[0m-      toast.success(
+--
+[0m[32m2020[0m-                "USD"
+[0m[32m2021[0m-              }
+[0m[32m2022[0m-            />
+[0m[32m2023[0m:            <div className="pilot-[0m[1m[31mpolling-control[0m">
+[0m[32m2024[0m-              <div>
+[0m[32m2025[0m-                <strong>Interval polling perintah EA</strong>
+[0m[32m2026[0m-                <p>
+--
+[0m[32m2048[0m-                    savingPollInterval ||
+[0m[32m2049[0m-                    savingConfig ||
+[0m[32m2050[0m-                    editingPollIntervalMs ===
+[0m[32m2051[0m:                      (editingAccount.[0m[1m[31mpoll_interval[0m_ms ?? 1000)
+[0m[32m2052[0m-                  }
+[0m[32m2053[0m-                  onClick={() => void savePollingInterval()}
+[0m[32m2054[0m-                >
+API ROUTES
+        const a = await ownAccount(acctMatch[1]);
+        if (!a) return fail(res, 404, "Account not found.");
+        await db.transaction(async (tx: any) => {
+          await tx
+            .delete(mt5CommandEvents)
+            .where(eq(mt5CommandEvents.accountId, a.id));
+          await tx.delete(mt5Commands).where(eq(mt5Commands.accountId, a.id));
+          await tx
+            .delete(pilotUserAccountAccess)
+            .where(eq(pilotUserAccountAccess.accountId, a.id));
+          await tx.delete(mt5Accounts).where(eq(mt5Accounts.id, a.id));
+        });
+        return json(res, 200, { ok: true, label: a.label });
+      }
+      if (polling && req.method === "PATCH") {
+        if (!requireOwner())
+          return fail(res, 403, "Only the owner can change polling.");
+        const n = body(req)?.intervalMs;
+        if (![500, 1000, 2000].includes(n))
+          return fail(
+            res,
+            400,
+            "Polling interval must be 500, 1000, or 2000 ms."
+          );
+        const a = await ownAccount(polling[1]);
+        if (!a) return fail(res, 404, "Account not found.");
+        await db
+          .update(mt5Accounts)
+          .set({ pollIntervalMs: n, updatedAt: new Date() })
+          .where(eq(mt5Accounts.id, a.id));
+        return json(res, 200, { pollIntervalMs: n });
+      }
+      if (config && req.method === "POST") {
+        if (!requireOwner())
+          return fail(res, 403, "Only the owner can configure accounts.");
+        const cfg = body(req)?.config;
+        if (!validConfig(cfg))
+          return fail(res, 400, "Invalid EA configuration.");
+        const a = await ownAccount(config[1]);
+        if (!a) return fail(res, 404, "Account not found.");
+        if (
+          !a.lastSeenAt ||
+          Date.now() - (date(a.lastSeenAt)?.getTime() || 0) > ONLINE_WINDOW_MS
+        )
+          return fail(res, 409, "EA offline or heartbeat expired.");
+        const created = await db
+            await tx
+              .update(mt5Commands)
+              .set({ status: "expired", completedAt: now, resultMessage: msg })
+              .where(eq(mt5Commands.id, stale.id));
+            await writeEvent(tx, current[0], "expired", msg);
+          });
+        }
+        const c = list.find(
+          x =>
+            ["queued", "delivered"].includes(x.status) &&
+            (date(x.expiresAt)?.getTime() || 0) > now.getTime()
+        );
+        if (!c)
+          return json(res, 200, {
+            commandId: "",
+            action: "",
+            payload: null,
+            pollIntervalMs: acct.pollIntervalMs ?? 1000,
+            eaMode: acct.eaMode ?? "manual",
+          });
+        let command: any = c;
+        let exp = c.expiresAt;
+        if (c.status === "queued") {
+          exp = new Date(now.getTime() + COMMAND_TTL_MS);
+          const delivered = await db.transaction(async (tx: any) => {
+            const current = await tx
+              .select()
+              .from(mt5Commands)
+              .where(eq(mt5Commands.id, c.id))
+              .for("update")
+              .limit(1);
+            if (
+              !current.length ||
+              current[0].status !== "queued" ||
+              (date(current[0].expiresAt)?.getTime() || 0) <= now.getTime()
+            )
+              return null;
+            await tx
+              .update(mt5Commands)
+              .set({ status: "delivered", deliveredAt: now, expiresAt: exp })
+              .where(
+                and(eq(mt5Commands.id, c.id), eq(mt5Commands.status, "queued"))
+              );
+            await writeEvent(tx, current[0], "delivered");
+            return { ...current[0], status: "delivered", expiresAt: exp };
+          });
+          if (!delivered)
+            return json(res, 200, {
+              commandId: "",
+              action: "",
+              payload: null,
+              pollIntervalMs: acct.pollIntervalMs ?? 1000,
+              eaMode: acct.eaMode ?? "manual",
+            });
+          command = delivered;
+        }
+        return json(res, 200, {
+          commandId: command.id,
+          action: command.action,
+          payload: command.payload ?? null,
+          expiresAt: exp,
+          pollIntervalMs: acct.pollIntervalMs ?? 1000,
+          eaMode: acct.eaMode ?? "manual",
+        });
+      }
+      const ack = path.match(/^\/commands\/([^/]+)\/ack$/);
+      if (ack && req.method === "POST") {
+        if (!asId(ack[1])) return fail(res, 400, "Invalid command id.");
+        const b = body(req),
+          status = b?.status,
+          message =
+EA TIMING
+         CurrentCurrencyMode = 2;
+         ObjectSetInteger(0, UIPrefix + "BtnIdr", OBJPROP_STATE, false);
+      }
+      RefreshDashboardUI();
+   }
+}
+void OnTimer() {
+   PilotOnTimer();
+}
+void PilotOnTimer() {
+   if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "" || PilotApiBaseUrl == "") return;
+   uint now = GetTickCount();
+   bool pollAttempted = false;
+   // On startup/re-init, read the server's last acknowledged mode before the first telemetry.
+   if(!PilotModeSynced) {
+      if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+         LastPilotPollAt = now;
+         PilotPollCommands();
+         pollAttempted = true;
+      }
+      if(!PilotModeSynced) return;
+      now = GetTickCount();
+   }
+   // Prioritize fresh card metrics when both requests are due. WebRequest is synchronous.
+   if(now - LastPilotTelemetryAt >= 1000) {
+      LastPilotTelemetryAt = now;
+      PilotSendTelemetry();
+   }
+   now = GetTickCount();
+   if(!pollAttempted && now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+      LastPilotPollAt = now;
+      PilotPollCommands();
+   }
+}
+string PilotJsonEscape(const string value) {
+   string out = "";
+   for(int i = 0; i < StringLen(value); i++) {
+      ushort c = (ushort)StringGetCharacter(value, i);
+      if(c == 34) out += "\\\"";
+      else if(c == 92) out += "\\\\";
+      else if(c == 10) out += "\\n";
+      else if(c == 13) out += "\\r";
+         if(deal == 0 || HistoryDealGetString(deal, DEAL_SYMBOL) != _Symbol) continue;
+         int magic = (int)HistoryDealGetInteger(deal, DEAL_MAGIC);
+         if(magic == MagicBeli || magic == MagicJual)
+            total += HistoryDealGetDouble(deal, DEAL_PROFIT) + HistoryDealGetDouble(deal, DEAL_COMMISSION) + HistoryDealGetDouble(deal, DEAL_SWAP);
+      }
+   }
+   return total;
+}
+void PilotSendTelemetry() {
+   UpdateFloatingStats();
+   double floating = PilotFloatingProfit();
+   string mode = isAutoTradingActive ? "auto" : "manual";
+   string eaStatus = "ACTIVE";
+   if(IsStoppedByTarget) eaStatus = "TARGET HIT";
+   else if(IsStopLossCooldownActive()) eaStatus = "SL COOLDOWN";
+   else if(ModeTrailing == MODE_GLOBAL_PER_ARAH && (VSL_BuyPrice > 0 || VSL_SellPrice > 0)) eaStatus = "TS PER ARAH";
+   else if(ModeTrailing == MODE_GLOBAL_SEMUA_ARAH && MaxCombinedProfitPoints > 0) eaStatus = StringFormat("TS ALL (%.0f Pts)", MaxCombinedProfitPoints);
+   int openPositions = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      int magic = (int)PositionGetInteger(POSITION_MAGIC);
+      if(magic == MagicBeli || magic == MagicJual) openPositions++;
+   }
+   string activeConfig = PilotConfigJson(false);
+   string body = "{\"accountName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_NAME)) +
+      "\",\"login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) +
+      ",\"serverName\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER)) +
+      "\",\"balance\":" + DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2) +
+      ",\"equity\":" + DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2) +
+      ",\"maxDdBuy\":" + DoubleToString(MathAbs(MaxDrawdownBuy), 2) +
+      ",\"maxDdSell\":" + DoubleToString(MathAbs(MaxDrawdownSell), 2) +
+      ",\"basketSlSet\":" + DoubleToString(BatasKerugian, 2) +
+      ",\"basketSlType\":\"" + (JenisBatasRugi == CL_NILAI_UANG ? "money" : "percent") + "\"" +
+      ",\"dailyTargetSet\":" + DoubleToString(TargetHarian, 2) +
+      ",\"maxFloatBuy\":" + DoubleToString(MaxFloatBuy, 2) +
+      ",\"maxFloatSell\":" + DoubleToString(MaxFloatSell, 2) +
+      ",\"runningFloat\":" + DoubleToString(floating, 2) +
+      ",\"openPositions\":" + IntegerToString(openPositions) +
+      ",\"eaStatus\":\"" + PilotJsonEscape(eaStatus) + "\"" +
+      ",\"profit\":" + DoubleToString(PilotDailyProfit(), 2) +
+      ",\"floatingProfit\":" + DoubleToString(floating, 2) +
+      ",\"running\":" + (isAutoTradingActive && !IsStoppedByTarget ? "true" : "false") +
+      ",\"isCentAccount\":" + (IsCentAccount() ? "true" : "false") +
+      ",\"displayCurrency\":\"" + (CurrentCurrencyMode == 1 ? "CENT" : CurrentCurrencyMode == 2 ? "IDR" : "USD") + "\"" +
+      ",\"displayRate\":" + DoubleToString(InpUsdToIdr, 2) +
+      ",\"eaMode\":\"" + mode + "\",\"currency\":\"" + PilotJsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) +
+      "\",\"latencyMs\":" + IntegerToString(LastPilotLatencyMs) +
+      ",\"eaConfig\":" + activeConfig + "}";
+   string response = "";
+   uint started = GetTickCount();
+   int code = PilotHttp("POST", "/telemetry", body, response);
+   uint elapsed = GetTickCount() - started;
+   if(code >= 200 && code < 300) LastPilotLatencyMs = (int)MathMin(elapsed, 60000);
+   else if(code >= 400) PrintFormat("MT5 Pilot: telemetri ditolak (HTTP %d).", code);
+}
+bool PilotCloseMagic(const int magic, int &closedCount, string &details) {
+   closedCount = 0;
+   int failures = 0;
+   trade.SetAsyncMode(false);
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol || (int)PositionGetInteger(POSITION_MAGIC) != magic) continue;
+      bool sent = trade.PositionClose(ticket);
+      uint retcode = trade.ResultRetcode();
+      if(sent && (retcode == TRADE_RETCODE_DONE || retcode == TRADE_RETCODE_DONE_PARTIAL)) closedCount++;
+      else {
+         failures++;
+         PrintFormat("MT5 Pilot: close ticket %I64u gagal: %u %s", ticket, retcode, trade.ResultRetcodeDescription());
+      }
+   }
+   if(magic == MagicBeli) { VSL_BuyPrice = 0; PendingTrail_BuyPrice = 0; MaxFloatBuy = 0; ObjectDelete(0, UIPrefix + "LineBuyTS"); ObjectDelete(0, UIPrefix + "LinePendingBuy"); }
+   if(magic == MagicJual) { VSL_SellPrice = 0; PendingTrail_SellPrice = 0; MaxFloatSell = 0; ObjectDelete(0, UIPrefix + "LineSellTS"); ObjectDelete(0, UIPrefix + "LinePendingSell"); }
+   details = StringFormat("Posisi ditutup: %d; gagal: %d. Entry otomatis dinonaktifkan ke Manual.", closedCount, failures);
+   return failures == 0;
+}
+void PilotPollCommands() {
+   string response = "";
+   int code = PilotHttp("GET", "/commands/next", "", response);
+   if(code == 204 || code == 200 && response == "") return;
+   if(code != 200) {
+      if(code >= 400) PrintFormat("MT5 Pilot: polling perintah gagal (HTTP %d).", code);
+      return;
+   }
+   int requestedInterval = (int)PilotJsonNumber(response, "pollIntervalMs", PilotPollingIntervalMs);
+   if(requestedInterval == 500 || requestedInterval == 1000 || requestedInterval == 2000)
+      PilotPollingIntervalMs = requestedInterval;
+   string commandId = PilotJsonString(response, "commandId");
+   string action = PilotJsonString(response, "action");
+   string payload = PilotJsonObject(response, "payload");
+   bool pendingModeOverride = commandId != "" && (action == "auto" || action == "manual" || action == "close_buy" || action == "close_sell" || action == "close_all");
+   if(!PilotModeSynced && !pendingModeOverride) {
+      string serverMode = PilotJsonString(response, "eaMode");
+      if(serverMode != "auto" && serverMode != "manual") return;
+      isAutoTradingActive = serverMode == "auto";
+      PilotModeSynced = true;
+      RefreshDashboardUI();
+      Print("MT5 Pilot: mode remote dipulihkan dari server: ", serverMode);
+   }
+   if(commandId == "" || action == "") return;
+   string dedupeKey = "MTP_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + commandId;
+[32mubuntu@sandbox:~/pilotmt5$ [0m

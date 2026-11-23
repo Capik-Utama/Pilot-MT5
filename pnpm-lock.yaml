@@ -166,9 +166,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      pocketbase:
-        specifier: ^0.28.2
-        version: 0.28.2
       react:
         specifier: ^19.2.1
         version: 19.2.1
@@ -3838,9 +3835,6 @@ packages:
     resolution: {integrity: sha512-6AT4ifHOzEDVctsITuw+SIFzn43sacD/ENLRvv+aTjCTg7ontbdQBZ1/TBSVNbbNDSyx7Trrc5I5pChKaPQM+g==}
     engines: {node: '>=18.12'}
     hasBin: true
-
-  pocketbase@0.28.2:
-    resolution: {integrity: sha512-5lS4g7iDZi90LxLai8kyUK4r5u1GkEAoZ3yuzTEFX97FyDQAoEmXWbTqf+pYA1hz5e/icBQu1MCUjM/9V8mitg==}
 
   points-on-curve@0.2.0:
     resolution: {integrity: sha512-0mYKnYYe9ZcqMCWhUjItv/oHjvgEsfKvnUTg8sAtnHr3GVy7rGkXCb6d5cSyqrWqL4k81b9CPg3urd+T7aop3A==}
@@ -8547,8 +8541,6 @@ snapshots:
       pathe: 2.0.3
 
   pnpm@10.18.0: {}
-
-  pocketbase@0.28.2: {}
 
   points-on-curve@0.2.0: {}
 

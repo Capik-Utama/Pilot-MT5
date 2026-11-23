@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026"
 #property link      "https://www.mql5.com"
-#property version   "1.10"
+#property version   "1.11"
 
 #include <Trade/Trade.mqh>
 
@@ -16,12 +16,15 @@ enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string PilotApiUrl = "http://127.0.0.1:3001/api/pilot";
+input string PilotApiBaseUrl = ""; // Salin base URL API dari dashboard MT5 Pilot.
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
+
+input group "== Interval Komunikasi MT5 Pilot =="
+input int InputPengirimanInfoKePilotMs = 500;
+input int InputPengecekanPerintahPilotMs = 1000;
 
 input group "== Mode Perdagangan =="
 input ENUM_TRADE_MODE InputModePerdagangan = MODE_BELI_JUAL;
-input double InputMinimumBalanceAuto = 1000.0;
 
 input group "== Mata Uang Tampilan =="
 input ENUM_DISPLAY_CURRENCY InputMataUangTampilan = MATA_IDR;
@@ -33,18 +36,18 @@ input int     InputMagicJual   = 2864385;
 
 input group "== Pengaturan Lot & Pengganda =="
 input double    InputLotAwal         = 0.01;
-input double    InputPenggandaLot   = 1.5;
-input double    InputLotMaksimal          = 15;
-input int       InputLangkahLayer       = 5;
-input int       InputJarakGrid        = 1000;
+input double    InputPenggandaLot   = 1.2;
+input double    InputLotMaksimal          = 12;
+input int       InputLangkahLayer       = 1;
+input int       InputJarakGrid        = 2000;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
-input double    InputBatasKerugian    = 10000.0;
-input int       InputJedaSetelahSLMenit = 100;
+input double    InputBatasKerugian    = 30000.0;
+input int       InputJedaSetelahSLMenit = 30;
 input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
@@ -56,7 +59,6 @@ input int        InputLangkahTrailingPoin  = 500;
 
 // Runtime values mirrored from the MT5 inputs and optionally updated from the dashboard.
 ENUM_TRADE_MODE ModePerdagangan = InputModePerdagangan;
-double MinimumBalanceAuto = InputMinimumBalanceAuto;
 ENUM_DISPLAY_CURRENCY MataUangTampilan = InputMataUangTampilan;
 double KursUSD_IDR = InputKursUSD_IDR;
 int MagicBeli = InputMagicBeli;
@@ -92,10 +94,14 @@ double PendingTrail_SellPrice = 0;
 string UIPrefix = "DG_";
 int CurrentCurrencyMode = 0;
 double InpUsdToIdr = 18000.0;
-bool isAutoTradingActive = true; // EA selalu mulai dalam mode AUTO saat chart dimuat.
+bool isAutoTradingActive = false; // Safe default; remote mode is restored from server during startup.
+bool PilotModeSynced = false;
 uint LastPilotTelemetryAt = 0;
 uint LastPilotPollAt = 0;
+int PilotTelemetryIntervalMs = 500;
 int PilotPollingIntervalMs = 1000;
+bool PilotInputIntervalsPending = false;
+bool PilotShouldStoreIntervalInputs = false;
 int LastPilotLatencyMs = 0;
 string InputConfigSnapshot = "";
 
@@ -132,21 +138,33 @@ bool PilotCloseMagic(const int magic, int &closedCount, string &details);
 double PilotJsonNumber(const string json, const string key, const double fallback);
 bool PilotJsonBool(const string json, const string key, const bool fallback);
 string PilotJsonObject(const string json, const string key);
+int PilotNormalizeTelemetryInterval(const int value);
+int PilotNormalizePollingInterval(const int value);
+string PilotIntervalInputKey();
+bool PilotIntervalInputsStored();
+bool PilotIntervalInputsChanged();
+void PilotRememberIntervalInputs();
 string PilotConfigJson(const bool fromInputs);
 string PilotConfigStateFile();
 string PilotReadConfigState();
 void PilotSaveConfigState();
 bool PilotRestoreConfigState();
 bool PilotApplyConfig(const string json);
-bool HasMinimumBalanceForAuto(const bool notify);
 
 int OnInit() {
    ModePerdagangan = InputModePerdagangan;
-   MinimumBalanceAuto = InputMinimumBalanceAuto;
    MataUangTampilan = InputMataUangTampilan;
    KursUSD_IDR = InputKursUSD_IDR;
    MagicBeli = InputMagicBeli;
    MagicJual = InputMagicJual;
+   PilotTelemetryIntervalMs = PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs);
+   PilotPollingIntervalMs = PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);
+   PilotInputIntervalsPending = PilotIntervalInputsChanged();
+   PilotShouldStoreIntervalInputs = !PilotIntervalInputsStored() || PilotInputIntervalsPending;
+   if(PilotTelemetryIntervalMs != InputPengirimanInfoKePilotMs)
+      Print("MT5 Pilot: interval telemetry hanya menerima 500, 1000, atau 2000 ms; memakai 500 ms.");
+   if(PilotPollingIntervalMs != InputPengecekanPerintahPilotMs)
+      Print("MT5 Pilot: interval polling hanya menerima 500, 1000, atau 2000 ms; memakai 1000 ms.");
    LotAwal = InputLotAwal;
    PenggandaLot = InputPenggandaLot;
    LotMaksimal = InputLotMaksimal;
@@ -173,17 +191,13 @@ int OnInit() {
 
    InpUsdToIdr = KursUSD_IDR;
 
-   isAutoTradingActive = true;
+   isAutoTradingActive = !EnablePilotRemote; // Remote stays MANUAL until the server mode is read.
+   PilotModeSynced = !EnablePilotRemote;
    CreateDashboard();
    PilotRestoreConfigState();
-   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) {
-      isAutoTradingActive = false;
-      PrintFormat("Fast-Grid Pilot: AUTO dinonaktifkan saat mulai; saldo di bawah minimum %.2f.", MinimumBalanceAuto);
-      RefreshDashboardUI();
-   }
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
-   if(EnablePilotRemote && EAConnectionToken == "")
-      Print("Fast-Grid Pilot: tempel EAConnectionToken dari dashboard agar telemetri aktif.");
+   if(EnablePilotRemote && (EAConnectionToken == "" || PilotApiBaseUrl == ""))
+      Print("Fast-Grid Pilot: isi PilotApiBaseUrl dan EAConnectionToken dari dashboard agar telemetri aktif.");
    return(INIT_SUCCEEDED);
 }
 
@@ -441,12 +455,13 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
          ObjectSetInteger(0, UIPrefix + "BtnSell", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnAuto") {
-         if(HasMinimumBalanceForAuto(true)) isAutoTradingActive = true;
-         else isAutoTradingActive = false;
+         isAutoTradingActive = true;
+         PilotModeSynced = true;
          ObjectSetInteger(0, UIPrefix + "BtnAuto", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnManual") {
          isAutoTradingActive = false;
+         PilotModeSynced = true;
          ObjectSetInteger(0, UIPrefix + "BtnManual", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnUsd") {
@@ -471,16 +486,28 @@ void OnTimer() {
 }
 
 void PilotOnTimer() {
-   if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "") return;
+   if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "" || PilotApiBaseUrl == "") return;
    uint now = GetTickCount();
-   if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
-      LastPilotPollAt = now;
-      PilotPollCommands();
+   bool pollAttempted = false;
+   // On startup/re-init, read the server's last acknowledged mode before the first telemetry.
+   if(!PilotModeSynced) {
+      if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+         LastPilotPollAt = now;
+         PilotPollCommands();
+         pollAttempted = true;
+      }
+      if(!PilotModeSynced) return;
+      now = GetTickCount();
    }
-   now = GetTickCount();
-   if(now - LastPilotTelemetryAt >= 1000) {
+   // Prioritize fresh card metrics when both requests are due. WebRequest is synchronous.
+   if(now - LastPilotTelemetryAt >= (uint)PilotTelemetryIntervalMs) {
       LastPilotTelemetryAt = now;
       PilotSendTelemetry();
+   }
+   now = GetTickCount();
+   if(!pollAttempted && now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+      LastPilotPollAt = now;
+      PilotPollCommands();
    }
 }
 
@@ -499,7 +526,7 @@ string PilotJsonEscape(const string value) {
 }
 
 int PilotHttp(const string method, const string route, const string body, string &response) {
-   if(StringLen(EAConnectionToken) < 40) return -1;
+   if(StringLen(EAConnectionToken) < 40 || PilotApiBaseUrl == "") return -1;
    char data[];
    if(body != "") {
       int copied = StringToCharArray(body, data, 0, WHOLE_ARRAY, CP_UTF8);
@@ -508,12 +535,15 @@ int PilotHttp(const string method, const string route, const string body, string
    char result[];
    string resultHeaders;
    string headers = "Content-Type: application/json\r\nAuthorization: Bearer " + EAConnectionToken + "\r\n";
+   string apiBase = PilotApiBaseUrl;
+   while(StringLen(apiBase) > 0 && StringGetCharacter(apiBase, StringLen(apiBase) - 1) == 47)
+      apiBase = StringSubstr(apiBase, 0, StringLen(apiBase) - 1);
    ResetLastError();
-   int code = WebRequest(method, PilotApiUrl + "?route=" + route, headers, 3000, data, result, resultHeaders);
+   int code = WebRequest(method, apiBase + route, headers, 3000, data, result, resultHeaders);
    response = CharArrayToString(result, 0, -1, CP_UTF8);
    if(code < 0) {
       int err = GetLastError();
-      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan host Pilot API di Options > Expert Advisors.", err);
+      if(err != 4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d. Izinkan domain HTTPS Manus di Options > Expert Advisors.", err);
    }
    return code;
 }
@@ -583,7 +613,6 @@ string PilotJsonObject(const string json, const string key) {
 
 string PilotConfigJson(const bool fromInputs) {
    return "{\"ModePerdagangan\":" + IntegerToString(fromInputs ? (int)InputModePerdagangan : (int)ModePerdagangan) +
-   ",\"MinimumBalanceAuto\":" + DoubleToString(fromInputs ? InputMinimumBalanceAuto : MinimumBalanceAuto, 8) +
       ",\"MataUangTampilan\":" + IntegerToString(fromInputs ? (int)InputMataUangTampilan : (int)MataUangTampilan) +
       ",\"KursUSD_IDR\":" + DoubleToString(fromInputs ? InputKursUSD_IDR : KursUSD_IDR, 8) +
       ",\"MagicBeli\":" + IntegerToString(fromInputs ? InputMagicBeli : MagicBeli) +
@@ -643,7 +672,6 @@ bool PilotRestoreConfigState() {
 
    PilotApplyConfig(savedActive);
    if(PilotJsonNumber(savedInputs, "ModePerdagangan", -1) != (int)InputModePerdagangan) ModePerdagangan = InputModePerdagangan;
-   if(PilotJsonNumber(savedInputs, "MinimumBalanceAuto", -1) != InputMinimumBalanceAuto) MinimumBalanceAuto = InputMinimumBalanceAuto;
    if(PilotJsonNumber(savedInputs, "MataUangTampilan", -1) != (int)InputMataUangTampilan) MataUangTampilan = InputMataUangTampilan;
    if(PilotJsonNumber(savedInputs, "KursUSD_IDR", -1) != InputKursUSD_IDR) KursUSD_IDR = InputKursUSD_IDR;
    if(PilotJsonNumber(savedInputs, "MagicBeli", -1) != InputMagicBeli) MagicBeli = InputMagicBeli;
@@ -674,10 +702,7 @@ bool PilotRestoreConfigState() {
 }
 
 bool PilotApplyConfig(const string json) {
-   double minimumBalanceAuto = PilotJsonNumber(json, "MinimumBalanceAuto", MinimumBalanceAuto);
-   if(!MathIsValidNumber(minimumBalanceAuto) || minimumBalanceAuto < 0 || minimumBalanceAuto > 1e15) return false;
    ModePerdagangan = (ENUM_TRADE_MODE)PilotJsonNumber(json, "ModePerdagangan", ModePerdagangan);
-   MinimumBalanceAuto = minimumBalanceAuto;
    MataUangTampilan = (ENUM_DISPLAY_CURRENCY)PilotJsonNumber(json, "MataUangTampilan", MataUangTampilan);
    KursUSD_IDR = PilotJsonNumber(json, "KursUSD_IDR", KursUSD_IDR);
    MagicBeli = (int)PilotJsonNumber(json, "MagicBeli", MagicBeli);
@@ -698,7 +723,6 @@ bool PilotApplyConfig(const string json) {
    MulaiTrailingPoin = (int)PilotJsonNumber(json, "MulaiTrailingPoin", MulaiTrailingPoin);
    KunciProfitPoin = (int)PilotJsonNumber(json, "KunciProfitPoin", KunciProfitPoin);
    LangkahTrailingPoin = (int)PilotJsonNumber(json, "LangkahTrailingPoin", LangkahTrailingPoin);
-   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) isAutoTradingActive = false;
    if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
    else CurrentCurrencyMode = 0;
@@ -706,13 +730,6 @@ bool PilotApplyConfig(const string json) {
    PilotSaveConfigState();
    RefreshDashboardUI();
    return true;
-}
-
-bool HasMinimumBalanceForAuto(const bool notify) {
-   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
-   if(balance >= MinimumBalanceAuto) return true;
-   if(notify) PrintFormat("Fast-Grid Pilot: AUTO ditolak; saldo %.2f, minimum %.2f.", balance, MinimumBalanceAuto);
-   return false;
 }
 
 bool PilotAck(const string commandId, const string status, const string message) {
@@ -822,20 +839,81 @@ bool PilotCloseMagic(const int magic, int &closedCount, string &details) {
    return failures == 0;
 }
 
+int PilotNormalizeTelemetryInterval(const int value) {
+   if(value == 500 || value == 1000 || value == 2000) return value;
+   return 500;
+}
+
+int PilotNormalizePollingInterval(const int value) {
+   if(value == 500 || value == 1000 || value == 2000) return value;
+   return 1000;
+}
+
+string PilotIntervalInputKey() {
+   string tokenHint = StringSubstr(EAConnectionToken, 0, (int)MathMin(8, StringLen(EAConnectionToken)));
+   StringReplace(tokenHint, "-", "X");
+   StringReplace(tokenHint, "_", "Y");
+   return StringFormat("MTP_I_%I64d_%d_%d_%s", AccountInfoInteger(ACCOUNT_LOGIN), MagicBeli, MagicJual, tokenHint);
+}
+
+bool PilotIntervalInputsStored() {
+   string key = PilotIntervalInputKey();
+   return GlobalVariableCheck(key + "_T") && GlobalVariableCheck(key + "_P");
+}
+
+bool PilotIntervalInputsChanged() {
+   string key = PilotIntervalInputKey();
+   if(!GlobalVariableCheck(key + "_T") || !GlobalVariableCheck(key + "_P"))
+      return PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) != 500 ||
+         PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs) != 1000;
+   return (int)GlobalVariableGet(key + "_T") != PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) ||
+      (int)GlobalVariableGet(key + "_P") != PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);
+}
+
+void PilotRememberIntervalInputs() {
+   string key = PilotIntervalInputKey();
+   GlobalVariableSet(key + "_T", (double)PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs));
+   GlobalVariableSet(key + "_P", (double)PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs));
+   GlobalVariablesFlush();
+}
+
 void PilotPollCommands() {
    string response = "";
-   int code = PilotHttp("GET", "/commands/next", "", response);
+   int inputTelemetryInterval = PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs);
+   int inputPollingInterval = PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);
+   string timingBody = "{\"telemetryIntervalMs\":" + IntegerToString(inputTelemetryInterval) +
+      ",\"pollIntervalMs\":" + IntegerToString(inputPollingInterval) +
+      ",\"applyInputIntervals\":" + (PilotInputIntervalsPending ? "true" : "false") + "}";
+   int code = PilotHttp("POST", "/commands/next", timingBody, response);
    if(code == 204 || code == 200 && response == "") return;
    if(code != 200) {
       if(code >= 400) PrintFormat("MT5 Pilot: polling perintah gagal (HTTP %d).", code);
       return;
    }
+   int requestedTelemetryInterval = (int)PilotJsonNumber(response, "telemetryIntervalMs", PilotTelemetryIntervalMs);
+   if(requestedTelemetryInterval == 500 || requestedTelemetryInterval == 1000 || requestedTelemetryInterval == 2000)
+      PilotTelemetryIntervalMs = requestedTelemetryInterval;
    int requestedInterval = (int)PilotJsonNumber(response, "pollIntervalMs", PilotPollingIntervalMs);
    if(requestedInterval == 500 || requestedInterval == 1000 || requestedInterval == 2000)
       PilotPollingIntervalMs = requestedInterval;
+   if(PilotShouldStoreIntervalInputs &&
+      (!PilotInputIntervalsPending || (requestedTelemetryInterval == inputTelemetryInterval && requestedInterval == inputPollingInterval))) {
+      PilotRememberIntervalInputs();
+      PilotInputIntervalsPending = false;
+      PilotShouldStoreIntervalInputs = false;
+   }
    string commandId = PilotJsonString(response, "commandId");
    string action = PilotJsonString(response, "action");
    string payload = PilotJsonObject(response, "payload");
+   bool pendingModeOverride = commandId != "" && (action == "auto" || action == "manual" || action == "close_buy" || action == "close_sell" || action == "close_all");
+   if(!PilotModeSynced && !pendingModeOverride) {
+      string serverMode = PilotJsonString(response, "eaMode");
+      if(serverMode != "auto" && serverMode != "manual") return;
+      isAutoTradingActive = serverMode == "auto";
+      PilotModeSynced = true;
+      RefreshDashboardUI();
+      Print("MT5 Pilot: mode remote dipulihkan dari server: ", serverMode);
+   }
    if(commandId == "" || action == "") return;
    string dedupeKey = "MTP_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + commandId;
    if(GlobalVariableCheck(dedupeKey)) {
@@ -851,18 +929,14 @@ void PilotPollCommands() {
       result = success ? "Konfigurasi remote diterapkan." : "Payload konfigurasi tidak valid.";
    } else if(action == "manual") {
       isAutoTradingActive = false;
+      PilotModeSynced = true;
       success = true;
       result = "Mode Manual aktif. Entry baru berhenti; pengaman SL/trailing tetap berjalan.";
    } else if(action == "auto") {
-      if(HasMinimumBalanceForAuto(true)) {
-         isAutoTradingActive = true;
-         success = true;
-         result = "Mode Auto aktif.";
-      } else {
-         isAutoTradingActive = false;
-         success = false;
-         result = "Mode Auto ditolak karena saldo di bawah minimum.";
-      }
+      isAutoTradingActive = true;
+      PilotModeSynced = true;
+      success = true;
+      result = "Mode Auto aktif.";
    } else if(action == "buy" || action == "sell") {
       bool isBuy = action == "buy";
       success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
@@ -888,6 +962,7 @@ void PilotPollCommands() {
       result = "Statistik harian dan state trailing direset.";
    } else if(action == "close_buy" || action == "close_sell" || action == "close_all") {
       isAutoTradingActive = false;
+      PilotModeSynced = true;
       int closedBuy = 0, closedSell = 0;
       string detailBuy = "", detailSell = "";
       if(action == "close_buy") success = PilotCloseMagic(MagicBeli, closedBuy, result);
@@ -907,11 +982,6 @@ void PilotPollCommands() {
    Print("MT5 Pilot: ", result);
 }
 void OnTick() {
-   if(isAutoTradingActive && !HasMinimumBalanceForAuto(false)) {
-      isAutoTradingActive = false;
-      PrintFormat("Fast-Grid Pilot: AUTO dihentikan; saldo turun di bawah minimum %.2f.", MinimumBalanceAuto);
-      RefreshDashboardUI();
-   }
    datetime currentDay = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
 
    if(currentDay > LastDayReset) {

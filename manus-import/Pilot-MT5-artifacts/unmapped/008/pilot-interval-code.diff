@@ -1,0 +1,480 @@
+[1mdiff --git a/client/src/pages/Home.tsx b/client/src/pages/Home.tsx[m
+[1mindex ece99a2..b6d6d50 100644[m
+[1m--- a/client/src/pages/Home.tsx[m
+[1m+++ b/client/src/pages/Home.tsx[m
+[36m@@ -72,6 +72,7 @@[m [mtype Account = {[m
+   latency_ms: number | null;[m
+   last_seen_at: string | null;[m
+   connection_status: "online" | "offline";[m
+[32m+[m[32m  telemetry_interval_ms: number;[m
+   poll_interval_ms: number;[m
+   ea_config?: EaConfig | null;[m
+   commands: {[m
+[36m@@ -123,7 +124,7 @@[m [mtype NetworkTrafficSample = {[m
+   downloadedBytes: number;[m
+ };[m
+ const EMPTY_CARDS_REFRESH_MS = 5_000;[m
+[31m-const CARD_METRICS_REFRESH_MS = 1_000;[m
+[32m+[m[32mconst CARD_METRICS_REFRESH_MS = 500;[m
+ const actionLabel: Record<Action, string> = {[m
+   auto: "Auto",[m
+   manual: "Manual",[m
+[36m@@ -432,6 +433,7 @@[m [mexport default function Home() {[m
+   const [editingAccountLabel, setEditingAccountLabel] = useState("");[m
+   const [editingConfig, setEditingConfig] = useState<EaConfig>(defaultEaConfig);[m
+   const [savingConfig, setSavingConfig] = useState(false);[m
+[32m+[m[32m  const [editingTelemetryIntervalMs, setEditingTelemetryIntervalMs] = useState(500);[m
+   const [editingPollIntervalMs, setEditingPollIntervalMs] = useState(1000);[m
+   const [savingPollInterval, setSavingPollInterval] = useState(false);[m
+   const [savingAccountLabel, setSavingAccountLabel] = useState(false);[m
+[36m@@ -645,6 +647,16 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+   const hasTelemetryCards = accounts.some([m
+     account => account.telemetry_received[m
+   );[m
+[32m+[m[32m  const metricsRefreshIntervalMs = hasTelemetryCards[m
+[32m+[m[32m    ? Math.max([m
+[32m+[m[32m        CARD_METRICS_REFRESH_MS,[m
+[32m+[m[32m        Math.min([m
+[32m+[m[32m          ...accounts[m
+[32m+[m[32m            .filter(account => account.telemetry_received)[m
+[32m+[m[32m            .map(account => account.telemetry_interval_ms ?? 500)[m
+[32m+[m[32m        )[m
+[32m+[m[32m      )[m
+[32m+[m[32m    : CARD_METRICS_REFRESH_MS;[m
+   const accountRefreshIntervalMs =[m
+     accounts.length === 0 || !hasTelemetryCards[m
+       ? EMPTY_CARDS_REFRESH_MS[m
+[36m@@ -726,10 +738,10 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+     void loadCardMetrics();[m
+     const metricsTimer = window.setInterval([m
+       () => void loadCardMetrics(),[m
+[31m-      CARD_METRICS_REFRESH_MS[m
+[32m+[m[32m      metricsRefreshIntervalMs[m
+     );[m
+     return () => window.clearInterval(metricsTimer);[m
+[31m-  }, [accessRole, hasTelemetryCards, loadCardMetrics, user]);[m
+[32m+[m[32m  }, [accessRole, hasTelemetryCards, loadCardMetrics, metricsRefreshIntervalMs, user]);[m
+ [m
+   useEffect(() => {[m
+     if (!backgroundCommands.current.size) return;[m
+[36m@@ -1018,6 +1030,7 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+     if (!canWrite) return;[m
+     setEditingAccount(account);[m
+     setEditingAccountLabel(account.label);[m
+[32m+[m[32m    setEditingTelemetryIntervalMs(account.telemetry_interval_ms ?? 500);[m
+     setEditingPollIntervalMs(account.poll_interval_ms ?? 1000);[m
+     setDeleteConfirmation("");[m
+     const savedConfig = account.ea_config ?? {};[m
+[36m@@ -1077,6 +1090,10 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+   const savePollingInterval = async () => {[m
+     if (!canWrite || !editingAccount || savingPollInterval || savingConfig)[m
+       return;[m
+[32m+[m[32m    if (![500, 1000, 2000].includes(editingTelemetryIntervalMs)) {[m
+[32m+[m[32m      toast.error("Pilih interval telemetry yang tersedia.");[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+     if (![500, 1000, 2000].includes(editingPollIntervalMs)) {[m
+       toast.error("Pilih interval polling yang tersedia.");[m
+       return;[m
+[36m@@ -1085,22 +1102,31 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+     try {[m
+       const accountId = editingAccount.id;[m
+       await callApi(`/dashboard/accounts/${accountId}/polling`, "PATCH", {[m
+[31m-        intervalMs: editingPollIntervalMs,[m
+[32m+[m[32m        telemetryIntervalMs: editingTelemetryIntervalMs,[m
+[32m+[m[32m        pollIntervalMs: editingPollIntervalMs,[m
+       });[m
+       setAccounts(current =>[m
+         current.map(account =>[m
+           account.id === accountId[m
+[31m-            ? { ...account, poll_interval_ms: editingPollIntervalMs }[m
+[32m+[m[32m            ? {[m
+[32m+[m[32m                ...account,[m
+[32m+[m[32m                telemetry_interval_ms: editingTelemetryIntervalMs,[m
+[32m+[m[32m                poll_interval_ms: editingPollIntervalMs,[m
+[32m+[m[32m              }[m
+             : account[m
+         )[m
+       );[m
+       setEditingAccount(current =>[m
+         current?.id === accountId[m
+[31m-          ? { ...current, poll_interval_ms: editingPollIntervalMs }[m
+[32m+[m[32m          ? {[m
+[32m+[m[32m              ...current,[m
+[32m+[m[32m              telemetry_interval_ms: editingTelemetryIntervalMs,[m
+[32m+[m[32m              poll_interval_ms: editingPollIntervalMs,[m
+[32m+[m[32m            }[m
+           : current[m
+       );[m
+       toast.success([m
+[31m-        `Polling EA disimpan: ${editingPollIntervalMs === 500 ? "500 ms" : `${editingPollIntervalMs / 1000} detik`}. EA akan menerapkannya pada pemeriksaan berikutnya.`[m
+[32m+[m[32m        `Interval disimpan: telemetry ${editingTelemetryIntervalMs} ms, perintah ${editingPollIntervalMs} ms. EA menerapkannya saat polling berikutnya.`[m
+       );[m
+     } catch (error) {[m
+       toast.error([m
+[36m@@ -1486,7 +1512,7 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+             </button>[m
+             <p className="pilot-sidebar-hint">[m
+               Kartu kosong: 5 detik. EA mengirim telemetry dan Running &amp;[m
+[31m-              Profit diperbarui dengan target 1 detik.[m
+[32m+[m[32m              Profit diperbarui dengan target 500 ms.[m
+             </p>[m
+             <label className="pilot-sidebar-setting">[m
+               <span>Tema</span>[m
+[36m@@ -2022,15 +2048,36 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+             />[m
+             <div className="pilot-polling-control">[m
+               <div>[m
+[31m-                <strong>Interval polling perintah EA</strong>[m
+[32m+[m[32m                <strong>Pengiriman informasi ke Pilot</strong>[m
+[32m+[m[32m                <p>[m
+[32m+[m[32m                  Seberapa sering EA mengirim telemetry. Default 500 ms; lebih[m
+[32m+[m[32m                  cepat berarti lebih banyak request.[m
+[32m+[m[32m                </p>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m              <div className="pilot-polling-row">[m
+[32m+[m[32m                <select[m
+[32m+[m[32m                  aria-label="Interval pengiriman informasi ke Pilot"[m
+[32m+[m[32m                  value={editingTelemetryIntervalMs}[m
+[32m+[m[32m                  onChange={event =>[m
+[32m+[m[32m                    setEditingTelemetryIntervalMs(Number(event.target.value))[m
+[32m+[m[32m                  }[m
+[32m+[m[32m                  disabled={savingPollInterval || savingConfig}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  <option value={500}>Cepat · 500 ms (default)</option>[m
+[32m+[m[32m                  <option value={1000}>Normal · 1 detik</option>[m
+[32m+[m[32m                  <option value={2000}>Hemat · 2 detik</option>[m
+[32m+[m[32m                </select>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m              <div>[m
+[32m+[m[32m                <strong>Pengecekan perintah dari Pilot</strong>[m
+                 <p>[m
+[31m-                  Frekuensi EA memeriksa tombol dan parameter baru. Interval[m
+[31m-                  telemetry tidak berubah.[m
+[32m+[m[32m                  Seberapa sering EA memeriksa tombol atau perubahan parameter.[m
+[32m+[m[32m                  Default 1000 ms.[m
+                 </p>[m
+               </div>[m
+               <div className="pilot-polling-row">[m
+                 <select[m
+[31m-                  aria-label="Interval polling perintah EA"[m
+[32m+[m[32m                  aria-label="Interval pengecekan perintah dari Pilot"[m
+                   value={editingPollIntervalMs}[m
+                   onChange={event =>[m
+                     setEditingPollIntervalMs(Number(event.target.value))[m
+[36m@@ -2047,12 +2094,14 @@[m [m${serializedBody ?? ""}`).byteLength;[m
+                   disabled={[m
+                     savingPollInterval ||[m
+                     savingConfig ||[m
+[31m-                    editingPollIntervalMs ===[m
+[31m-                      (editingAccount.poll_interval_ms ?? 1000)[m
+[32m+[m[32m                    (editingPollIntervalMs ===[m
+[32m+[m[32m                      (editingAccount.poll_interval_ms ?? 1000) &&[m
+[32m+[m[32m                      editingTelemetryIntervalMs ===[m
+[32m+[m[32m                        (editingAccount.telemetry_interval_ms ?? 500))[m
+                   }[m
+                   onClick={() => void savePollingInterval()}[m
+                 >[m
+[31m-                  {savingPollInterval ? "Menyimpan…" : "Simpan polling"}[m
+[32m+[m[32m                  {savingPollInterval ? "Menyimpan…" : "Simpan interval"}[m
+                 </button>[m
+               </div>[m
+             </div>[m
+[1mdiff --git a/drizzle/schema.ts b/drizzle/schema.ts[m
+[1mindex 576deb7..991d78a 100644[m
+[1m--- a/drizzle/schema.ts[m
+[1m+++ b/drizzle/schema.ts[m
+[36m@@ -70,6 +70,8 @@[m [mexport const mt5Accounts = mysqlTable([m
+     latencyMs: int("latency_ms"),[m
+     lastSeenAt: timestamp("last_seen_at"),[m
+     pollIntervalMs: int("poll_interval_ms").default(1000).notNull(),[m
+[32m+[m[32m    telemetryIntervalMs: int("telemetry_interval_ms").default(500).notNull(),[m
+[32m+[m[32m    intervalsConfigured: boolean("intervals_configured").default(true).notNull(),[m
+     eaConfig: json("ea_config").$type<Record<string, number> | null>(),[m
+     createdAt: timestamp("created_at").defaultNow().notNull(),[m
+     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),[m
+[1mdiff --git a/ea/Fast-Grid-Pilot.mq5 b/ea/Fast-Grid-Pilot.mq5[m
+[1mindex 5d2249b..2ce1b64 100644[m
+[1m--- a/ea/Fast-Grid-Pilot.mq5[m
+[1m+++ b/ea/Fast-Grid-Pilot.mq5[m
+[36m@@ -19,6 +19,10 @@[m [minput bool EnablePilotRemote = true;[m
+ input string PilotApiBaseUrl = ""; // Salin base URL API dari dashboard MT5 Pilot.[m
+ input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.[m
+ [m
+[32m+[m[32minput group "== Interval Komunikasi MT5 Pilot =="[m
+[32m+[m[32minput int InputPengirimanInfoKePilotMs = 500;[m
+[32m+[m[32minput int InputPengecekanPerintahPilotMs = 1000;[m
+[32m+[m
+ input group "== Mode Perdagangan =="[m
+ input ENUM_TRADE_MODE InputModePerdagangan = MODE_BELI_JUAL;[m
+ [m
+[36m@@ -94,7 +98,10 @@[m [mbool isAutoTradingActive = false; // Safe default; remote mode is restored from[m
+ bool PilotModeSynced = false;[m
+ uint LastPilotTelemetryAt = 0;[m
+ uint LastPilotPollAt = 0;[m
+[32m+[m[32mint PilotTelemetryIntervalMs = 500;[m
+ int PilotPollingIntervalMs = 1000;[m
+[32m+[m[32mbool PilotInputIntervalsPending = false;[m
+[32m+[m[32mbool PilotShouldStoreIntervalInputs = false;[m
+ int LastPilotLatencyMs = 0;[m
+ string InputConfigSnapshot = "";[m
+ [m
+[36m@@ -131,6 +138,12 @@[m [mbool PilotCloseMagic(const int magic, int &closedCount, string &details);[m
+ double PilotJsonNumber(const string json, const string key, const double fallback);[m
+ bool PilotJsonBool(const string json, const string key, const bool fallback);[m
+ string PilotJsonObject(const string json, const string key);[m
+[32m+[m[32mint PilotNormalizeTelemetryInterval(const int value);[m
+[32m+[m[32mint PilotNormalizePollingInterval(const int value);[m
+[32m+[m[32mstring PilotIntervalInputKey();[m
+[32m+[m[32mbool PilotIntervalInputsStored();[m
+[32m+[m[32mbool PilotIntervalInputsChanged();[m
+[32m+[m[32mvoid PilotRememberIntervalInputs();[m
+ string PilotConfigJson(const bool fromInputs);[m
+ string PilotConfigStateFile();[m
+ string PilotReadConfigState();[m
+[36m@@ -144,6 +157,14 @@[m [mint OnInit() {[m
+    KursUSD_IDR = InputKursUSD_IDR;[m
+    MagicBeli = InputMagicBeli;[m
+    MagicJual = InputMagicJual;[m
+[32m+[m[32m   PilotTelemetryIntervalMs = PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs);[m
+[32m+[m[32m   PilotPollingIntervalMs = PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);[m
+[32m+[m[32m   PilotInputIntervalsPending = PilotIntervalInputsChanged();[m
+[32m+[m[32m   PilotShouldStoreIntervalInputs = !PilotIntervalInputsStored() || PilotInputIntervalsPending;[m
+[32m+[m[32m   if(PilotTelemetryIntervalMs != InputPengirimanInfoKePilotMs)[m
+[32m+[m[32m      Print("MT5 Pilot: interval telemetry hanya menerima 500, 1000, atau 2000 ms; memakai 500 ms.");[m
+[32m+[m[32m   if(PilotPollingIntervalMs != InputPengecekanPerintahPilotMs)[m
+[32m+[m[32m      Print("MT5 Pilot: interval polling hanya menerima 500, 1000, atau 2000 ms; memakai 1000 ms.");[m
+    LotAwal = InputLotAwal;[m
+    PenggandaLot = InputPenggandaLot;[m
+    LotMaksimal = InputLotMaksimal;[m
+[36m@@ -479,7 +500,7 @@[m [mvoid PilotOnTimer() {[m
+       now = GetTickCount();[m
+    }[m
+    // Prioritize fresh card metrics when both requests are due. WebRequest is synchronous.[m
+[31m-   if(now - LastPilotTelemetryAt >= 1000) {[m
+[32m+[m[32m   if(now - LastPilotTelemetryAt >= (uint)PilotTelemetryIntervalMs) {[m
+       LastPilotTelemetryAt = now;[m
+       PilotSendTelemetry();[m
+    }[m
+[36m@@ -818,17 +839,69 @@[m [mbool PilotCloseMagic(const int magic, int &closedCount, string &details) {[m
+    return failures == 0;[m
+ }[m
+ [m
+[32m+[m[32mint PilotNormalizeTelemetryInterval(const int value) {[m
+[32m+[m[32m   if(value == 500 || value == 1000 || value == 2000) return value;[m
+[32m+[m[32m   return 500;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mint PilotNormalizePollingInterval(const int value) {[m
+[32m+[m[32m   if(value == 500 || value == 1000 || value == 2000) return value;[m
+[32m+[m[32m   return 1000;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mstring PilotIntervalInputKey() {[m
+[32m+[m[32m   string tokenHint = StringSubstr(EAConnectionToken, 0, (int)MathMin(8, StringLen(EAConnectionToken)));[m
+[32m+[m[32m   StringReplace(tokenHint, "-", "X");[m
+[32m+[m[32m   StringReplace(tokenHint, "_", "Y");[m
+[32m+[m[32m   return StringFormat("MTP_I_%I64d_%d_%d_%s", AccountInfoInteger(ACCOUNT_LOGIN), MagicBeli, MagicJual, tokenHint);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mbool PilotIntervalInputsStored() {[m
+[32m+[m[32m   string key = PilotIntervalInputKey();[m
+[32m+[m[32m   return GlobalVariableCheck(key + "_T") && GlobalVariableCheck(key + "_P");[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mbool PilotIntervalInputsChanged() {[m
+[32m+[m[32m   string key = PilotIntervalInputKey();[m
+[32m+[m[32m   if(!GlobalVariableCheck(key + "_T") || !GlobalVariableCheck(key + "_P"))[m
+[32m+[m[32m      return PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) != 500 ||[m
+[32m+[m[32m         PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs) != 1000;[m
+[32m+[m[32m   return (int)GlobalVariableGet(key + "_T") != PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) ||[m
+[32m+[m[32m      (int)GlobalVariableGet(key + "_P") != PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mvoid PilotRememberIntervalInputs() {[m
+[32m+[m[32m   string key = PilotIntervalInputKey();[m
+[32m+[m[32m   GlobalVariableSet(key + "_T", (double)PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs));[m
+[32m+[m[32m   GlobalVariableSet(key + "_P", (double)PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs));[m
+[32m+[m[32m   GlobalVariablesFlush();[m
+[32m+[m[32m}[m
+[32m+[m
+ void PilotPollCommands() {[m
+    string response = "";[m
+[31m-   int code = PilotHttp("GET", "/commands/next", "", response);[m
+[32m+[m[32m   int inputTelemetryInterval = PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs);[m
+[32m+[m[32m   int inputPollingInterval = PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);[m
+[32m+[m[32m   string timingBody = "{\"telemetryIntervalMs\":" + IntegerToString(inputTelemetryInterval) +[m
+[32m+[m[32m      ",\"pollIntervalMs\":" + IntegerToString(inputPollingInterval) +[m
+[32m+[m[32m      ",\"applyInputIntervals\":" + (PilotInputIntervalsPending ? "true" : "false") + "}";[m
+[32m+[m[32m   int code = PilotHttp("POST", "/commands/next", timingBody, response);[m
+    if(code == 204 || code == 200 && response == "") return;[m
+    if(code != 200) {[m
+       if(code >= 400) PrintFormat("MT5 Pilot: polling perintah gagal (HTTP %d).", code);[m
+       return;[m
+    }[m
+[32m+[m[32m   int requestedTelemetryInterval = (int)PilotJsonNumber(response, "telemetryIntervalMs", PilotTelemetryIntervalMs);[m
+[32m+[m[32m   if(requestedTelemetryInterval == 500 || requestedTelemetryInterval == 1000 || requestedTelemetryInterval == 2000)[m
+[32m+[m[32m      PilotTelemetryIntervalMs = requestedTelemetryInterval;[m
+    int requestedInterval = (int)PilotJsonNumber(response, "pollIntervalMs", PilotPollingIntervalMs);[m
+    if(requestedInterval == 500 || requestedInterval == 1000 || requestedInterval == 2000)[m
+       PilotPollingIntervalMs = requestedInterval;[m
+[32m+[m[32m   if(PilotShouldStoreIntervalInputs &&[m
+[32m+[m[32m      (!PilotInputIntervalsPending || (requestedTelemetryInterval == inputTelemetryInterval && requestedInterval == inputPollingInterval))) {[m
+[32m+[m[32m      PilotRememberIntervalInputs();[m
+[32m+[m[32m      PilotInputIntervalsPending = false;[m
+[32m+[m[32m      PilotShouldStoreIntervalInputs = false;[m
+[32m+[m[32m   }[m
+    string commandId = PilotJsonString(response, "commandId");[m
+    string action = PilotJsonString(response, "action");[m
+    string payload = PilotJsonObject(response, "payload");[m
+[1mdiff --git a/server/mt5-api.ts b/server/mt5-api.ts[m
+[1mindex 1509b34..183a9cc 100644[m
+[1m--- a/server/mt5-api.ts[m
+[1m+++ b/server/mt5-api.ts[m
+[36m@@ -13,6 +13,11 @@[m [mimport {[m
+ [m
+ const ONLINE_WINDOW_MS = 20_000;[m
+ const COMMAND_TTL_MS = 45_000;[m
+[32m+[m[32mconst SUPPORTED_INTERVAL_MS = new Set([500, 1000, 2000]);[m
+[32m+[m[32mconst isSupportedInterval = (value: unknown): value is number =>[m
+[32m+[m[32m  typeof value === "number" &&[m
+[32m+[m[32m  Number.isInteger(value) &&[m
+[32m+[m[32m  SUPPORTED_INTERVAL_MS.has(value);[m
+ const PENDING_STATUSES = ["queued", "delivered", "accepted"] as const;[m
+ const actions = new Set([[m
+   "auto",[m
+[36m@@ -670,6 +675,7 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+           floatingProfit: mt5Accounts.floatingProfit,[m
+           latencyMs: mt5Accounts.latencyMs,[m
+           lastSeenAt: mt5Accounts.lastSeenAt,[m
+[32m+[m[32m          telemetryIntervalMs: mt5Accounts.telemetryIntervalMs,[m
+           pollIntervalMs: mt5Accounts.pollIntervalMs,[m
+         };[m
+         const accounts =[m
+[36m@@ -749,6 +755,7 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+           tokenHint: token.slice(-8),[m
+           eaMode: "manual" as const,[m
+           running: false,[m
+[32m+[m[32m          intervalsConfigured: false,[m
+           createdAt: now,[m
+           updatedAt: now,[m
+         };[m
+[36m@@ -804,20 +811,37 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+       if (polling && req.method === "PATCH") {[m
+         if (!requireOwner())[m
+           return fail(res, 403, "Only the owner can change polling.");[m
+[31m-        const n = body(req)?.intervalMs;[m
+[31m-        if (![500, 1000, 2000].includes(n))[m
+[32m+[m[32m        const values = body(req);[m
+[32m+[m[32m        const pollIntervalMs = values?.pollIntervalMs ?? values?.intervalMs;[m
+[32m+[m[32m        const telemetryIntervalMs = values?.telemetryIntervalMs;[m
+[32m+[m[32m        if ([m
+[32m+[m[32m          !isSupportedInterval(pollIntervalMs) ||[m
+[32m+[m[32m          (telemetryIntervalMs !== undefined &&[m
+[32m+[m[32m            !isSupportedInterval(telemetryIntervalMs))[m
+[32m+[m[32m        )[m
+           return fail([m
+             res,[m
+             400,[m
+[31m-            "Polling interval must be 500, 1000, or 2000 ms."[m
+[32m+[m[32m            "Telemetry and polling intervals must be 500, 1000, or 2000 ms."[m
+           );[m
+         const a = await ownAccount(polling[1]);[m
+         if (!a) return fail(res, 404, "Account not found.");[m
+[32m+[m[32m        const update: Record<string, unknown> = {[m
+[32m+[m[32m          pollIntervalMs,[m
+[32m+[m[32m          intervalsConfigured: true,[m
+[32m+[m[32m          updatedAt: new Date(),[m
+[32m+[m[32m        };[m
+[32m+[m[32m        if (telemetryIntervalMs !== undefined)[m
+[32m+[m[32m          update.telemetryIntervalMs = telemetryIntervalMs;[m
+         await db[m
+           .update(mt5Accounts)[m
+[31m-          .set({ pollIntervalMs: n, updatedAt: new Date() })[m
+[32m+[m[32m          .set(update)[m
+           .where(eq(mt5Accounts.id, a.id));[m
+[31m-        return json(res, 200, { pollIntervalMs: n });[m
+[32m+[m[32m        return json(res, 200, {[m
+[32m+[m[32m          telemetryIntervalMs:[m
+[32m+[m[32m            telemetryIntervalMs ?? a.telemetryIntervalMs ?? 500,[m
+[32m+[m[32m          pollIntervalMs,[m
+[32m+[m[32m        });[m
+       }[m
+       if (config && req.method === "POST") {[m
+         if (!requireOwner())[m
+[36m@@ -1091,7 +1115,44 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+         });[m
+         return json(res, 200, { ok: true, serverTime: new Date() });[m
+       }[m
+[31m-      if (path === "/commands/next" && req.method === "GET") {[m
+[32m+[m[32m      if ([m
+[32m+[m[32m        path === "/commands/next" &&[m
+[32m+[m[32m        ["GET", "POST"].includes(req.method)[m
+[32m+[m[32m      ) {[m
+[32m+[m[32m        let telemetryIntervalMs = acct.telemetryIntervalMs ?? 500;[m
+[32m+[m[32m        let pollIntervalMs = acct.pollIntervalMs ?? 1000;[m
+[32m+[m[32m        if (req.method === "POST") {[m
+[32m+[m[32m          const timing = body(req);[m
+[32m+[m[32m          const applyInputIntervals = timing?.applyInputIntervals === true;[m
+[32m+[m[32m          if (!acct.intervalsConfigured || applyInputIntervals) {[m
+[32m+[m[32m            const requestedTelemetry =[m
+[32m+[m[32m              timing?.telemetryIntervalMs ?? telemetryIntervalMs;[m
+[32m+[m[32m            const requestedPolling = timing?.pollIntervalMs ?? pollIntervalMs;[m
+[32m+[m[32m            if ([m
+[32m+[m[32m              !isSupportedInterval(requestedTelemetry) ||[m
+[32m+[m[32m              !isSupportedInterval(requestedPolling)[m
+[32m+[m[32m            )[m
+[32m+[m[32m              return fail([m
+[32m+[m[32m                res,[m
+[32m+[m[32m                400,[m
+[32m+[m[32m                "Telemetry and polling intervals must be 500, 1000, or 2000 ms."[m
+[32m+[m[32m              );[m
+[32m+[m[32m            telemetryIntervalMs = requestedTelemetry;[m
+[32m+[m[32m            pollIntervalMs = requestedPolling;[m
+[32m+[m[32m            await db[m
+[32m+[m[32m              .update(mt5Accounts)[m
+[32m+[m[32m              .set({[m
+[32m+[m[32m                telemetryIntervalMs,[m
+[32m+[m[32m                pollIntervalMs,[m
+[32m+[m[32m                intervalsConfigured: true,[m
+[32m+[m[32m                updatedAt: new Date(),[m
+[32m+[m[32m              })[m
+[32m+[m[32m              .where(eq(mt5Accounts.id, acct.id));[m
+[32m+[m[32m            acct.telemetryIntervalMs = telemetryIntervalMs;[m
+[32m+[m[32m            acct.pollIntervalMs = pollIntervalMs;[m
+[32m+[m[32m            acct.intervalsConfigured = true;[m
+[32m+[m[32m          }[m
+[32m+[m[32m        }[m
+         const now = new Date(),[m
+           list = await db[m
+             .select()[m
+[36m@@ -1139,7 +1200,8 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+             commandId: "",[m
+             action: "",[m
+             payload: null,[m
+[31m-            pollIntervalMs: acct.pollIntervalMs ?? 1000,[m
+[32m+[m[32m            telemetryIntervalMs,[m
+[32m+[m[32m            pollIntervalMs,[m
+             eaMode: acct.eaMode ?? "manual",[m
+           });[m
+         let command: any = c;[m
+[36m@@ -1173,7 +1235,8 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+               commandId: "",[m
+               action: "",[m
+               payload: null,[m
+[31m-              pollIntervalMs: acct.pollIntervalMs ?? 1000,[m
+[32m+[m[32m              telemetryIntervalMs,[m
+[32m+[m[32m              pollIntervalMs,[m
+               eaMode: acct.eaMode ?? "manual",[m
+             });[m
+           command = delivered;[m
+[36m@@ -1183,7 +1246,8 @@[m [mexport function registerMt5ApiRoutes(app: Express) {[m
+           action: command.action,[m
+           payload: command.payload ?? null,[m
+           expiresAt: exp,[m
+[31m-          pollIntervalMs: acct.pollIntervalMs ?? 1000,[m
+[32m+[m[32m          telemetryIntervalMs,[m
+[32m+[m[32m          pollIntervalMs,[m
+           eaMode: acct.eaMode ?? "manual",[m
+         });[m
+       }[m

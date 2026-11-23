@@ -1,7 +1,7 @@
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -26,10 +26,15 @@ export function useAuth(options?: UseAuthOptions) {
       utils.auth.me.setData(undefined, null);
     },
   });
+  const logoutMutationRef = useRef(logoutMutation);
+  logoutMutationRef.current = logoutMutation;
+  const utilsRef = useRef(utils);
+  utilsRef.current = utils;
 
+  // A stable callback keeps dependent effects from re-running on every render.
   const logout = useCallback(async () => {
     try {
-      await logoutMutation.mutateAsync();
+      await logoutMutationRef.current.mutateAsync();
     } catch (error: unknown) {
       if (
         error instanceof TRPCClientError &&
@@ -45,10 +50,10 @@ export function useAuth(options?: UseAuthOptions) {
       try {
         sessionStorage.removeItem("manus-cookie");
       } catch {}
-      utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
+      utilsRef.current.auth.me.setData(undefined, null);
+      await utilsRef.current.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+  }, []);
 
   const state = useMemo(() => {
     localStorage.setItem(

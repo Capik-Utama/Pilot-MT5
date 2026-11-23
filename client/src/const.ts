@@ -1,6 +1,26 @@
-import { OAUTH_STATE_COOKIE, encodeOAuthState } from "@shared/const";
+import {
+  COOKIE_NAME,
+  LOCAL_OAUTH_STATE_COOKIE,
+  OAUTH_STATE_COOKIE,
+  encodeOAuthState,
+} from "@shared/const";
 
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+
+export function getSessionAuthorizationHeaders(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem("manus-cookie");
+    const prefix = `${COOKIE_NAME}=`;
+    const token = raw
+      ?.split(";")
+      .map(part => part.trim())
+      .find(part => part.startsWith(prefix))
+      ?.slice(prefix.length);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 // Start the Manus OAuth login. Call this from an event handler or effect at the
 // moment you want to navigate, e.g. `onClick={() => startLogin()}`.
@@ -15,11 +35,17 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 export const startLogin = () => {
   const oauthPortalUrl = window.__MANUS_CONFIG__?.oauthPortalUrl;
   const appId = window.__MANUS_CONFIG__?.projectId;
-  if (!oauthPortalUrl || !appId) throw new Error("Manus login is not configured");
+  if (!oauthPortalUrl || !appId)
+    throw new Error("Manus login is not configured");
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
 
   const nonce = crypto.randomUUID();
-  document.cookie = `${OAUTH_STATE_COOKIE}=${nonce}; Path=/; Max-Age=600; SameSite=None; Secure`;
+  const localHttp = ["localhost", "127.0.0.1", "[::1]"].includes(
+    window.location.hostname.toLowerCase()
+  );
+  const stateCookie = localHttp ? LOCAL_OAUTH_STATE_COOKIE : OAUTH_STATE_COOKIE;
+  const cookieAttributes = localHttp ? "SameSite=Lax" : "SameSite=None; Secure";
+  document.cookie = `${stateCookie}=${nonce}; Path=/; Max-Age=600; ${cookieAttributes}`;
   const state = encodeOAuthState({ redirectUri, nonce });
 
   const url = new URL(`${oauthPortalUrl}/app-auth`);

@@ -1,0 +1,160 @@
+# Terminal Full Output
+# Terminal: pilot-manus
+# Command: git status --short && git branch --show-current && git remote -v && git diff -- TODO.md docs/operasional.md plan.md ea/Fast-Grid-Pilot.mq5
+# PID: 22520
+# Timestamp: 2026-11-16_03-13-40.257922
+# Original Length: 11536 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/pilotmt5$ [0mgit status --short && git branch --show-current && git remote -v && git diff -- TODO.md docs/operasional.md plan.md ea/Fast-Grid-Pilot.mq5
+ [31mM[m TODO.md
+ [31mM[m docs/operasional.md
+ [31mM[m ea/Fast-Grid-Pilot.mq5
+ [31mM[m plan.md
+main
+origin	https://7f0548f6b28a1758d9bf7be630d36cb4.artifacts.cloudflare.net/git/prod/wdp_7f60f6ccd44389f1da7e5b4f.git (fetch)
+origin	https://7f0548f6b28a1758d9bf7be630d36cb4.artifacts.cloudflare.net/git/prod/wdp_7f60f6ccd44389f1da7e5b4f.git (push)
+[1mdiff --git a/TODO.md b/TODO.md
+[m[1mindex d6ebfb0..2b68764 100644
+[m[1m--- a/TODO.md
+[m[1m+++ b/TODO.md
+[m[36m@@ -22,7 +22,8 @@
+[m - Aksi Auto, Manual, BUY, SELL, Reset, Close Buy, Close Sell, dan Close All memakai akun yang dipilih; command hanya dapat dikirim sesuai role, assignment staff, dan status online.
+[m - Command memiliki status queued, delivered, accepted, succeeded, failed, atau expired; masa berlaku, acknowledgement, hasil ringkas, dan event audit disimpan.
+[m - Command close hanya menargetkan simbol chart/Magic Number Fast-Grid dan mengalihkan EA ke Manual sesuai perilaku EA yang didokumentasikan.
+[m[31m-- EA dengan koneksi remote Manus memulai dalam mode MANUAL; AUTO hanya aktif setelah perintah eksplisit dari dashboard.
+[m[32m+[m[32m- Koneksi remote baru tanpa mode tersimpan memulai dalam mode MANUAL; AUTO hanya aktif setelah perintah eksplisit dari dashboard/chart. Pada setiap OnInit/restart, EA mengambil mode terakhir dari server sebelum telemetry pertama; jika mode server tidak bisa dibaca, EA tetap MANUAL dan tidak menimpa mode tersimpan dengan telemetry default.
+[m[32m+[m[32m- Mode AUTO yang sebelumnya diakui server tetap AUTO setelah EA diinisialisasi ulang. Perintah MANUAL atau Close eksplisit tetap memindahkan EA ke MANUAL; Close tidak memulihkan AUTO secara otomatis.
+[m - Dashboard menunjukkan status proses dan tidak menyatakan order berhasil hanya karena perintah telah masuk antrean.
+[m - Selama pengembangan/pengujian Manus, tidak menghubungkan EA ke broker live atau mengirim order nyata.
+[m 
+[m[1mdiff --git a/docs/operasional.md b/docs/operasional.md
+[m[1mindex 21b5593..02bd9f2 100644
+[m[1m--- a/docs/operasional.md
+[m[1m+++ b/docs/operasional.md
+[m[36m@@ -20,7 +20,7 @@[m [mDatabase Manus baru tidak membawa isi project Supabase lama. User/password Supab
+[m 4. Di MetaTrader, buka **Tools → Options → Expert Advisors**, aktifkan izin WebRequest, dan masukkan hanya origin HTTPS yang ditampilkan aplikasi (contoh bentuk: `https://<host-manus>`), bukan path `/api/mt5`.
+[m 5. Gunakan akun demo dahulu. Periksa login/server MT5, simbol, mode Beli/Jual, lot, batas kerugian, target, Magic Number, dan semua parameter risiko.
+[m 
+[m[31m-EA remote Manus dimulai dalam mode **MANUAL**. Mengaktifkan **AUTO**, menekan **BUY/SELL**, atau perintah remote lain tetap dapat membuka/menutup posisi dan membawa risiko uang sungguhan. AUTO hanya dinyalakan oleh perintah eksplisit dari dashboard. Selama migrasi dan validasi Manus, EA tidak dipasang ke akun broker dan tidak ada order nyata yang dikirim.
+[m[32m+[m[32mKoneksi EA remote baru dimulai dalam mode **MANUAL**. Setelah **AUTO** diaktifkan secara eksplisit dari chart/dashboard dan tersimpan di server, EA membaca mode tersebut lagi sebelum telemetry pertama setiap kali di-restart/re-attach; jika status server tidak bisa dibaca, EA bertahan **MANUAL** dan tidak menulis state default ke server. Bila server saat ini menyimpan MANUAL (misalnya pernah tertimpa oleh EA versi lama), tekan AUTO sekali lagi. Perintah MANUAL dan perintah Close eksplisit tetap 
+memindahkan EA ke MANUAL demi mencegah entry ulang otomatis setelah penutupan. AUTO dapat melanjutkan pembukaan posisi setelah restart; uji di akun demo dahulu. Selama migrasi dan validasi Manus, EA tidak dipasang ke akun broker live dan tidak ada order nyata yang dikirim.
+[m 
+[m ## Polling, status, dan keamanan
+[m 
+[m[1mdiff --git a/ea/Fast-Grid-Pilot.mq5 b/ea/Fast-Grid-Pilot.mq5
+[m[1mindex cee6025..5d2249b 100644
+[m[1m--- a/ea/Fast-Grid-Pilot.mq5
+[m[1m+++ b/ea/Fast-Grid-Pilot.mq5
+[m[36m@@ -90,7 +90,8 @@[m [mdouble PendingTrail_SellPrice = 0;
+[m string UIPrefix = "DG_";
+[m int CurrentCurrencyMode = 0;
+[m double InpUsdToIdr = 18000.0;
+[m[31m-bool isAutoTradingActive = false; // Remote Pilot dimulai MANUAL sampai perintah AUTO eksplisit.
+[m[32m+[m[32mbool isAutoTradingActive = false; // Safe default; remote mode is restored from server during startup.
+[m[32m+[m[32mbool PilotModeSynced = false;
+[m uint LastPilotTelemetryAt = 0;
+[m uint LastPilotPollAt = 0;
+[m int PilotPollingIntervalMs = 1000;
+[m[36m@@ -169,7 +170,8 @@[m [mint OnInit() {
+[m 
+[m    InpUsdToIdr = KursUSD_IDR;
+[m 
+[m[31m-   isAutoTradingActive = !EnablePilotRemote; // Koneksi Pilot baru selalu dimulai MANUAL.
+[m[32m+[m[32m   isAutoTradingActive = !EnablePilotRemote; // Remote stays MANUAL until the server mode is read.
+[m[32m+[m[32m   PilotModeSynced = !EnablePilotRemote;
+[m    CreateDashboard();
+[m    PilotRestoreConfigState();
+[m    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
+[m[36m@@ -433,10 +435,12 @@[m [mvoid OnChartEvent(const int id, const long &lparam, const double &dparam, const
+[m       }
+[m       else if(sparam == UIPrefix + "BtnAuto") {
+[m          isAutoTradingActive = true;
+[m[32m+[m[32m         PilotModeSynced = true;
+[m          ObjectSetInteger(0, UIPrefix + "BtnAuto", OBJPROP_STATE, false);
+[m       }
+[m       else if(sparam == UIPrefix + "BtnManual") {
+[m          isAutoTradingActive = false;
+[m[32m+[m[32m         PilotModeSynced = true;
+[m          ObjectSetInteger(0, UIPrefix + "BtnManual", OBJPROP_STATE, false);
+[m       }
+[m       else if(sparam == UIPrefix + "BtnUsd") {
+[m[36m@@ -463,13 +467,24 @@[m [mvoid OnTimer() {
+[m void PilotOnTimer() {
+[m    if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "" || PilotApiBaseUrl == "") return;
+[m    uint now = GetTickCount();
+[m[32m+[m[32m   bool pollAttempted = false;
+[m[32m+[m[32m   // On startup/re-init, read the server's last acknowledged mode before the first telemetry.
+[m[32m+[m[32m   if(!PilotModeSynced) {
+[m[32m+[m[32m      if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+[m[32m+[m[32m         LastPilotPollAt = now;
+[m[32m+[m[32m         PilotPollCommands();
+[m[32m+[m[32m         pollAttempted = true;
+[m[32m+[m[32m      }
+[m[32m+[m[32m      if(!PilotModeSynced) return;
+[m[32m+[m[32m      now = GetTickCount();
+[m[32m+[m[32m   }
+[m    // Prioritize fresh card metrics when both requests are due. WebRequest is synchronous.
+[m    if(now - LastPilotTelemetryAt >= 1000) {
+[m       LastPilotTelemetryAt = now;
+[m       PilotSendTelemetry();
+[m    }
+[m    now = GetTickCount();
+[m[31m-   if(now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+[m[32m+[m[32m   if(!pollAttempted && now - LastPilotPollAt >= (uint)PilotPollingIntervalMs) {
+[m       LastPilotPollAt = now;
+[m       PilotPollCommands();
+[m    }
+[m[36m@@ -817,6 +832,15 @@[m [mvoid PilotPollCommands() {
+[m    string commandId = PilotJsonString(response, "commandId");
+[m    string action = PilotJsonString(response, "action");
+[m    string payload = PilotJsonObject(response, "payload");
+[m[32m+[m[32m   bool pendingModeOverride = commandId != "" && (action == "auto" || action == "manual" || action == "close_buy" || action == "close_sell" || action == "close_all");
+[m[32m+[m[32m   if(!PilotModeSynced && !pendingModeOverride) {
+[m[32m+[m[32m      string serverMode = PilotJsonString(response, "eaMode");
+[m[32m+[m[32m      if(serverMode != "auto" && serverMode != "manual") return;
+[m[32m+[m[32m      isAutoTradingActive = serverMode == "auto";
+[m[32m+[m[32m      PilotModeSynced = true;
+[m[32m+[m[32m      RefreshDashboardUI();
+[m[32m+[m[32m      Print("MT5 Pilot: mode remote dipulihkan dari server: ", serverMode);
+[m[32m+[m[32m   }
+[m    if(commandId == "" || action == "") return;
+[m    string dedupeKey = "MTP_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + commandId;
+[m    if(GlobalVariableCheck(dedupeKey)) {
+[m[36m@@ -832,10 +856,12 @@[m [mvoid PilotPollCommands() {
+[m       result = success ? "Konfigurasi remote diterapkan." : "Payload konfigurasi tidak valid.";
+[m    } else if(action == "manual") {
+[m       isAutoTradingActive = false;
+[m[32m+[m[32m      PilotModeSynced = true;
+[m       success = true;
+[m       result = "Mode Manual aktif. Entry baru berhenti; pengaman SL/trailing tetap berjalan.";
+[m    } else if(action == "auto") {
+[m       isAutoTradingActive = true;
+[m[32m+[m[32m      PilotModeSynced = true;
+[m       success = true;
+[m       result = "Mode Auto aktif.";
+[m    } else if(action == "buy" || action == "sell") {
+[m[36m@@ -863,6 +889,7 @@[m [mvoid PilotPollCommands() {
+[m       result = "Statistik harian dan state trailing direset.";
+[m    } else if(action == "close_buy" || action == "close_sell" || action == "close_all") {
+[m       isAutoTradingActive = false;
+[m[32m+[m[32m      PilotModeSynced = true;
+[m       int closedBuy = 0, closedSell = 0;
+[m       string detailBuy = "", detailSell = "";
+[m       if(action == "close_buy") success = PilotCloseMagic(MagicBeli, closedBuy, result);
+[m[1mdiff --git a/plan.md b/plan.md
+[m[1mindex 26687e4..8631056 100644
+[m[1m--- a/plan.md
+[m[1m+++ b/plan.md
+[m[36m@@ -21,7 +21,7 @@[m [mLogin menggunakan Manus OAuth. Semua pengguna perlu mempunyai akun Manus dan rol
+[m 
+[m EA mengirim telemetry remote dengan target 1 detik dan melakukan polling command terpisah yang dapat diatur ke 500 ms, 1 detik, atau 2 detik. Saat keduanya jatuh tempo, telemetry diprioritaskan; karena WebRequest sinkron dengan timeout 3 detik, kontrol command dapat menunggu request telemetry selesai. Cadence satu detik menghasilkan trafik berulang yang lebih besar dan dapat menambah biaya hosting/database; waktu aktual juga dipengaruhi latensi HTTP dan jadwal terminal. Deployment awal direncan
+akan menggunakan Autoscale/on-demand untuk membatasi komitmen biaya; bisa ada cold start setelah lama tidak aktif. Jangan memasang keep-alive buatan. Hosting always-on hanya dipertimbangkan bila uji EA menunjukkan perlu dan pemilik menyetujui biaya/konfirmasi Manus.
+[m 
+[m[31m-EA asal repo dapat memulai mode AUTO dan menjalankan trading. Versi Manus mengubah default untuk koneksi remote: EA baru memulai MANUAL; AUTO hanya aktif setelah perintah eksplisit dari dashboard. Selama pembangunan tidak akan ada token EA aktif atau order nyata. Sebelum penggunaan real, owner harus memverifikasi akun, simbol, lot, batas risiko, dan mode; pengujian pertama sebaiknya di akun demo.
+[m[32m+[m[32mEA asal repo dapat memulai mode AUTO dan menjalankan trading. Versi Manus memulai koneksi remote baru dalam MANUAL, lalu menyimpan mode yang diakui server: setelah AUTO dinyalakan eksplisit, setiap OnInit/restart harus membaca mode server sebelum telemetry dan memulihkan AUTO. Jika pembacaan mode gagal, tetap MANUAL dan jangan menimpa state server; perintah MANUAL dan Close eksplisit tetap beralih ke MANUAL. Resume AUTO setelah restart dapat kembali membuka trade sesuai logika EA, jadi uji di a
+kun demo dahulu. Selama pembangunan tidak akan ada token EA aktif atau order nyata.
+[m 
+[m ## Struktur proyek tujuan
+[m 
+[32mubuntu@sandbox:~/pilotmt5$ [0m
