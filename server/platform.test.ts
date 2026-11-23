@@ -3,11 +3,9 @@ import {
   publicPlatformConfig,
   publicPlatformScript,
 } from "./_core/publicConfig";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
 import { listLLMModels } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
-import { COOKIE_NAME } from "../shared/const";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -84,29 +82,9 @@ describe("current platform integration", () => {
       "originalImages"
     );
   });
-  it("uses a distinct secure app cookie behind the HTTPS Preview proxy", () => {
-    expect(COOKIE_NAME).not.toBe("app_session_id");
-    expect(
-      getSessionCookieOptions({ protocol: "http", headers: {} } as never)
-    ).toMatchObject({ secure: true, httpOnly: true, sameSite: "none" });
-  });
-  it("keeps plain-HTTP localhost cookie handling separate", () => {
-    expect(
-      getSessionCookieOptions({ hostname: "localhost" } as never)
-    ).toMatchObject({ secure: false, httpOnly: true, sameSite: "lax" });
-  });
-  it("binds signed app sessions to this project and accepts an empty display name", async () => {
-    vi.stubEnv("MANUS_PROJECT_ID", "project-test");
-    vi.stubEnv("MANUS_JWT_SECRET", "unit-test-signing-key-never-deployed");
-    const token = await sdk.signSession({
-      openId: "user-test",
-      appId: "project-test",
-      name: "",
-    });
-    expect(await sdk.verifySession(token)).toMatchObject({
-      openId: "user-test",
-    });
-    vi.stubEnv("MANUS_PROJECT_ID", "different-project");
-    expect(await sdk.verifySession(token)).toBeNull();
+  it("requires a Supabase bearer token for authenticated API requests", async () => {
+    await expect(
+      sdk.authenticateRequest({ headers: {}, path: "/api/mt5/dashboard/session" } as never)
+    ).rejects.toThrow("Supabase access token required");
   });
 });

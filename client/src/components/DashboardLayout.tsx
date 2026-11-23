@@ -19,8 +19,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { COOKIE_NAME, startLogin } from "@/const";
-import { apiUrl } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -60,23 +59,12 @@ export default function DashboardLayout({
     setPasswordLoginError("");
     setPasswordLoginPending(true);
     try {
-      const response = await fetch(apiUrl("/api/auth/password/login"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      if (!supabase) throw new Error("Layanan login belum dikonfigurasi. Hubungi owner.");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
       });
-      const result = await response.json().catch(() => null);
-      if (!response.ok || typeof result?.sessionToken !== "string")
-        throw new Error(result?.error ?? "Email atau kata sandi tidak valid.");
-      try {
-        sessionStorage.setItem(
-          "manus-cookie",
-          `${COOKIE_NAME}=${result.sessionToken}`
-        );
-      } catch {
-        // The regular secure cookie remains available when storage is blocked.
-      }
+      if (error) throw new Error("Email atau kata sandi tidak valid.");
       setLoginPassword("");
       await refresh();
     } catch (error) {
@@ -87,17 +75,6 @@ export default function DashboardLayout({
       );
     } finally {
       setPasswordLoginPending(false);
-    }
-  };
-
-  const startManusLogin = () => {
-    setPasswordLoginError("");
-    try {
-      startLogin();
-    } catch (error) {
-      setPasswordLoginError(
-        error instanceof Error ? error.message : "Login Manus tidak tersedia."
-      );
     }
   };
 
@@ -116,7 +93,7 @@ export default function DashboardLayout({
           <div className="pilot-auth-kicker">PILOT-MT5 · AKSES PRIVAT</div>
           <h1 id="pilot-auth-title">Masuk ke Pilot</h1>
           <p className="pilot-auth-copy">
-            Gunakan email dan kata sandi yang diberikan owner.
+            Gunakan email dan kata sandi akun Supabase Auth. Pengguna baru dapat mengatur kata sandi melalui tautan undangan dari owner.
           </p>
           <form className="pilot-auth-form" onSubmit={submitPasswordLogin}>
             <label>
@@ -155,14 +132,6 @@ export default function DashboardLayout({
               {passwordLoginPending ? "Memeriksa akses…" : "Masuk"}
             </button>
           </form>
-          <div className="pilot-auth-divider"><span>ATAU</span></div>
-          <button
-            type="button"
-            className="pilot-auth-manus"
-            onClick={startManusLogin}
-          >
-            Masuk dengan Manus
-          </button>
           <p className="pilot-auth-footnote">
             Akun dibuat oleh owner. Jika lupa kata sandi, minta owner mengatur
             ulang akses Anda.

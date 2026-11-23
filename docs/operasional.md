@@ -1,50 +1,37 @@
 # Panduan operasi MT5 Pilot
 
-## Batas migrasi
+## Arsitektur dan batas data
 
-Arsitektur target saat ini adalah frontend statis Vercel dan Express API pada VPS. Kode aplikasi masih menggunakan MySQL melalui Drizzle. Migrasi ke Supabase/PostgreSQL VPS belum dilakukan; migration lama di `supabase/migrations` belum direkonsiliasi dengan model aktif aplikasi.
-
-Jangan mengisi connection string PostgreSQL atau menjalankan migrasi sampai driver, schema, query, autentikasi, dan strategi data disiapkan pada fase migrasi tersendiri. Database Supabase VPS yang masih kosong tidak otomatis menerima daftar akun MT5, konfigurasi, atau histori yang mungkin berasal dari sumber lain. Dashboard hanya menampilkan metrik setelah telemetry EA diterima.
+Frontend statis Vercel memanggil Express API HTTPS di VPS. Supabase self-hosted pada VPS menyediakan Auth dan PostgreSQL; database baru kosong dan tidak ada data lama yang diimpor. Tidak ada provisioning atau migrasi yang sudah dijalankan. Jangan menganggap akun, saldo, histori, password, atau sesi dari sumber lama telah tersedia.
 
 ## Login dan role
 
-1. Masuk melalui tombol login Manus dengan akun yang emailnya sama dengan nilai `PILOT_OWNER_EMAIL` yang telah disimpan sebagai secret proyek. Identitas cocok pertama kali akan menjadi owner; klaim owner tidak dibuka untuk pengunjung lain.
-2. Jika akun Manus lain mendapat penolakan akses, owner dapat menambahkan email OAuth orang tersebut dari **Kelola pengguna**. Read-only dapat melihat dashboard dan log semua akun. Staff hanya mendapat akun yang dipilih dan hanya dapat menjalankan command pada akun itu.
-3. Cabut akses melalui **Kelola pengguna** bila dibutuhkan. Pengguna harus memakai akun Manus dengan email yang sama persis setelah normalisasi huruf besar/kecil.
+Autentikasi identitas menggunakan Supabase Auth. API Express memeriksa role dan scope pada operasi aplikasi. User Auth harus memiliki profile `public.users` dengan UUID sama persis dengan `auth.users.id`; migration fresh tidak membuat profil otomatis. Role aplikasi harus berasal dari proses tepercaya dan tidak boleh dipercaya dari browser.
 
 ## Menghubungkan Fast-Grid EA
 
-1. Kompilasi `ea/Fast-Grid-Pilot.mq5` di MetaEditor ke `.ex5` setelah meninjau source. Periksa tab Errors sebelum memasang EA.
-2. Login owner ke MT5 Pilot dan buat koneksi. Salin token yang ditampilkan satu kali; server menyimpan hash token, bukan token mentah. Jika token hilang, cabut koneksi lama lalu buat koneksi baru.
-3. Pada parameter EA, set `PilotApiBaseUrl` persis ke alamat API yang ditampilkan pada dialog koneksi (`https://<host-api>/api/mt5`) dan isi `EAConnectionToken` dengan token tersebut. Interval default EA adalah `InputPengirimanInfoKePilotMs=500` dan `InputPengecekanPerintahPilotMs=1000`; jangan menambahkan `?route=` atau mengirim token ke orang lain.
-4. Di MetaTrader, buka **Tools → Options → Expert Advisors**, aktifkan izin WebRequest, dan masukkan hanya origin HTTPS API yang ditampilkan aplikasi (contoh bentuk: `https://<host-api>`), bukan path `/api/mt5`.
-5. Gunakan akun demo dahulu. Periksa login/server MT5, simbol, mode Beli/Jual, lot, batas kerugian, target, Magic Number, dan semua parameter risiko.
+1. Kompilasi `ea/Fast-Grid-Pilot.mq5` di MetaEditor ke `.ex5` setelah meninjau source.
+2. Login dan buat koneksi melalui aplikasi; salin token yang hanya ditampilkan satu kali.
+3. Atur `PilotApiBaseUrl` ke endpoint HTTPS API dan isi token EA.
+4. Izinkan hanya origin HTTPS API pada WebRequest MT5.
+5. Uji pada akun demo; periksa simbol, mode, lot, batas risiko dan konfigurasi sebelum mempertimbangkan akun live.
 
-Koneksi EA remote baru dimulai dalam mode **MANUAL**. Setelah **AUTO** diaktifkan secara eksplisit dari chart/dashboard dan tersimpan di server, EA membaca mode tersebut lagi sebelum telemetry pertama setiap kali di-restart/re-attach. Perintah AUTO/MANUAL/Close yang sudah antre saat startup diproses lebih dahulu daripada mode lama di server; jika poll pertama gagal atau mode tidak bisa dipastikan, EA bertahan **MANUAL** dan tidak menulis state default ke server. Bila server saat ini menyimpan MANUAL (misalnya pernah tertimpa oleh EA versi lama), tekan AUTO sekali lagi. Perintah MANUAL dan perintah Close eksplisit tetap memindahkan EA ke MANUAL demi mencegah entry ulang otomatis setelah penutupan. AUTO dapat melanjutkan pembukaan posisi setelah restart; uji di akun demo dahulu. Selama migrasi dan validasi Manus, EA tidak dipasang ke akun broker live dan tidak ada order nyata yang dikirim.
+Koneksi EA remote baru dimulai MANUAL. AUTO dapat melanjutkan pembukaan posisi setelah restart; uji dahulu di akun demo. Selama perubahan ini tidak ada order nyata yang dikirim.
 
-## Polling, status, dan keamanan
+## Environment dan keamanan
 
-- Default telemetry EA adalah 500 ms, polling perintah 1000 ms, dan Running/Profit kartu diperbarui setiap 500 ms setelah telemetry tersedia. Waktu aktual dapat lebih lambat karena jadwal terminal, latensi jaringan, serta WebRequest sinkron.
-- Owner dapat mengubah kedua interval per akun melalui pengaturan pada kartu EA; EA juga menyediakan input yang sama. Akun baru mengambil input EA sebagai nilai awal; akun lama mempertahankan nilai server. Setelah input pertama tercatat, perubahan input EA berikutnya dikirim ke server. Perubahan terakhir dari EA atau kartu menjadi konfigurasi tersimpan dan diterapkan pada polling berikutnya.
-- Pada interval default, satu EA yang selalu aktif dapat menghasilkan sekitar 172.800 request telemetry dan 86.400 polling perintah per hari (259.200 request gabungan); dashboard terbuka juga meminta metrik sekitar dua kali per detik. Angka aktual dapat lebih rendah karena latensi/request sinkron. Pantau pemakaian API, database, dan tagihan Manus.
-- Jika telemetry dan polling perintah sama-sama jatuh tempo, EA mengirim telemetry lebih dulu. Karena WebRequest sinkron dengan timeout 3 detik, perintah remote seperti MANUAL/Close dapat tertunda sampai request telemetry selesai; prioritas ini dipilih untuk akun demo.
-- Pada startup, perintah mode eksplisit AUTO/MANUAL/Close yang sudah antre diproses sebelum telemetry dan mendahului mode tersimpan yang lama. Perintah baru tetap bergantung pada interval polling dan latensi jaringan; remote MANUAL/Close bukan tombol emergency stop instan.
-- Setelah mengubah source `.mq5`, compile ulang di MetaEditor dan ganti file `.ex5` yang sedang dipakai terminal MT5. Server Manus tidak dapat memperbarui EA yang sudah berjalan di komputer pengguna.
-- Status online memakai heartbeat maksimal 20 detik. API tidak menerima command bila EA offline atau heartbeat kedaluwarsa.
-- Command berjalan melalui queued → delivered → accepted → succeeded/failed; antrean kedaluwarsa setelah batas waktu yang ditetapkan server. Kartu menampilkan status, tetapi “queued” bukan bukti order selesai.
-- Token EA dirahasiakan, disimpan sebagai hash di server, dan setiap token hanya memberi akses ke akun yang terikat padanya. Jangan menaruh token atau rahasia server di screenshot/log.
-- Menghapus koneksi mencabut token pada server dan menghapus histori command/audit milik akun tersebut. Lepas juga EA dari chart MT5 secara manual; API tidak dapat menghentikan terminal MT5 dari jarak jauh.
+`DATABASE_URL`, kredensial PostgreSQL, serta key/service secrets Supabase server-only disimpan hanya di Express VPS. Runtime menggunakan login database khusus yang diberi membership role NOLOGIN `pilot_api`; jangan gunakan akun postgres/admin atau service-role. `CORS_FRONTEND_ORIGIN` adalah origin frontend Vercel secara persis. Vercel hanya menerima `VITE_API_BASE_URL` dan, bila browser Auth langsung diperlukan, `VITE_SUPABASE_URL` serta anon/publishable `VITE_SUPABASE_ANON_KEY`. Semua `VITE_` bersifat publik; dilarang memasukkan password DB atau service-role/secret key.
 
-## Operasi hosting dan database
+Policy RLS pada migration memberi `pilot_api` hak penuh ke tabel aplikasi sehingga login tersebut harus eksklusif untuk API terpercaya. Jangan berikan role ini ke browser. Database tidak boleh dibuka langsung ke internet.
 
-Frontend statis dipublikasikan oleh Vercel. Express API berjalan terus-menerus pada VPS dan harus berada di belakang reverse proxy HTTPS; health check tanpa autentikasi tersedia di `/api/health`. Konfigurasikan CORS dengan origin frontend yang tepat. Host API dan port database internal tidak boleh dibuka langsung tanpa kebutuhan dan perlindungan yang sesuai.
+## Provisioning/migrasi database (belum dilakukan)
 
-Database aplikasi masih memakai MySQL sesuai schema aktif. Migrasi ke Supabase/PostgreSQL VPS ditunda dan perlu dilakukan sebagai perubahan terpisah setelah schema dan driver aplikasi direkonsiliasi. Jangan menjalankan `pnpm db:migrate` atau `pnpm db:push` untuk menyiapkan deployment frontend/API ini. Simpan backup sebelum fase migrasi dan validasi pada lingkungan non-live.
+Tinjau `supabase/migrations/20261123150000_pilot_mt5_postgres_fresh.sql` dan rencanakan provisioning sesuai [panduan deployment](deploy-vercel.md). Migrasi belum dijalankan; jangan jalankan `db:migrate`, `db:push`, atau SQL pada server tanpa persetujuan eksplisit. Setup role login runtime, keanggotaan `pilot_api`, kredensial, dan backup ditangani administrator VPS sesuai kebijakan setempat—migration tidak menghardcode username/password. Migrasi tidak mengimpor data dan tidak membuat trigger profile Auth.
 
-## Pemecahan masalah
+## Polling dan trading
 
-- **Login berhasil tetapi akses ditolak:** cek `PILOT_OWNER_EMAIL` untuk owner pertama; pengguna lain harus diundang dengan email Manus yang benar.
-- **Tidak ada telemetry:** periksa `PilotApiBaseUrl`, token, izin WebRequest untuk origin API VPS, koneksi internet terminal, CORS/reverse proxy, dan status EA. Token yang dicabut tidak dapat dipakai lagi.
-- **EA offline:** heartbeat melewati 20 detik atau EA belum mengirim telemetry. Jangan mengirim command trading sampai status online dan identitas akun benar.
-- **Command kedaluwarsa:** cek koneksi MT5, WebRequest/allow-list dan Journal MT5. Jangan kirim ulang BUY/SELL sebelum memastikan tidak ada posisi/order yang sudah berubah.
-- **Konfigurasi belum terkonfirmasi:** tunggu telemetry EA yang mencerminkan konfigurasi baru dan cek log aktivitas sebelum mengulang.
+- Default telemetry 500 ms dan polling perintah 1000 ms; WebRequest sinkron/latensi dapat menambah waktu.
+- Status online bergantung heartbeat dan command queued bukan bukti order selesai.
+- Jangan gunakan remote MANUAL/Close sebagai emergency stop instan.
+- Setelah mengubah source `.mq5`, compile ulang dan ganti `.ex5` pada terminal MT5.
+- Jangan kirim BUY/SELL ulang sebelum memeriksa apakah posisi/order sudah berubah.

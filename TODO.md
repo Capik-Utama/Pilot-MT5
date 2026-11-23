@@ -1,72 +1,34 @@
-# TODO Migrasi Pilot-MT5 ke Manus
+# TODO Migrasi Pilot-MT5 — Supabase VPS + Express + Vercel
 
-## [ ] Autentikasi email/password lokal, Manus OAuth, dan role akses
+## [x] Auth Supabase dan kontrol akses berbasis UUID
 
-- Halaman login menyediakan email+password dan tombol Manus OAuth; kedua jalur memakai cookie/sesi aplikasi yang sama dan role/scope tetap diperiksa server-side.
-- Owner dapat membuat akun staff/read-only langsung dengan email+password, mengatur ulang password pengguna, serta menyetel password lokalnya sendiri; tidak ada sign-up publik.
-- Password minimal 12 karakter disimpan hanya sebagai hash scrypt bersalt; tidak pernah dikirim kembali ke browser, dicatat di log, atau disimpan plaintext. Login menampilkan pesan generik dan membatasi percobaan berulang.
-- Owner, staff, dan read-only dapat login dengan email+password tanpa memiliki akun Manus. Manus OAuth tetap tersedia dan dapat memakai akses yang sama bila email terverifikasi cocok.
-- Owner awal tetap diamankan oleh bootstrap Manus OAuth yang sudah ada; setelah owner menyetel password lokal, Manus tidak wajib untuk login berikutnya.
-- Owner dapat mencabut atau mengubah role sesuai kontrol yang tersedia di aplikasi.
-- Read-only dapat melihat dashboard/log semua akun owner tetapi tidak dapat membuat EA, mengubah konfigurasi, menghapus akun, mengelola pengguna, atau mengirim command; staff hanya dapat melihat/mengelola log pada akun yang ditugaskan.
-- Staff hanya dapat menjalankan command pada akun yang ditugaskan; staff tidak dapat mengubah konfigurasi, pengguna, atau akun koneksi.
-- Pengguna/password lama Supabase tidak dianggap termigrasi; data akses lama perlu diprovisi ulang.
+- Browser menggunakan Supabase Auth email/password, memproses sesi dan sign-out melalui klien Supabase; dashboard mengirim access token sebagai Bearer ke Express.
+- Express memverifikasi token melalui Supabase Auth, memerlukan email terverifikasi, serta menyinkronkan profil UUID tanpa menyalin kredensial.
+- Owner hanya di-bootstrap jika email terverifikasi cocok dengan `PILOT_OWNER_EMAIL`; anggota tidak memperoleh akses hanya karena email cocok. Role dan scope akun dicek di server.
+- Invite/revoke pengguna menggunakan Supabase Auth Admin API; password tidak disimpan/hash pada tabel Pilot.
+- OAuth Manus dan password-auth lokal ditutup dengan HTTP 410; tidak ada pemulihan otomatis kredensial/data lama.
 
-## [ ] Dashboard telemetry dan manajemen akun EA
+## [x] Schema fresh PostgreSQL dan koneksi Express
 
-- Dashboard menampilkan telemetry MT5 yang benar-benar diterima dari EA, termasuk identitas broker/login/server, saldo, equity, currency, profit harian, floating profit, floating maksimum/drawdown per sisi, posisi terbuka, mode/status EA, koneksi, heartbeat, dan latency.
-- Tidak menampilkan saldo atau transaksi sintetis sebagai data nyata.
-- Owner dapat membuat koneksi EA dengan token acak berentropi tinggi; token mentah hanya ditampilkan sekali, sedangkan server hanya menyimpan hash dan token hint.
-- Owner dapat mencari/filter akun, menyegarkan dashboard, mengubah label, mengubah preferensi UI yang didukung, mengatur interval refresh lokal, mengedit konfigurasi EA, mengatur interval telemetry dan polling command per akun dari kartu, serta menghapus koneksi dengan konfirmasi.
-- Data kosong/offline ditampilkan secara jelas ketika akun belum menerima telemetry atau heartbeat kedaluwarsa.
+- Model Drizzle dan SQL fresh migration memakai PostgreSQL, UUID Supabase Auth, FK, unique/check constraints, role access dan RLS.
+- Express mengakses DB lewat driver `pg`/Drizzle dan koneksi runtime `DATABASE_URL`; kredensial privileged tidak berada pada frontend.
+- Migration membuat schema kosong tanpa seed/import data lama. SQL belum diterapkan.
+- Role grup `pilot_api` NOLOGIN dan persyaratan dedicated runtime membership didokumentasikan; provisioning belum dijalankan.
 
-## [ ] Kontrol dan audit antrean trading
+## [x] Frontend Vercel dan API VPS
 
-- Aksi Auto, Manual, BUY, SELL, Reset, Close Buy, Close Sell, dan Close All memakai akun yang dipilih; command hanya dapat dikirim sesuai role, assignment staff, dan status online.
-- Command memiliki status queued, delivered, accepted, succeeded, failed, atau expired; masa berlaku, acknowledgement, hasil ringkas, dan event audit disimpan.
-- Command close hanya menargetkan simbol chart/Magic Number Fast-Grid dan mengalihkan EA ke Manual sesuai perilaku EA yang didokumentasikan.
-- Koneksi remote baru tanpa mode tersimpan memulai dalam mode MANUAL; AUTO hanya aktif setelah perintah eksplisit dari dashboard/chart. Pada setiap OnInit/restart, EA mengambil mode terakhir dari server sebelum telemetry pertama; jika mode server tidak bisa dibaca, EA tetap MANUAL dan tidak menimpa mode tersimpan dengan telemetry default. Jika poll startup memuat perintah AUTO/MANUAL/Close yang masih antre, perintah eksplisit tersebut diproses lebih dahulu daripada mode lama yang tersimpan.
-- Mode AUTO yang sebelumnya diakui server tetap AUTO setelah EA diinisialisasi ulang. Perintah MANUAL atau Close eksplisit tetap memindahkan EA ke MANUAL; Close tidak memulihkan AUTO secara otomatis.
-- Dashboard menunjukkan status proses dan tidak menyatakan order berhasil hanya karena perintah telah masuk antrean.
-- Selama pengembangan/pengujian Manus, tidak menghubungkan EA ke broker live atau mengirim order nyata.
+- Vercel tetap membangun frontend statis; request `/api/*` menuju Express API pada origin publik yang diatur `VITE_API_BASE_URL`.
+- CORS Express memakai daftar origin frontend eksplisit `CORS_FRONTEND_ORIGIN`.
+- Auth browser hanya memakai URL dan key anon/publishable; Supabase secret/service-role, password DB dan `DATABASE_URL` hanya di VPS.
+- UI login/email invitation diselaraskan dengan Supabase Auth; fitur panel EA dan perilaku UI yang ada dipertahankan.
 
-## [ ] API MT5 aman tanpa Supabase
+## [x] Validasi lokal
 
-- EA mengirim telemetry, mengambil polling command/config, dan mengirim acknowledgement melalui endpoint HTTPS pada host Manus; source EA dan panduan setup menggunakan URL tersebut sebagai input yang dapat dikonfigurasi.
-- Token EA diverifikasi dengan hash; semua endpoint EA memvalidasi payload, mengisolasi akun berdasar token, tidak membocorkan rahasia, dan menerapkan timeout/expiry/idempotensi serta transisi status yang sah.
-- Endpoint dashboard memverifikasi Manus OAuth dan role/scoping di server; tidak mempercayai role yang dikirim browser.
-- Perintah dashboard ditolak jika akun tidak online, role/scope tidak cocok, atau ada command aktif yang bertentangan.
+- `pnpm check`, `pnpm test`, dan `pnpm build` berhasil. Build menampilkan peringatan non-blocking terkait script runtime config yang tidak dapat di-bundle sebagai modul dan ukuran chunk JavaScript di atas 500 kB.
+- `git diff --check` bersih.
 
-## [ ] Database dan pemindahan logika backend
+## [ ] Provisioning/deployment terpisah — tidak dilakukan dalam tugas ini
 
-- Semua tabel aplikasi tersimpan di database MySQL terkelola Manus dengan migrasi Drizzle yang berulang aman dan terdokumentasi.
-- Logika dashboard dan EA dari Supabase Edge Function dipindahkan ke Express/TypeScript; fitur tidak bergantung pada Supabase client, SDK, JWT, Edge Functions, RLS, atau Realtime.
-- Data baru bertahan di database Manus setelah aplikasi dimulai ulang/publish ulang; pengujian tidak memasukkan record keuangan fiktif.
-- Data/akun lama dari Supabase tidak dimigrasikan tanpa backup/export dan sumber akses yang sah; status keterbatasan dinyatakan di dokumentasi.
-
-## [ ] Build, publikasi, dan panduan operasi Manus
-
-- Frontend dan API menggunakan satu proyek Manus; endpoint API same-origin dan health `/api/health` mengembalikan sukses tanpa login.
-- Tidak ada ketergantungan runtime pada GitHub, Vercel, Supabase, Appwrite, server VPS pengguna, atau alamat proyek lama; tidak menyimpan service secret di bundle browser.
-- Proyek lolos pemeriksaan TypeScript, build dan tes yang tersedia; publikasi dilakukan melalui Manus setelah perubahan tersimpan sebagai checkpoint Manus.
-- Deployment awal menggunakan hosting Manus on-demand/Autoscale; tidak mengaktifkan always-on atau auto-publish tanpa persetujuan terpisah.
-- Dokumentasi menjelaskan login/role, pembuatan token dan setup EA, URL HTTPS Manus yang dipakai, allow-list WebRequest MT5, perilaku koneksi, biaya pemakaian yang perlu dipantau, backup data, dan kewajiban compile/update EA sebelum mengalihkan koneksi.
-
-## [ ] Pemulihan ketika pemeriksaan akses tidak merespons
-
-- Jika pemeriksaan role `/api/mt5/dashboard/session` tidak mendapat jawaban dalam 15 detik, dashboard membatalkan request, menghentikan loading, dan menampilkan pesan pemulihan dalam bahasa Indonesia.
-- Pengguna dapat mencoba ulang pemeriksaan akses atau keluar; layar “MEMERIKSA AKSES MT5 PILOT” tidak boleh menggantung tanpa batas.
-
-## [ ] Pemeriksaan akses stabil setelah Manus OAuth
-
-- Setelah sesi Manus valid, pemeriksaan role hanya berjalan saat identitas sesi berubah atau pengguna memilih coba lagi; render dashboard biasa tidak boleh mengulang pemeriksaan dan mengosongkan role.
-- Setelah role sah diterima, header, menu, konten akun, dan navigasi dashboard harus tetap tampil agar owner dapat membuka menu dan menambah EA.
-
-## [ ] Refresh adaptif kartu beranda dan angka Running/Profit
-
-- Jika daftar kartu EA kosong, halaman memeriksa ulang daftar setiap 5 detik.
-- Jika kartu menampilkan EA yang sudah mengirim telemetry, angka Running dan Profit diperbarui melalui polling ringan setiap 500 ms, tanpa memuat ulang detail kartu, command, atau log pada frekuensi itu.
-- Angka mengikuti telemetry nyata EA dan tetap menampilkan placeholder sampai telemetry diterima; tidak membuat data sintetis.
-- Parameter EA dan kartu per akun menyediakan pengiriman telemetry default 500 ms serta polling command default 1000 ms; nilai server disimpan per akun dan disinkronkan ke EA. Perubahan input EA eksplisit dikirim ke Pilot; pengaturan kartu juga diterapkan pada polling berikutnya.
-- Setelah mengganti source `.mq5`, pengguna harus compile ulang dan mengganti `.ex5` di terminal MT5 agar cadence baru berlaku. Runtime nyata dapat lebih lambat daripada interval target karena jadwal terminal dan latensi WebRequest.
-- Jika telemetry dan polling perintah sama-sama jatuh tempo, telemetry dikirim lebih dulu. Pada 500 ms, WebRequest sinkron dapat menunda perintah kontrol sampai 3 detik saat request telemetry lambat; volume telemetry per EA kira-kira dua kali cadence 1 detik, sehingga biaya API/database perlu dipantau.
+- Buat database Auth/role runtime dan terapkan migration hanya setelah tinjauan/otorisasi terpisah; jangan import data lama.
+- Set konfigurasi SMTP, redirect allowlist Supabase, secret API/VPS, origin Vercel dan CORS.
+- Deploy API/Vercel, lalu validasi login dan koneksi EA pada lingkungan demo. Tidak ada migration SQL, perubahan database, atau deployment yang dilakukan sebagai bagian perubahan ini.

@@ -2,7 +2,6 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
-import { ENV } from "./env";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -37,11 +36,12 @@ export const ownerProcedure = t.procedure.use(
     if (ctx.req.header("x-mt5-client") !== "dashboard") {
       throw new TRPCError({ code: "FORBIDDEN", message: "Permintaan kontrol harus berasal dari dashboard." });
     }
-    if (!ENV.ownerOpenId) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Akses terkunci: OWNER_OPEN_ID belum dikonfigurasi." });
+    const ownerEmail = process.env.PILOT_OWNER_EMAIL?.trim().toLowerCase();
+    if (!ownerEmail) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Akses terkunci: PILOT_OWNER_EMAIL belum dikonfigurasi." });
     }
-    if (ctx.user.openId !== ENV.ownerOpenId) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Akses hanya tersedia bagi identitas pemilik." });
+    if (ctx.user.email?.trim().toLowerCase() !== ownerEmail) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Akses hanya tersedia bagi pemilik." });
     }
     return next({ ctx: { ...ctx, user: ctx.user } });
   }),
@@ -51,7 +51,7 @@ export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user || ctx.user.email?.trim().toLowerCase() !== process.env.PILOT_OWNER_EMAIL?.trim().toLowerCase()) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

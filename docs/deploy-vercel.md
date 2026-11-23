@@ -1,42 +1,29 @@
 # Deployment Pilot-MT5
 
-Arsitektur yang disiapkan memisahkan frontend statis Vite di Vercel dari Express API di VPS. EA MT5 dan frontend mengakses API VPS melalui HTTPS. Database pada aplikasi masih memakai MySQL; migrasi ke Supabase/PostgreSQL di VPS sengaja belum dilakukan.
+Arsitektur target: frontend statis Vite di Vercel, Express API persisten dan Supabase self-hosted (Auth + PostgreSQL) di VPS. Tidak ada provisioning, migrasi, atau deployment yang dijalankan sebagai bagian perubahan ini. Database masih baru/kosong dan tidak ada impor data lama.
 
 ## Vercel: frontend
 
-Hubungkan repository GitHub ke Vercel dengan root directory repository. Gunakan build command `pnpm build:vercel` dan output directory `dist/public`. Tambahkan environment variable `VITE_API_BASE_URL=https://api.example.com` pada Vercel untuk Production dan Preview yang memang akan digunakan. Build script sengaja gagal jika variable ini kosong, supaya frontend tanpa URL API tidak terpublikasi. Nilainya adalah origin publik API saja, tanpa path `/api` dan tanpa slash akhir. Variable `VITE_` masuk ke bundle browser, sehingga isinya hanya boleh berupa URL publik—jangan simpan secret, token, maupun kredensial database di Vercel.
+Gunakan build command `pnpm build:vercel` dan output directory `dist/public`. Atur `VITE_API_BASE_URL=https://api.example.com` (origin publik API saja, tanpa path dan slash akhir). Nilai `VITE_` masuk ke bundle browser: hanya URL publik boleh digunakan. Jika browser memang mengakses Supabase Auth langsung, hanya `VITE_SUPABASE_URL` dan anon/publishable key `VITE_SUPABASE_ANON_KEY` yang boleh ada di Vercel. Jangan pernah memasukkan `DATABASE_URL`, password database, Supabase service-role/secret key, atau kredensial server lainnya ke Vercel.
 
-Vercel hanya membangun frontend. `/api/*` tidak disediakan oleh deployment Vercel ini. Pastikan domain frontend di Vercel sudah stabil sebelum mengisi allowlist CORS pada VPS.
+Vercel hanya menyajikan frontend; `/api/*` tetap berjalan pada VPS. API harus mengizinkan origin frontend melalui `CORS_FRONTEND_ORIGIN` (daftar origin persis dipisahkan koma, tanpa `*`).
 
-## VPS: Express API
+## VPS: Express API dan Supabase
 
-Jalankan Dockerfile repository sebagai container persisten pada VPS. Container mendengarkan port `3000`; pasang reverse proxy HTTPS di depannya dan arahkan hostname API ke container. Set `API_ONLY=true`, `PORT=3000`, `PUBLIC_API_URL` ke origin HTTPS API, `FRONTEND_URL` ke origin frontend, dan `CORS_ORIGINS` ke satu atau lebih origin frontend yang dipisahkan koma. CORS membandingkan origin secara persis; jangan memakai `*`. Tambahkan domain Preview hanya bila diperlukan.
+Express API berjalan pada VPS di belakang reverse proxy HTTPS. Konfigurasikan `PORT`, `API_ONLY=true`, `PUBLIC_API_URL`, dan `CORS_FRONTEND_ORIGIN`. Supabase self-hosted Auth/PostgreSQL juga berada pada VPS/private network; jangan membuka port PostgreSQL ke internet.
 
-Contoh setelah file environment runtime berada di luar repository pada `/srv/pilot-mt5-api/.env`:
+Environment server-only: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY` atau `SUPABASE_SERVICE_ROLE_KEY`, `PILOT_OWNER_EMAIL`, password/kredensial database, dan semua secret Auth. `DATABASE_URL` harus memakai login runtime tersendiri, bukan akun postgres/admin atau service-role. `/api/health` tidak memerlukan login dan hanya menguji proses Express, bukan koneksi DB.
 
-```sh
-docker build -t pilot-mt5-api .
-docker run -d --name pilot-mt5-api --restart unless-stopped \
-  --env-file /srv/pilot-mt5-api/.env \
-  -p 127.0.0.1:3000:3000 pilot-mt5-api
-```
+### Provisioning database yang belum dilakukan
 
-Reverse proxy HTTPS dapat meneruskan hostname API ke `127.0.0.1:3000`; pemetaan port loopback ini tidak membuka port aplikasi ke internet secara langsung.
+1. Administrator Supabase/database yang berwenang meninjau file `supabase/migrations/20261123150000_pilot_mt5_postgres_fresh.sql` pada database baru. Jangan menjalankannya tanpa persetujuan eksplisit. SQL membuat role grup `pilot_api NOLOGIN`, tabel `public`, FK ke `auth.users`, RLS `FORCE`, dan kebijakan/grant role API; tidak ada seed atau sinkronisasi profil otomatis.
+2. Buat akun database runtime tersendiri dan berikan membership `pilot_api` menggunakan administrator yang sah. Migrasi tidak menebak username login dan tidak menyetel password. Simpan password hanya sebagai secret pada Express VPS. Jangan gunakan user admin/migration sebagai runtime. `pilot_api` sendiri NOLOGIN dan bukan kredensial koneksi.
+3. Pastikan user Auth dibuat melalui Supabase Auth dan bahwa `public.users.id` sama persis dengan `auth.users.id`. Tidak ada trigger signup dalam migrasi ini; aplikasi harus membuat/memelihara profile row sesuai alur Auth, atau trigger terpisah harus dirancang dan ditinjau.
+4. Periksa perilaku RLS dengan login runtime. Policy migrasi memberi anggota role `pilot_api` akses penuh ke tabel aplikasi; ini hanya aman jika kredensialnya eksklusif untuk backend terpercaya. Browser tidak boleh terhubung dengan role ini.
+5. Isi `DATABASE_URL` dan kredensial Supabase server-side setelah provisioning dan validasi non-produksi. Tidak ada langkah ini yang dilakukan saat ini.
 
-Konfigurasikan environment server sesuai `.env.example`. `APP_SESSION_SECRET`, kredensial OAuth, serta `DATABASE_URL` adalah rahasia runtime di VPS dan tidak boleh dimasukkan ke build frontend. Endpoint readiness `GET /api/health` harus dapat dijangkau tanpa autentikasi. Endpoint ini hanya memastikan proses Express merespons; ia tidak memeriksa koneksi database. Jangan mengekspos port internal container atau port database langsung ke internet.
+Supabase migrasi membuat objek sebagai role administrator yang menerapkannya (bukan memindahkan ownership ke role runtime). Hak akses yang diperlukan diberikan eksplisit; role setup/admin tetap dikelola pemilik VPS. Sesuaikan prosedur role/member grant dengan kebijakan Supabase self-hosted setempat, jangan mengubah secret/hak akses dengan asumsi username bawaan.
 
-Semua endpoint aplikasi yang membaca atau menulis data masih membutuhkan MySQL yang dapat dijangkau melalui `DATABASE_URL`. Jika variabel itu kosong atau database tidak tersedia, `/api/health` masih dapat merespons tetapi endpoint aplikasi akan gagal. Karena target Supabase VPS masih kosong dan driver PostgreSQL belum digunakan, struktur ini belum siap untuk deployment operasional sampai database aktif dikonfigurasi atau migrasi database diselesaikan nanti.
+## Urutan aktivasi (panduan, tidak dijalankan)
 
-Untuk login OAuth lintas-origin, `MANUS_PROJECT_ID`, `MANUS_OAUTH_PORTAL_URL`, dan `MANUS_OAUTH_API_URL` harus diatur pada API VPS. Redirect callback OAuth harus memakai `https://<API_HOST>/api/oauth/callback`. URL frontend dan API yang dikonfigurasi harus berupa origin, bukan URL dengan path. Callback mengembalikan token sesi melalui URL fragment ke frontend; frontend menyimpannya dalam `sessionStorage` dan meneruskannya sebagai Bearer token. Cookie lintas-origin juga memakai HTTPS, tetapi Bearer token menjadi fallback jika browser membatasi cookie pihak ketiga. Login belum dianggap teruji sebelum origin, OAuth project, dan secret server benar-benar dikonfigurasi.
-
-Password/session dan identitas pengguna tetap diproses API. EA harus memakai URL `https://<API_HOST>/api/mt5` dan allow-list WebRequest MT5 hanya memerlukan origin `https://<API_HOST>`.
-
-## Database: belum dimigrasi
-
-Kode aktif pada branch ini masih menggunakan driver dan schema Drizzle MySQL. Jangan mengisi `DATABASE_URL` dengan connection string PostgreSQL Supabase sebelum driver, schema, query, migration, serta autentikasi direkonsiliasi. Berkas `supabase/migrations` yang sudah ada memakai model berbeda dan bukan schema aktif aplikasi. Karena database Supabase VPS masih kosong, fase berikutnya perlu menetapkan schema kanonis dan melakukan migrasi secara terpisah. Jangan menjalankan migrasi database sebagai bagian dari setup frontend/API ini.
-
-Alamat `https://personal-database.my.id` yang diberikan sebelumnya merespons Basic Auth pada root dan belum terverifikasi sebagai endpoint Postgres atau Supabase API. Jangan gunakan root URL itu sebagai connection string database.
-
-## Urutan aktivasi
-
-Setelah konfigurasi domain dan environment siap, deploy API VPS lebih dahulu, verifikasi `/api/health`, lalu deploy frontend Vercel. Uji CORS, login, halaman dashboard, dan request EA pada akun demo sebelum menghubungkan akun live. Jangan kirim secret melalui chat atau commit file environment lokal.
+Provision Supabase dan database lebih dahulu, tinjau serta terapkan migrasi hanya setelah persetujuan, uji Express/API pada lingkungan non-produksi, lalu deploy API VPS dan frontend Vercel. Verifikasi CORS, Auth, dashboard dan koneksi EA di akun demo. Jangan kirim rahasia lewat chat atau commit file environment.

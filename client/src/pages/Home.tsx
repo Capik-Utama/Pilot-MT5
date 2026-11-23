@@ -27,8 +27,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getSessionAuthorizationHeaders, startLogin } from "@/const";
+import { getSessionAuthorizationHeaders } from "@/const";
 import { API_ORIGIN, apiUrl } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type Action =
@@ -382,8 +383,11 @@ function AccountTelemetry({
 }
 export default function Home() {
   const { theme, setTheme } = useTheme();
-  const { user, loading: authLoading, logout } = useAuth();
-  const [authMessage, setAuthMessage] = useState("");
+  const { user, loading: authLoading, logout, refresh } = useAuth();
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginPending, setLoginPending] = useState(false);
+  const [loginError, setLoginError] = useState("");
   const [accessRole, setAccessRole] = useState<AccessRole | null>(null);
   const [accessLoading, setAccessLoading] = useState(true);
   const [accessMessage, setAccessMessage] = useState("");
@@ -522,7 +526,7 @@ export default function Home() {
       const serializedBody =
         body === undefined ? undefined : JSON.stringify(body);
       const routeUrl = apiUrl(`/api/mt5${path}`);
-      const headers: Record<string, string> = getSessionAuthorizationHeaders();
+      const headers: Record<string, string> = await getSessionAuthorizationHeaders();
       if (serializedBody !== undefined)
         headers["Content-Type"] = "application/json";
       const requestHeaderText = Object.entries(headers)
@@ -541,7 +545,6 @@ ${serializedBody ?? ""}`).byteLength;
       try {
         const response = await fetch(routeUrl, {
           method,
-          credentials: "include",
           headers,
           ...(serializedBody === undefined ? {} : { body: serializedBody }),
           ...(controller ? { signal: controller.signal } : {}),
@@ -849,19 +852,6 @@ ${serializedBody ?? ""}`).byteLength;
     });
   }, [accounts, accountSearch, connectionFilter]);
 
-  const handleLogin = () => {
-    setAuthMessage("");
-    try {
-      startLogin();
-    } catch (error) {
-      setAuthMessage(
-        error instanceof Error
-          ? error.message
-          : "Login Manus tidak dapat dimulai."
-      );
-    }
-  };
-
   const loadActivityLogs = useCallback(async () => {
     if (!user) return;
     setLoadingLogs(true);
@@ -914,7 +904,7 @@ ${serializedBody ?? ""}`).byteLength;
       const refreshed = await callApi("/dashboard/users");
       setManagedUsers(refreshed.users ?? []);
       toast.success(
-        `Akses ${newUserRole === "staff" ? "staff" : "read-only"} diberikan kepada ${invitedEmail}.`
+        `Undangan Supabase untuk ${invitedEmail} berhasil dikirim.`
       );
     } catch (error) {
       toast.error(
@@ -1226,6 +1216,29 @@ ${serializedBody ?? ""}`).byteLength;
     }
   };
 
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loginPending) return;
+    setLoginPending(true);
+    setLoginError("");
+    try {
+      if (!supabase) throw new Error("Layanan login belum dikonfigurasi.");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+      if (error) throw new Error("Email atau kata sandi tidak valid.");
+      setLoginPassword("");
+      await refresh();
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : "Email atau kata sandi tidak valid."
+      );
+    } finally {
+      setLoginPending(false);
+    }
+  };
+
   if (authLoading)
     return (
       <main className="pilot-loading">
@@ -1250,28 +1263,45 @@ ${serializedBody ?? ""}`).byteLength;
         </a>
         <section className="pilot-auth-card">
           <div className="pilot-kicker">
-            <span /> LOGIN AMAN · MANUS OAUTH
+            <span /> LOGIN AMAN · SUPABASE
           </div>
           <h1>Masuk ke MT5 Pilot</h1>
           <p>
-            Gunakan akun Manus yang sudah didaftarkan owner. Akses dashboard
-            dibatasi berdasarkan role dan akun.
+            Masuk menggunakan akun Supabase Auth yang telah diundang owner.
+            Akses dashboard dibatasi berdasarkan role dan akun.
           </p>
-          {authMessage && (
-            <div className="pilot-auth-message" role="status">
-              {authMessage}
-            </div>
-          )}
-          <button
-            className="pilot-primary-button"
-            type="button"
-            onClick={handleLogin}
-          >
-            Masuk dengan Manus <ArrowUpRight size={16} />
-          </button>
+          <form className="pilot-auth-form" onSubmit={submitLogin}>
+            <label>
+              Email
+              <input
+                type="email"
+                autoComplete="username"
+                required
+                maxLength={320}
+                value={loginEmail}
+                onChange={event => setLoginEmail(event.target.value)}
+                placeholder="nama@contoh.com"
+              />
+            </label>
+            <label>
+              Kata sandi
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={loginPassword}
+                onChange={event => setLoginPassword(event.target.value)}
+                placeholder="Masukkan kata sandi"
+              />
+            </label>
+            {loginError && <p className="pilot-auth-error" role="alert">{loginError}</p>}
+            <button className="pilot-auth-submit" disabled={loginPending || !supabase}>
+              {loginPending ? "Memeriksa akses…" : "Masuk"}
+            </button>
+          </form>
           <div className="pilot-security">
-            <ShieldCheck size={15} /> Tidak ada password aplikasi yang disimpan
-            di dashboard.
+            <ShieldCheck size={15} /> Kredensial diverifikasi oleh Supabase Auth;
+            aplikasi tidak menyimpan password.
           </div>
         </section>
         <footer className="pilot-auth-footer">
@@ -1308,7 +1338,7 @@ ${serializedBody ?? ""}`).byteLength;
           <h1>Hubungi owner</h1>
           <p>
             {accessMessage ||
-              "Email akun Manus ini belum terdaftar di MT5 Pilot. Minta owner menambahkan akses untuk email yang sama."}
+              "Email ini belum terdaftar di MT5 Pilot. Minta owner menambahkan akses untuk email yang sama."}
           </p>
           <div className="pilot-auth-actions">
             <button
@@ -1943,7 +1973,7 @@ ${serializedBody ?? ""}`).byteLength;
               <code>
                 {typeof window !== "undefined"
                   ? API_ORIGIN
-                  : "HTTPS URL Manus"}
+                  : "HTTPS API URL"}
               </code>
             </div>
             <div className="pilot-modal-actions">
@@ -1994,7 +2024,7 @@ ${serializedBody ?? ""}`).byteLength;
             >
               <X size={18} />
             </button>
-            <div className="pilot-kicker">KONFIGURASI REMOTE · MANUS</div>
+            <div className="pilot-kicker">KONFIGURASI REMOTE · PILOT</div>
             <h2 id="pilot-config-title">Edit parameter EA</h2>
             <div className="pilot-card-name-editor">
               <label>
@@ -2247,17 +2277,17 @@ ${serializedBody ?? ""}`).byteLength;
             <div className="pilot-kicker">AKSES · OWNER ONLY</div>
             <h2 id="pilot-users-title">Kelola pengguna</h2>
             <p>
-              Tambahkan email akun Manus yang akan digunakan pengguna saat
-              login. Read-only hanya dapat melihat; staff hanya dapat
-              menjalankan tombol pada akun yang Anda pilih. Role dan assignment
-              diperiksa di server.
+              Undang alamat email melalui Supabase Auth. Pengguna mengatur kata
+              sandi melalui tautan undangan; Read-only hanya dapat melihat,
+              sedangkan staff hanya dapat menjalankan tombol pada akun yang
+              Anda pilih. Role dan assignment diperiksa di server.
             </p>
             <form
               className="pilot-user-create-form"
               onSubmit={createReadOnlyUser}
             >
               <label>
-                Email akun Manus
+                Email akun
                 <input
                   type="email"
                   autoComplete="off"

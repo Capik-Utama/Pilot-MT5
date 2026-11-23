@@ -1,20 +1,17 @@
 import type { Express, Request, Response } from "express";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gt, inArray, lte, sql } from "drizzle-orm";
-import { getDb } from "./db";
+import { getDb, upsertUserProfile } from "./db";
+import { getSupabaseAdminClient } from "./_core/supabase";
+import { isValidPassword } from "./_core/password";
 import { sdk } from "./_core/sdk";
-import {
-  hashPassword,
-  isValidPassword,
-  PASSWORD_LOGIN_METHOD,
-  verifyPassword,
-} from "./_core/password";
 import {
   mt5Accounts,
   mt5Commands,
   mt5CommandEvents,
   pilotUserAccess,
   pilotUserAccountAccess,
+  users,
 } from "../drizzle/schema";
 
 const ONLINE_WINDOW_MS = 20_000;
@@ -162,9 +159,9 @@ async function writeEvent(
   await db.insert(mt5CommandEvents).values({
     id: randomUUID(),
     commandId: c.id,
-    ownerOpenId: c.ownerOpenId,
+    ownerId: c.ownerId,
     accountId: c.accountId,
-    requestedByOpenId: c.requestedByOpenId ?? null,
+    requestedByUserId: c.requestedByUserId ?? null,
     status,
     message,
     createdAt: new Date(),
@@ -201,59 +198,23 @@ export function registerMt5ApiRoutes(app: Express) {
         try {
           user = await sdk.authenticateRequest(req);
         } catch {
-          return fail(res, 401, "Valid OAuth session required.");
+          return fail(res, 401, "Valid Supabase session required.");
         }
         const email =
           typeof user.email === "string" ? normEmail(user.email) : "";
-        if (!user.openId || !email || !validEmail(email))
-          return fail(res, 403, "OAuth account must provide a valid email.");
+        if (!user.id || !email || !validEmail(email))
+          return fail(res, 403, "Verified Supabase account must provide a valid email.");
         const rows = await db
           .select()
           .from(pilotUserAccess)
           .where(
             and(
-              eq(pilotUserAccess.openId, user.openId),
+              eq(pilotUserAccess.userId, user.id),
               eq(pilotUserAccess.email, email)
             )
           )
           .limit(1);
         access = rows[0];
-        if (!access) {
-          const emailMatches = await db
-            .select()
-            .from(pilotUserAccess)
-            .where(eq(pilotUserAccess.email, email))
-            .limit(2);
-          if (emailMatches.length === 1) {
-            let matchedAccess = emailMatches[0];
-            if (
-              matchedAccess.openId === null &&
-              user.loginMethod !== PASSWORD_LOGIN_METHOD
-            ) {
-              await db
-                .update(pilotUserAccess)
-                .set({ openId: user.openId })
-                .where(
-                  and(
-                    eq(pilotUserAccess.id, matchedAccess.id),
-                    sql`${pilotUserAccess.openId} IS NULL`
-                  )
-                );
-              const bound = await db
-                .select()
-                .from(pilotUserAccess)
-                .where(
-                  and(
-                    eq(pilotUserAccess.id, matchedAccess.id),
-                    eq(pilotUserAccess.openId, user.openId)
-                  )
-                )
-                .limit(1);
-              if (bound[0]) matchedAccess = bound[0];
-            }
-            access = matchedAccess;
-          }
-        }
         if (
           !access &&
           normEmail(process.env.PILOT_OWNER_EMAIL || "") === email
@@ -266,19 +227,19 @@ export function registerMt5ApiRoutes(app: Express) {
           if (!otherOwner) {
             await db.insert(pilotUserAccess).values({
               id: randomUUID(),
-              ownerOpenId: user.openId,
+              ownerId: user.id,
+              userId: user.id,
               email,
-              openId: user.openId,
               accessRole: "owner",
               createdAt: new Date(),
-            });
+            }).onConflictDoNothing();
             access = (
               await db
                 .select()
                 .from(pilotUserAccess)
                 .where(
                   and(
-                    eq(pilotUserAccess.openId, user.openId),
+                    eq(pilotUserAccess.userId, user.id),
                     eq(pilotUserAccess.email, email)
                   )
                 )
@@ -293,16 +254,16 @@ export function registerMt5ApiRoutes(app: Express) {
             "MT5 access has not been provisioned by the owner."
           );
       }
-      const owner = access?.ownerOpenId;
+      const owner = access?.ownerId;
       const requireOwner = () =>
-        access?.accessRole === "owner" && access.ownerOpenId === user.openId;
+        access?.accessRole === "owner" && access.ownerId === user.id;
       const ownAccount = async (id: string) =>
         (
           await db
             .select()
             .from(mt5Accounts)
             .where(
-              and(eq(mt5Accounts.id, id), eq(mt5Accounts.ownerOpenId, owner))
+              and(eq(mt5Accounts.id, id), eq(mt5Accounts.ownerId, owner))
             )
             .limit(1)
         )[0];
@@ -312,38 +273,12 @@ export function registerMt5ApiRoutes(app: Express) {
           user: {
             email: access.email,
             name: user.name,
-            has_password: Boolean(access.passwordHash),
+            has_password: false,
           },
           role: access.accessRole,
         });
-      if (path === "/dashboard/my-password" && req.method === "PATCH") {
-        const b = body(req);
-        if (!isValidPassword(b?.newPassword))
-          return fail(res, 400, "Kata sandi baru minimal 12 karakter.");
-        if (
-          access.passwordHash &&
-          user.loginMethod === PASSWORD_LOGIN_METHOD
-        ) {
-          const currentPassword =
-            typeof b?.currentPassword === "string" ? b.currentPassword : "";
-          const currentIsValid = await verifyPassword(
-            currentPassword,
-            access.passwordHash
-          ).catch(() => false);
-          if (!currentIsValid)
-            return fail(res, 401, "Kata sandi saat ini tidak valid.");
-        }
-        const passwordHash = await hashPassword(b.newPassword);
-        await db
-          .update(pilotUserAccess)
-          .set({
-            passwordHash,
-            failedPasswordAttempts: 0,
-            passwordLockedUntil: null,
-          })
-          .where(eq(pilotUserAccess.id, access.id));
-        return json(res, 200, { ok: true });
-      }
+      if (path === "/dashboard/my-password" && req.method === "PATCH")
+        return fail(res, 410, "Password management is handled by Supabase Auth.");
       if (path === "/dashboard/logs" && req.method === "GET") {
         const staffAccounts =
           access.accessRole === "staff"
@@ -352,8 +287,8 @@ export function registerMt5ApiRoutes(app: Express) {
                 .from(pilotUserAccountAccess)
                 .where(
                   and(
-                    eq(pilotUserAccountAccess.ownerOpenId, owner),
-                    eq(pilotUserAccountAccess.email, access.email)
+                    eq(pilotUserAccountAccess.ownerId, owner),
+                    eq(pilotUserAccountAccess.userId, user.id)
                   )
                 )
                 .limit(25)
@@ -363,10 +298,10 @@ export function registerMt5ApiRoutes(app: Express) {
           return json(res, 200, { logs: [] });
         const logScope = visibleAccountIds
           ? and(
-              eq(mt5Commands.ownerOpenId, owner),
+              eq(mt5Commands.ownerId, owner),
               inArray(mt5Commands.accountId, visibleAccountIds)
             )
-          : eq(mt5Commands.ownerOpenId, owner);
+          : eq(mt5Commands.ownerId, owner);
         const logs = await db
           .select()
           .from(mt5Commands)
@@ -379,22 +314,22 @@ export function registerMt5ApiRoutes(app: Express) {
           .where(
             visibleAccountIds
               ? and(
-                  eq(mt5Accounts.ownerOpenId, owner),
+                  eq(mt5Accounts.ownerId, owner),
                   inArray(mt5Accounts.id, visibleAccountIds)
                 )
-              : eq(mt5Accounts.ownerOpenId, owner)
+              : eq(mt5Accounts.ownerId, owner)
           )
           .limit(100);
         const users =
           access.accessRole === "owner"
             ? await db
                 .select({
-                  openId: pilotUserAccess.openId,
+                  userId: pilotUserAccess.userId,
                   email: pilotUserAccess.email,
                   accessRole: pilotUserAccess.accessRole,
                 })
                 .from(pilotUserAccess)
-                .where(eq(pilotUserAccess.ownerOpenId, owner))
+                .where(eq(pilotUserAccess.ownerId, owner))
                 .limit(100)
             : [];
         return json(res, 200, {
@@ -404,12 +339,12 @@ export function registerMt5ApiRoutes(app: Express) {
               accts.find(a => a.id === c.accountId)?.label || "EA account",
             actor_name:
               access.accessRole === "owner"
-                ? users.find(u => u.openId === c.requestedByOpenId)?.email ||
+                ? users.find(u => u.userId === c.requestedByUserId)?.email ||
                   "System"
                 : "",
             actor_role:
               access.accessRole === "owner"
-                ? users.find(u => u.openId === c.requestedByOpenId)
+                ? users.find(u => u.userId === c.requestedByUserId)
                     ?.accessRole || "system"
                 : "operator",
           })),
@@ -423,7 +358,7 @@ export function registerMt5ApiRoutes(app: Express) {
           .from(pilotUserAccess)
           .where(
             and(
-              eq(pilotUserAccess.ownerOpenId, user.openId),
+              eq(pilotUserAccess.ownerId, user.id),
               inArray(pilotUserAccess.accessRole, ["staff", "read_only"])
             )
           )
@@ -432,24 +367,30 @@ export function registerMt5ApiRoutes(app: Express) {
         const assigns = await db
           .select()
           .from(pilotUserAccountAccess)
-          .where(eq(pilotUserAccountAccess.ownerOpenId, user.openId))
+          .where(eq(pilotUserAccountAccess.ownerId, user.id))
           .limit(2500);
+        const profiles = rows.length
+          ? await db.select().from(users)
+              .where(inArray(users.id, rows.map(r => r.userId)))
+              .limit(100)
+          : [];
         const accts = await db
           .select({ id: mt5Accounts.id, label: mt5Accounts.label })
           .from(mt5Accounts)
-          .where(eq(mt5Accounts.ownerOpenId, user.openId))
+          .where(eq(mt5Accounts.ownerId, user.id))
           .limit(25);
         return json(res, 200, {
           users: rows.map(u => {
+            const profile = profiles.find(p => p.id === u.userId);
             const ids = assigns
-              .filter(x => x.email === u.email)
+              .filter(x => x.userId === u.userId)
               .map(x => x.accountId);
             return {
-              user_id: u.id,
-              email: u.email,
+              user_id: u.userId,
+              email: profile?.email || u.email,
               access_role: u.accessRole,
               created_at: u.createdAt,
-              has_password: Boolean(u.passwordHash),
+              has_password: false,
               account_ids: ids,
               account_labels: ids
                 .map(id => accts.find(a => a.id === id)?.label)
@@ -459,217 +400,76 @@ export function registerMt5ApiRoutes(app: Express) {
         });
       }
       if (path === "/dashboard/users" && req.method === "POST") {
-        if (!requireOwner())
-          return fail(res, 403, "Only the owner can invite users.");
-        const b = body(req),
-          email = typeof b?.email === "string" ? normEmail(b.email) : "",
-          role = b?.accessRole,
-          password = b?.password;
-        const ids =
-          Array.isArray(b?.accountIds) && b.accountIds.every(asId)
-            ? [...new Set(b.accountIds as string[])]
-            : [];
-        if (!validEmail(email))
-          return fail(res, 400, "A valid email is required.");
-        if (!isValidPassword(password))
-          return fail(res, 400, "Kata sandi minimal 12 karakter.");
-        if (!["staff", "read_only"].includes(role))
-          return fail(res, 400, "Role must be staff or read_only.");
-        if (role === "staff" && (ids.length < 1 || ids.length > 25))
-          return fail(res, 400, "Staff requires 1–25 assigned accounts.");
-        if (role === "read_only" && ids.length)
-          return fail(
-            res,
-            400,
-            "read_only users cannot have account assignments."
-          );
-        const dup = await db
-          .select({ id: pilotUserAccess.id })
-          .from(pilotUserAccess)
-          .where(
-            and(
-              eq(pilotUserAccess.ownerOpenId, user.openId),
-              eq(pilotUserAccess.email, email)
-            )
-          )
-          .limit(1);
-        if (dup.length) return fail(res, 409, "User already invited.");
-        const passwordHash = await hashPassword(password);
-        if (ids.length) {
-          const valid = await db
-            .select({ id: mt5Accounts.id })
-            .from(mt5Accounts)
-            .where(
-              and(
-                eq(mt5Accounts.ownerOpenId, user.openId),
-                inArray(mt5Accounts.id, ids)
-              )
-            )
-            .limit(25);
-          if (valid.length !== ids.length)
-            return fail(res, 400, "An assigned account is not owned by you.");
-        }
-        await db.transaction(async (tx: any) => {
-          await tx.insert(pilotUserAccess).values({
-            id: randomUUID(),
-            ownerOpenId: user.openId,
-            email,
-            openId: null,
-            accessRole: role,
-            passwordHash,
-            failedPasswordAttempts: 0,
-            passwordLockedUntil: null,
-            createdAt: new Date(),
+        if (!requireOwner()) return fail(res, 403, "Only the owner can invite users.");
+        const input = body(req), email = typeof input?.email === "string" ? normEmail(input.email) : "";
+        const role = input?.accessRole;
+        const accountIds = input?.accountIds;
+        if (!email || !validEmail(email)) return fail(res, 400, "Enter a valid email address.");
+        if (role !== "staff" && role !== "read_only") return fail(res, 400, "Invalid access role.");
+        if (!Array.isArray(accountIds) || accountIds.length > 25 || accountIds.some(id => !asId(id)) || new Set(accountIds).size !== accountIds.length || (role === "staff" && accountIds.length < 1) || (role === "read_only" && accountIds.length))
+          return fail(res, 400, "Invalid account assignments.");
+        const validAccounts = accountIds.length ? await db.select({ id: mt5Accounts.id }).from(mt5Accounts).where(and(eq(mt5Accounts.ownerId, user.id), inArray(mt5Accounts.id, accountIds))).limit(25) : [];
+        if (validAccounts.length !== accountIds.length) return fail(res, 400, "One or more assigned accounts are invalid.");
+        const admin = getSupabaseAdminClient();
+        let createdUserId: string | null = null;
+        try {
+          const created = await admin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: process.env.FRONTEND_URL,
           });
-          if (ids.length)
-            await tx.insert(pilotUserAccountAccess).values(
-              ids.map(accountId => ({
-                id: randomUUID(),
-                ownerOpenId: user.openId,
-                email,
-                accountId,
-                createdAt: new Date(),
-              }))
-            );
-        });
-        return json(res, 201, {
-          user: {
-            email,
-            access_role: role,
-            account_ids: ids,
-            has_password: true,
-          },
-        });
+          if (created.error || !created.data.user) return fail(res, 409, "Unable to send invitation; check whether the email is already registered and Auth email delivery is configured.");
+          createdUserId = created.data.user.id;
+          await upsertUserProfile({ id: createdUserId, email, name: null });
+          await db.transaction(async (tx: any) => {
+            await tx.insert(pilotUserAccess).values({ id: randomUUID(), ownerId: user.id, userId: createdUserId, email, accessRole: role, createdAt: new Date() });
+            if (accountIds.length) await tx.insert(pilotUserAccountAccess).values(accountIds.map((accountId: string) => ({ id: randomUUID(), ownerId: user.id, userId: createdUserId, accountId, createdAt: new Date() })));
+          });
+          return json(res, 201, { ok: true, email, access_role: role });
+        } catch {
+          if (createdUserId) { try { await admin.auth.admin.deleteUser(createdUserId); } catch { /* avoid exposing admin errors */ } }
+          return fail(res, 409, "Unable to grant access; verify the user and account details.");
+        }
       }
-      const userPasswordMatch = path.match(
-        /^\/dashboard\/users\/([^/]+)\/password$/
-      );
-      if (userPasswordMatch && req.method === "PATCH") {
-        if (!requireOwner())
-          return fail(res, 403, "Only the owner can manage user passwords.");
-        const email = normEmail(decodeURIComponent(userPasswordMatch[1]));
-        if (!validEmail(email) || email === normEmail(user.email))
-          return fail(res, 400, "Invalid user email.");
-        const target = (
-          await db
-            .select()
-            .from(pilotUserAccess)
-            .where(
-              and(
-                eq(pilotUserAccess.ownerOpenId, user.openId),
-                eq(pilotUserAccess.email, email),
-                inArray(pilotUserAccess.accessRole, ["staff", "read_only"])
-              )
-            )
-            .limit(1)
-        )[0];
+      const passwordMatch = path.match(/^\/dashboard\/users\/([^/]+)\/password$/);
+      if (passwordMatch && req.method === "PATCH") {
+        if (!requireOwner()) return fail(res, 403, "Only the owner can manage users.");
+        const email = normEmail(decodeURIComponent(passwordMatch[1]));
+        const target = (await db.select().from(pilotUserAccess).where(and(eq(pilotUserAccess.ownerId, user.id), eq(pilotUserAccess.email, email), inArray(pilotUserAccess.accessRole, ["staff", "read_only"]))).limit(1))[0];
         if (!target) return fail(res, 404, "User not found.");
         const password = body(req)?.password;
-        if (!isValidPassword(password))
-          return fail(res, 400, "Kata sandi minimal 12 karakter.");
-        const passwordHash = await hashPassword(password);
-        await db
-          .update(pilotUserAccess)
-          .set({
-            passwordHash,
-            failedPasswordAttempts: 0,
-            passwordLockedUntil: null,
-          })
-          .where(eq(pilotUserAccess.id, target.id));
-        return json(res, 200, { ok: true });
+        try { const result = await getSupabaseAdminClient().auth.admin.updateUserById(target.userId, { password }); if (result.error) throw result.error; return json(res, 200, { ok: true }); }
+        catch { return fail(res, 400, "Unable to update password."); }
       }
       const userMatch = path.match(/^\/dashboard\/users\/([^/]+)$/);
-      if (userMatch && (req.method === "PATCH" || req.method === "DELETE")) {
-        if (!requireOwner())
-          return fail(res, 403, "Only the owner can manage users.");
+      if (userMatch && req.method === "PATCH") {
+        if (!requireOwner()) return fail(res, 403, "Only the owner can manage users.");
         const email = normEmail(decodeURIComponent(userMatch[1]));
-        if (!validEmail(email) || email === normEmail(user.email))
-          return fail(res, 400, "Invalid user email.");
-        const target = (
-          await db
-            .select()
-            .from(pilotUserAccess)
-            .where(
-              and(
-                eq(pilotUserAccess.ownerOpenId, user.openId),
-                eq(pilotUserAccess.email, email),
-                inArray(pilotUserAccess.accessRole, ["staff", "read_only"])
-              )
-            )
-            .limit(1)
-        )[0];
+        const target = (await db.select().from(pilotUserAccess).where(and(eq(pilotUserAccess.ownerId, user.id), eq(pilotUserAccess.email, email), inArray(pilotUserAccess.accessRole, ["staff", "read_only"]))).limit(1))[0];
         if (!target) return fail(res, 404, "User not found.");
-        if (req.method === "DELETE") {
+        const input = body(req), role = input?.accessRole, accountIds = input?.accountIds;
+        if (role !== "staff" && role !== "read_only") return fail(res, 400, "Invalid access role.");
+        if (!Array.isArray(accountIds) || accountIds.length > 25 || accountIds.some((id: unknown) => !asId(id)) || new Set(accountIds).size !== accountIds.length || (role === "staff" && accountIds.length < 1) || (role === "read_only" && accountIds.length)) return fail(res, 400, "Invalid account assignments.");
+        const validAccounts = accountIds.length ? await db.select({ id: mt5Accounts.id }).from(mt5Accounts).where(and(eq(mt5Accounts.ownerId, user.id), inArray(mt5Accounts.id, accountIds))).limit(25) : [];
+        if (validAccounts.length !== accountIds.length) return fail(res, 400, "One or more assigned accounts are invalid.");
+        try { await db.transaction(async (tx: any) => {
+          await tx.update(pilotUserAccess).set({ accessRole: role }).where(and(eq(pilotUserAccess.id, target.id), eq(pilotUserAccess.ownerId, user.id), eq(pilotUserAccess.userId, target.userId)));
+          await tx.delete(pilotUserAccountAccess).where(and(eq(pilotUserAccountAccess.ownerId, user.id), eq(pilotUserAccountAccess.userId, target.userId)));
+          if (accountIds.length) await tx.insert(pilotUserAccountAccess).values(accountIds.map((accountId: string) => ({ id: randomUUID(), ownerId: user.id, userId: target.userId, accountId, createdAt: new Date() })));
+        }); return json(res, 200, { ok: true }); } catch { return fail(res, 409, "Unable to update user access."); }
+      }
+      if (userMatch && req.method === "DELETE") {
+        if (!requireOwner()) return fail(res, 403, "Only the owner can manage users.");
+        const email = normEmail(decodeURIComponent(userMatch[1]));
+        const target = (await db.select().from(pilotUserAccess).where(and(eq(pilotUserAccess.ownerId, user.id), eq(pilotUserAccess.email, email), inArray(pilotUserAccess.accessRole, ["staff", "read_only"]))).limit(1))[0];
+        if (!target) return fail(res, 404, "User not found.");
+        try {
           await db.transaction(async (tx: any) => {
-            await tx
-              .delete(pilotUserAccountAccess)
-              .where(
-                and(
-                  eq(pilotUserAccountAccess.ownerOpenId, user.openId),
-                  eq(pilotUserAccountAccess.email, email)
-                )
-              );
-            await tx
-              .delete(pilotUserAccess)
-              .where(eq(pilotUserAccess.id, target.id));
+            await tx.delete(pilotUserAccountAccess).where(and(eq(pilotUserAccountAccess.ownerId, user.id), eq(pilotUserAccountAccess.userId, target.userId)));
+            await tx.delete(pilotUserAccess).where(and(eq(pilotUserAccess.ownerId, user.id), eq(pilotUserAccess.userId, target.userId)));
           });
+          const removed = await getSupabaseAdminClient().auth.admin.deleteUser(target.userId);
+          if (removed.error) return fail(res, 409, "Unable to revoke user access.");
           return json(res, 200, { ok: true });
-        }
-        const b = body(req),
-          role = b?.accessRole,
-          ids =
-            Array.isArray(b?.accountIds) && b.accountIds.every(asId)
-              ? [...new Set(b.accountIds as string[])]
-              : [];
-        if (!["staff", "read_only"].includes(role))
-          return fail(res, 400, "Role must be staff or read_only.");
-        if (role === "staff" && (ids.length < 1 || ids.length > 25))
-          return fail(res, 400, "Staff requires 1–25 assigned accounts.");
-        if (role === "read_only" && ids.length)
-          return fail(
-            res,
-            400,
-            "read_only users cannot have account assignments."
-          );
-        if (ids.length) {
-          const valid = await db
-            .select({ id: mt5Accounts.id })
-            .from(mt5Accounts)
-            .where(
-              and(
-                eq(mt5Accounts.ownerOpenId, user.openId),
-                inArray(mt5Accounts.id, ids)
-              )
-            )
-            .limit(25);
-          if (valid.length !== ids.length)
-            return fail(res, 400, "An assigned account is not owned by you.");
-        }
-        await db.transaction(async (tx: any) => {
-          await tx
-            .update(pilotUserAccess)
-            .set({ accessRole: role })
-            .where(eq(pilotUserAccess.id, target.id));
-          await tx
-            .delete(pilotUserAccountAccess)
-            .where(
-              and(
-                eq(pilotUserAccountAccess.ownerOpenId, user.openId),
-                eq(pilotUserAccountAccess.email, email)
-              )
-            );
-          if (ids.length)
-            await tx.insert(pilotUserAccountAccess).values(
-              ids.map(accountId => ({
-                id: randomUUID(),
-                ownerOpenId: user.openId,
-                email,
-                accountId,
-                createdAt: new Date(),
-              }))
-            );
-        });
-        return json(res, 200, { ok: true });
+        } catch { return fail(res, 409, "Unable to revoke user access."); }
       }
       if (path === "/dashboard/metrics" && req.method === "GET") {
         let allowed: string[] | null = null;
@@ -679,8 +479,8 @@ export function registerMt5ApiRoutes(app: Express) {
             .from(pilotUserAccountAccess)
             .where(
               and(
-                eq(pilotUserAccountAccess.ownerOpenId, owner),
-                eq(pilotUserAccountAccess.email, access.email)
+                eq(pilotUserAccountAccess.ownerId, owner),
+                eq(pilotUserAccountAccess.userId, user.id)
               )
             )
             .limit(25);
@@ -689,10 +489,10 @@ export function registerMt5ApiRoutes(app: Express) {
         }
         const metricScope = allowed
           ? and(
-              eq(mt5Accounts.ownerOpenId, owner),
+              eq(mt5Accounts.ownerId, owner),
               inArray(mt5Accounts.id, allowed)
             )
-          : eq(mt5Accounts.ownerOpenId, owner);
+          : eq(mt5Accounts.ownerId, owner);
         const metrics = await db
           .select({
             id: mt5Accounts.id,
@@ -721,8 +521,8 @@ export function registerMt5ApiRoutes(app: Express) {
             .from(pilotUserAccountAccess)
             .where(
               and(
-                eq(pilotUserAccountAccess.ownerOpenId, owner),
-                eq(pilotUserAccountAccess.email, access.email)
+                eq(pilotUserAccountAccess.ownerId, owner),
+                eq(pilotUserAccountAccess.userId, user.id)
               )
             )
             .limit(25);
@@ -731,10 +531,10 @@ export function registerMt5ApiRoutes(app: Express) {
         }
         const accountFilter = allowed
           ? and(
-              eq(mt5Accounts.ownerOpenId, owner),
+              eq(mt5Accounts.ownerId, owner),
               inArray(mt5Accounts.id, allowed)
             )
-          : eq(mt5Accounts.ownerOpenId, owner);
+          : eq(mt5Accounts.ownerId, owner);
         const accountFields = {
           id: mt5Accounts.id,
           label: mt5Accounts.label,
@@ -788,7 +588,7 @@ export function registerMt5ApiRoutes(app: Express) {
               .from(mt5Commands)
               .where(
                 and(
-                  eq(mt5Commands.ownerOpenId, owner),
+                  eq(mt5Commands.ownerId, owner),
                   inArray(
                     mt5Commands.accountId,
                     accounts.map(a => a.id)
@@ -831,7 +631,7 @@ export function registerMt5ApiRoutes(app: Express) {
         const count = await db
           .select({ n: sql<number>`count(*)` })
           .from(mt5Accounts)
-          .where(eq(mt5Accounts.ownerOpenId, user.openId));
+          .where(eq(mt5Accounts.ownerId, user.id));
         if (Number(count[0]?.n || 0) >= 10)
           return fail(res, 429, "Maximum 10 accounts reached.");
         const token = randomBytes(32).toString("base64url"),
@@ -839,7 +639,7 @@ export function registerMt5ApiRoutes(app: Express) {
           id = randomUUID();
         const row = {
           id,
-          ownerOpenId: user.openId,
+          ownerId: user.id,
           label,
           tokenHash: hash(token),
           tokenHint: token.slice(-8),
@@ -970,9 +770,9 @@ export function registerMt5ApiRoutes(app: Express) {
             const now = new Date(),
               command = {
                 id: randomUUID(),
-                ownerOpenId: owner,
+                ownerId: owner,
                 accountId: a.id,
-                requestedByOpenId: user.openId,
+                requestedByUserId: user.id,
                 action: "config",
                 payload: cfg,
                 status: "queued",
@@ -989,9 +789,9 @@ export function registerMt5ApiRoutes(app: Express) {
             if (a.eaMode === "auto") {
               restore = {
                 id: randomUUID(),
-                ownerOpenId: owner,
+                ownerId: owner,
                 accountId: a.id,
-                requestedByOpenId: user.openId,
+                requestedByUserId: user.id,
                 action: "auto",
                 status: "queued",
                 createdAt: now,
@@ -1023,8 +823,8 @@ export function registerMt5ApiRoutes(app: Express) {
             .from(pilotUserAccountAccess)
             .where(
               and(
-                eq(pilotUserAccountAccess.ownerOpenId, owner),
-                eq(pilotUserAccountAccess.email, access.email),
+                eq(pilotUserAccountAccess.ownerId, owner),
+                eq(pilotUserAccountAccess.userId, user.id),
                 eq(pilotUserAccountAccess.accountId, a.id)
               )
             )
@@ -1039,9 +839,9 @@ export function registerMt5ApiRoutes(app: Express) {
           return fail(res, 409, "EA offline or heartbeat expired.");
         const c = {
           id: randomUUID(),
-          ownerOpenId: owner,
+          ownerId: owner,
           accountId: a.id,
-          requestedByOpenId: user.openId,
+          requestedByUserId: user.id,
           action,
           status: "queued",
           createdAt: new Date(),

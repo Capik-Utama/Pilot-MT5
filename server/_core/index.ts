@@ -2,8 +2,6 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { registerPasswordAuthRoutes } from "./passwordAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -11,7 +9,7 @@ import { serveStatic, setupVite } from "./vite";
 import { registerMt5ApiRoutes } from "../mt5-api";
 
 const allowedOrigins = new Set(
-  (process.env.CORS_ORIGINS ?? "")
+  (process.env.CORS_FRONTEND_ORIGIN ?? "")
     .split(",")
     .map(origin => origin.trim())
     .filter(Boolean)
@@ -26,9 +24,7 @@ async function startServer() {
     if (origin) {
       const requestOrigin = `${req.protocol}://${req.get("host")}`;
       const isSameOrigin = origin === requestOrigin;
-      const isOAuthRedirect =
-        req.method === "GET" && req.path === "/api/oauth/callback";
-      if (!allowedOrigins.has(origin) && !isSameOrigin && !isOAuthRedirect) {
+      if (!allowedOrigins.has(origin) && !isSameOrigin) {
         res.status(403).json({ error: "Origin not allowed" });
         return;
       }
@@ -65,8 +61,8 @@ async function startServer() {
       .type("application/javascript")
       .send(publicPlatformScript());
   });
-  registerOAuthRoutes(app);
-  registerPasswordAuthRoutes(app);
+  app.all("/api/oauth/*", (_req, res) => res.status(410).json({ error: "OAuth login is disabled." }));
+  app.all("/api/auth/password/*", (_req, res) => res.status(410).json({ error: "Password login is handled by Supabase Auth." }));
   registerMt5ApiRoutes(app);
   // tRPC API
   app.use(
