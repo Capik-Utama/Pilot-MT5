@@ -4623,6 +4623,22 @@ p {
   color: var(--p-text);
   background: #fff;
 }
+.pilot-config-grid .pilot-minimum-balance-field {
+  color: #60a5fa;
+}
+.pilot-config-grid .pilot-minimum-balance-field input {
+  color: #60a5fa;
+  border-color: #3b82f6;
+}
+.pilot-dashboard[data-theme="light"] .pilot-config-grid .pilot-minimum-balance-field,
+.pilot-dashboard[data-theme="blue-white"] .pilot-config-grid .pilot-minimum-balance-field {
+  color: #1d4ed8;
+}
+.pilot-dashboard[data-theme="light"] .pilot-config-grid .pilot-minimum-balance-field input,
+.pilot-dashboard[data-theme="blue-white"] .pilot-config-grid .pilot-minimum-balance-field input {
+  color: #1d4ed8;
+  border-color: #2563eb;
+}
 .pilot-dashboard[data-theme="blue-black"] .pilot-topbar {
   border-color: var(--p-line);
   background: rgba(5, 17, 34, 0.94);

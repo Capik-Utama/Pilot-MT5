@@ -162,6 +162,7 @@ const defaultEaConfig: EaConfig = {
   MinimumAutoBalanceUSD: 10,
 };
 const coreConfigFields = [
+  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (USD; USC ×100)", "number"],
   [
     "ModePerdagangan",
     "Mode perdagangan",
@@ -203,7 +204,6 @@ const coreConfigFields = [
   ["BatasKerugian", "Batas kerugian", "number"],
   ["JedaSetelahSLMenit", "Jeda setelah SL (menit)", "number"],
   ["TargetHarian", "Target harian", "number"],
-  ["MinimumAutoBalanceUSD", "Saldo minimum AUTO (USD; USC ×100)", "number"],
   [
     "SetelahTargetTercapai",
     "Setelah target tercapai",
@@ -2234,7 +2234,14 @@ ${serializedBody ?? ""}`).byteLength;
             <form onSubmit={saveConfig}>
               <div className="pilot-config-grid">
                 {coreConfigFields.map(([key, label, kind, options]) => (
-                  <label key={key}>
+                  <label
+                    key={key}
+                    className={
+                      key === "MinimumAutoBalanceUSD"
+                        ? "pilot-minimum-balance-field"
+                        : undefined
+                    }
+                  >
                     {label}
                     {kind === "select" ? (
                       <select

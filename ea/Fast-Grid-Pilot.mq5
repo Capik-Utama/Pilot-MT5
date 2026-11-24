@@ -393,7 +393,7 @@ void CreateDashboard() {
       ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, 250);
       ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, 15);
       ObjectSetInteger(0, bgName, OBJPROP_XSIZE, 310);
-      ObjectSetInteger(0, bgName, OBJPROP_YSIZE, 350);
+      ObjectSetInteger(0, bgName, OBJPROP_YSIZE, 372);
       ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, clrBlack);
       ObjectSetInteger(0, bgName, OBJPROP_COLOR, clrDarkGray);
       ObjectSetInteger(0, bgName, OBJPROP_STATE, false);
@@ -419,15 +419,16 @@ void CreateDashboard() {
    CreateUIButton("BtnIdr", "IDR", 160, 160, 68, 22, clrGray, clrWhite, 12);
    CreateUIButton("BtnCent", "CENT", 80, 160, 68, 22, clrGray, clrWhite, 12);
 
-   CreateUILabel("BasketSLSet", "Basket SL Set: 0", 235, 188, clrYellow, 10, true);
-   CreateUILabel("DailyTargetSet", "Daily Target Set: 0", 235, 206, clrLime, 10, true);
-   CreateUILabel("MaxFloatBuy", "Max Float Buy: 0", 235, 224, clrLightSkyBlue, 11, true);
-   CreateUILabel("MaxFloatSell", "Max Float Sell: 0", 235, 242, clrLightSkyBlue, 11, true);
-   CreateUILabel("Running", "Running: 0", 235, 260, clrYellow, 12, true);
-   CreateUILabel("Profit", "Profit: 0", 235, 280, clrLime, 16, true);
-   CreateUILabel("Status", "Status: ACTIVE", 235, 308, clrWhite, 10, true);
+   CreateUILabel("MinimumBalance", "Saldo Minimum: 0 USD", 235, 188, clrDodgerBlue, 10, true);
+   CreateUILabel("BasketSLSet", "Basket SL Set: 0", 235, 206, clrYellow, 10, true);
+   CreateUILabel("DailyTargetSet", "Daily Target Set: 0", 235, 224, clrLime, 10, true);
+   CreateUILabel("MaxFloatBuy", "Max Float Buy: 0", 235, 242, clrLightSkyBlue, 11, true);
+   CreateUILabel("MaxFloatSell", "Max Float Sell: 0", 235, 260, clrLightSkyBlue, 11, true);
+   CreateUILabel("Running", "Running: 0", 235, 278, clrYellow, 12, true);
+   CreateUILabel("Profit", "Profit: 0", 235, 298, clrLime, 16, true);
+   CreateUILabel("Status", "Status: ACTIVE", 235, 326, clrWhite, 10, true);
 
-   CreateUIButton("BtnReset", "RESET ALL", 230, 328, 220, 24, clrBlue, clrWhite, 14);
+   CreateUIButton("BtnReset", "RESET ALL", 230, 346, 220, 24, clrBlue, clrWhite, 14);
 
    UpdateCurrencyButtonsUI();
 }
@@ -439,6 +440,7 @@ void RefreshDashboardUI() {
 
    UpdateCurrencyButtonsUI();
 
+   string minimumBalanceText = "Saldo Minimum: " + FormatNumberId(MinimumAutoBalanceUSD, 2) + " USD";
    string slText = "";
    if(JenisBatasRugi == CL_NILAI_UANG) slText = "Basket SL Set: -" + FormatCurrency(BatasKerugian);
    else slText = StringFormat("Basket SL Set: -%.1f%%", BatasKerugian);
@@ -446,6 +448,7 @@ void RefreshDashboardUI() {
    string dtText = "Daily Target Set: " + FormatCurrency(TargetHarian);
 
    ObjectSetString(0, UIPrefix + "BasketSLSet", OBJPROP_TEXT, slText);
+   ObjectSetString(0, UIPrefix + "MinimumBalance", OBJPROP_TEXT, minimumBalanceText);
    ObjectSetString(0, UIPrefix + "DailyTargetSet", OBJPROP_TEXT, dtText);
 
    // Update current floating statistics and historical peak floating values.
