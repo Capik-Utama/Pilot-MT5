@@ -920,6 +920,8 @@ void PilotSendTelemetry() {
       ",\"maxFloatSell\":" + DoubleToString(MaxFloatSell, 2) +
       ",\"runningFloat\":" + DoubleToString(floating, 2) +
       ",\"openPositions\":" + IntegerToString(openPositions) +
+      ",\"eaPanel\":\"grid-by-capik\"" +
+      ",\"minimumBalanceSet\":" + DoubleToString(MinimumAutoBalanceAccountUnits(), 2) +
       ",\"eaStatus\":\"" + PilotJsonEscape(eaStatus) + "\"" +
       ",\"profit\":" + DoubleToString(PilotDailyProfit(), 2) +
       ",\"floatingProfit\":" + DoubleToString(floating, 2) +

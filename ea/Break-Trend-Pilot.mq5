@@ -1142,12 +1142,17 @@ bool PilotAck(const string commandId,const string status,const string message)
 void PilotSendTelemetry()
 {
    double floating=GetTotalPositionsProfitInBase(); string mode=isAutoTradingActive?"auto":"manual";
-   string status=!IsBalanceSufficient()?"AUTO BLOCKED":(isAutoTradingActive?"ACTIVE":"MANUAL");
+   string status="ACTIVE";
+   if(!IsBalanceSufficient()) status="LOCKED (MIN BALANCE)";
+   else if(!isAutoTradingActive) status="MANUAL / PAUSED";
+   else if(targetDailyReached) status="DAILY TARGET REACHED";
    string body="{\"accountName\":\""+PilotJsonEscape(AccountInfoString(ACCOUNT_NAME))+"\",\"login\":"+IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+
       ",\"serverName\":\""+PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER))+"\",\"balance\":"+DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE),2)+
       ",\"equity\":"+DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY),2)+",\"maxDdBuy\":"+DoubleToString(MathAbs(maxDrawdownBase),2)+
       ",\"maxDdSell\":0,\"basketSlSet\":"+DoubleToString(BT_BasketSL_USD,2)+",\"basketSlType\":\"money\",\"dailyTargetSet\":"+DoubleToString(BT_TargetProfitUSD,2)+
       ",\"maxFloatBuy\":0,\"maxFloatSell\":0,\"runningFloat\":"+DoubleToString(floating,2)+",\"openPositions\":"+IntegerToString(GetActivePositionCount())+
+      ",\"eaPanel\":\"trend-by-capik\",\"minimumBalanceSet\":"+DoubleToString(GetMinBalanceInBase(),2)+
+      ",\"basketTpSet\":"+DoubleToString(BT_BasketTP_USD,2)+",\"pendingOrders\":"+IntegerToString(GetPendingOrderCount())+
       ",\"eaStatus\":\""+status+"\",\"profit\":"+DoubleToString(GetTodayClosedProfitInBase(),2)+",\"floatingProfit\":"+DoubleToString(floating,2)+
       ",\"running\":"+(isAutoTradingActive?"true":"false")+",\"isCentAccount\":"+(IsCentAccount()?"true":"false")+
       ",\"displayCurrency\":\""+(CurrentCurrencyMode==1?"CENT":CurrentCurrencyMode==2?"IDR":"USD")+"\",\"displayRate\":"+DoubleToString(BT_USDIDRRate,2)+

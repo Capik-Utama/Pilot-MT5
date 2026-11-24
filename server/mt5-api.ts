@@ -616,13 +616,17 @@ export function registerMt5ApiRoutes(app: Express) {
           equity: mt5Accounts.equity,
           maxDdBuy: mt5Accounts.maxDdBuy,
           maxDdSell: mt5Accounts.maxDdSell,
+          eaPanel: mt5Accounts.eaPanel,
+          minimumBalanceSet: mt5Accounts.minimumBalanceSet,
           basketSlSet: mt5Accounts.basketSlSet,
           basketSlType: mt5Accounts.basketSlType,
+          basketTpSet: mt5Accounts.basketTpSet,
           dailyTargetSet: mt5Accounts.dailyTargetSet,
           maxFloatBuy: mt5Accounts.maxFloatBuy,
           maxFloatSell: mt5Accounts.maxFloatSell,
           runningFloat: mt5Accounts.runningFloat,
           openPositions: mt5Accounts.openPositions,
+          pendingOrders: mt5Accounts.pendingOrders,
           eaStatus: mt5Accounts.eaStatus,
           running: mt5Accounts.running,
           eaMode: mt5Accounts.eaMode,
@@ -989,6 +993,16 @@ export function registerMt5ApiRoutes(app: Express) {
             (!Number.isInteger(b.openPositions) ||
               b.openPositions < 0 ||
               b.openPositions > 1e6)) ||
+          (b.pendingOrders !== undefined &&
+            (!Number.isInteger(b.pendingOrders) ||
+              b.pendingOrders < 0 ||
+              b.pendingOrders > 1e6)) ||
+          (b.minimumBalanceSet !== undefined &&
+            !finite(b.minimumBalanceSet, 0, 1e15)) ||
+          (b.basketTpSet !== undefined &&
+            !finite(b.basketTpSet, -1e12, 1e15)) ||
+          (b.eaPanel !== undefined &&
+            (typeof b.eaPanel !== "string" || b.eaPanel.length > 32)) ||
           (b.eaStatus !== undefined &&
             (typeof b.eaStatus !== "string" || b.eaStatus.length > 80)) ||
           !["money", "percent"].includes(b.basketSlType) ||
@@ -1095,13 +1109,18 @@ export function registerMt5ApiRoutes(app: Express) {
             equity: b.equity,
             maxDdBuy: b.maxDdBuy,
             maxDdSell: b.maxDdSell,
+            eaPanel: b.eaPanel ?? currentAccount.eaPanel ?? "grid-by-capik",
+            minimumBalanceSet:
+              b.minimumBalanceSet ?? currentAccount.minimumBalanceSet ?? 0,
             basketSlSet: b.basketSlSet,
             basketSlType: b.basketSlType,
+            basketTpSet: b.basketTpSet ?? currentAccount.basketTpSet ?? 0,
             dailyTargetSet: b.dailyTargetSet,
             maxFloatBuy: b.maxFloatBuy,
             maxFloatSell: b.maxFloatSell,
             runningFloat: b.runningFloat,
             openPositions: b.openPositions ?? 0,
+            pendingOrders: b.pendingOrders ?? currentAccount.pendingOrders ?? 0,
             eaStatus: telemetryAutoError
               ? "AUTO BLOCKED"
               : b.eaStatus ?? (b.running ? "ACTIVE" : "MANUAL"),

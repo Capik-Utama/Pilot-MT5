@@ -60,13 +60,17 @@ type Account = {
   equity: number;
   max_dd_buy: number;
   max_dd_sell: number;
+  ea_panel: "grid-by-capik" | "trend-by-capik" | string;
+  minimum_balance_set: number;
   basket_sl_set: number;
   basket_sl_type: "money" | "percent";
+  basket_tp_set: number;
   daily_target_set: number;
   max_float_buy: number;
   max_float_sell: number;
   running_float: number;
   open_positions: number;
+  pending_orders: number;
   ea_status: string;
   running: boolean;
   ea_mode: "auto" | "manual";
@@ -323,6 +327,9 @@ function AccountTelemetry({
   account: Account;
   displayMode: DisplayCurrency;
 }) {
+  const isTrendByCapik = account.ea_panel === "trend-by-capik";
+  const isCentAccount =
+    account.is_cent_account || /USC|IDC|CENT/i.test(account.currency);
   const showMoney = (value: unknown) => {
     if (!account.telemetry_received) return "—";
     const parsed = finiteNumber(value);
@@ -334,22 +341,51 @@ function AccountTelemetry({
           displayMode,
           account.display_rate,
           account.is_cent_account
-        );
+          );
   };
-  const basketSlValue = finiteNumber(account.basket_sl_set);
-  const configuredMinimumUsd = finiteNumber(
+  const configuredMinimumUsd = finiteNumber(account.minimum_balance_set);
+  const fallbackMinimumUsd = finiteNumber(
     account.ea_config?.MinimumAutoBalanceUSD
   );
+  const minimumBalanceBase =
+    configuredMinimumUsd !== null && configuredMinimumUsd > 0
+      ? configuredMinimumUsd
+      : fallbackMinimumUsd !== null
+        ? fallbackMinimumUsd * (isCentAccount ? 100 : 1)
+        : null;
   const minimumBalanceDisplay =
-    configuredMinimumUsd === null
+    !account.telemetry_received
       ? "—"
-      : currency(
-          configuredMinimumUsd,
-          account.currency,
-          displayMode,
-          account.display_rate,
-          account.is_cent_account
-        );
+      : minimumBalanceBase === null || minimumBalanceBase <= 0
+        ? "DISABLED"
+        : currency(
+            minimumBalanceBase,
+            account.currency,
+            displayMode,
+            account.display_rate,
+            account.is_cent_account
+          );
+  const trendBasketSlDisplay =
+    !account.telemetry_received
+      ? "—"
+      : account.basket_sl_set > 0
+        ? showMoney(account.basket_sl_set)
+        : "DISABLED";
+  const trendBasketTpDisplay =
+    !account.telemetry_received
+      ? "—"
+      : account.basket_tp_set > 0
+        ? showMoney(account.basket_tp_set)
+        : "DISABLED";
+  const trendMaxFloatDdDisplay =
+    !account.telemetry_received
+      ? "—"
+      : finiteNumber(account.max_dd_buy) === null
+        ? "INVALID"
+        : account.max_dd_buy === 0
+          ? showMoney(0)
+          : `-${showMoney(account.max_dd_buy)}`;
+  const basketSlValue = finiteNumber(account.basket_sl_set);
   const basketSlDisplay = !account.telemetry_received
     ? "Basket SL Set: —"
     : account.basket_sl_type === "percent"
@@ -357,6 +393,61 @@ function AccountTelemetry({
         ? "INVALID"
         : `-${basketSlValue.toFixed(1)}%`
       : `-${showMoney(account.basket_sl_set)}`;
+  if (isTrendByCapik) {
+    return (
+      <>
+        <div className="pilot-metrics pilot-panel-metrics pilot-config-telemetry">
+          <div className="metric-minimum-balance">
+            <span>Saldo Minimal</span>
+            <strong>{minimumBalanceDisplay}</strong>
+          </div>
+          <div className="metric-sl">
+            <span>Basket SL</span>
+            <strong>{trendBasketSlDisplay}</strong>
+          </div>
+          <div className="metric-target">
+            <span>Basket TP</span>
+            <strong>{trendBasketTpDisplay}</strong>
+          </div>
+          <div className="metric-float-buy">
+            <span>Max Float/DD</span>
+            <strong>{trendMaxFloatDdDisplay}</strong>
+          </div>
+          <div className="metric-float-sell">
+            <span>Pending Orders</span>
+            <strong>
+              {account.telemetry_received
+                ? finiteNumber(account.pending_orders) ?? "—"
+                : "—"}
+            </strong>
+          </div>
+          <div
+            className={`metric-running ${account.running_float >= 0 ? "positive" : "negative"}`}
+          >
+            <span>Running</span>
+            <strong>{showMoney(account.running_float)}</strong>
+          </div>
+          <div
+            className={`metric-profit ${account.profit >= 0 ? "profit-positive" : "profit-negative"}`}
+          >
+            <span>Profit</span>
+            <strong>{showMoney(account.profit)}</strong>
+          </div>
+          <div className="metric-status">
+            <span>Status</span>
+            <strong>
+              {account.telemetry_received
+                ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL")
+                : "MENUNGGU EA"}
+            </strong>
+          </div>
+        </div>
+        <footer className="pilot-account-footer pilot-config-footer">
+          <span>Token EA •••• {account.token_hint}</span>
+        </footer>
+      </>
+    );
+  }
   return (
     <>
       <div className="pilot-metrics pilot-panel-metrics pilot-config-telemetry">

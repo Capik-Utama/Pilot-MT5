@@ -84,16 +84,24 @@ export const mt5Accounts = pgTable(
     equity: doublePrecision("equity").default(0).notNull(),
     maxDdBuy: doublePrecision("max_dd_buy").default(0).notNull(),
     maxDdSell: doublePrecision("max_dd_sell").default(0).notNull(),
+    eaPanel: varchar("ea_panel", { length: 32 })
+      .default("grid-by-capik")
+      .notNull(),
+    minimumBalanceSet: doublePrecision("minimum_balance_set")
+      .default(0)
+      .notNull(),
     basketSlSet: doublePrecision("basket_sl_set").default(0).notNull(),
     basketSlType: varchar("basket_sl_type", { length: 16 })
       .$type<BasketSlType>()
       .default("money")
       .notNull(),
+    basketTpSet: doublePrecision("basket_tp_set").default(0).notNull(),
     dailyTargetSet: doublePrecision("daily_target_set").default(0).notNull(),
     maxFloatBuy: doublePrecision("max_float_buy").default(0).notNull(),
     maxFloatSell: doublePrecision("max_float_sell").default(0).notNull(),
     runningFloat: doublePrecision("running_float").default(0).notNull(),
     openPositions: integer("open_positions").default(0).notNull(),
+    pendingOrders: integer("pending_orders").default(0).notNull(),
     eaStatus: varchar("ea_status", { length: 80 })
       .default("MENUNGGU EA")
       .notNull(),
