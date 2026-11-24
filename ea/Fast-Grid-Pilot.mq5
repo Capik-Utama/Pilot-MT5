@@ -44,7 +44,7 @@ input int       InputJarakGrid        = 1500;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
-input double InputMinimumAutoBalanceUSD = 1000; // Minimum ekuivalen USD; akun USC/IDC memakai 100x.
+input double InputMinimumAutoBalanceUSD = 10.0; // Minimum ekuivalen USD; akun USC/IDC memakai 100x.
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
@@ -233,13 +233,18 @@ bool IsCentAccount() {
    string accCurrency = AccountInfoString(ACCOUNT_CURRENCY);
    string symbol = _Symbol;
 
-   if(StringFind(accCurrency, "USC") >= 0 ||
+   if(StringFind(accCurrency, "IDC") >= 0 ||
+      StringFind(accCurrency, "USC") >= 0 ||
       StringFind(accCurrency, "Cent") >= 0 ||
       StringFind(accCurrency, "cent") >= 0 ||
       StringFind(symbol, ".sc") >= 0) {
       return true;
    }
    return false;
+}
+
+double MinimumAutoBalanceAccountUnits() {
+   return MinimumAutoBalanceUSD * (IsCentAccount() ? 100.0 : 1.0);
 }
 
 string FormatNumberId(double amount, int decimalPlaces) {
@@ -299,7 +304,7 @@ bool PilotAutoBalanceAllows(string &reason) {
    }
 
    bool centUnits = currencyIsCent;
-   double requiredBalance = MinimumAutoBalanceUSD * (centUnits ? 100.0 : 1.0);
+   double requiredBalance = MinimumAutoBalanceAccountUnits();
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    string balanceUnit = currencyIsIdrCent ? "IDC" : (centUnits ? "USC" : "USD");
    if(!MathIsValidNumber(balance)) {
@@ -440,7 +445,7 @@ void RefreshDashboardUI() {
 
    UpdateCurrencyButtonsUI();
 
-   string minimumBalanceText = "Saldo Minimum: " + FormatNumberId(MinimumAutoBalanceUSD, 2) + " USD";
+   string minimumBalanceText = "Saldo Minimum: " + FormatCurrency(MinimumAutoBalanceAccountUnits());
    string slText = "";
    if(JenisBatasRugi == CL_NILAI_UANG) slText = "Basket SL Set: -" + FormatCurrency(BatasKerugian);
    else slText = StringFormat("Basket SL Set: -%.1f%%", BatasKerugian);

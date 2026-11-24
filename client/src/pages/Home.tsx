@@ -162,7 +162,7 @@ const defaultEaConfig: EaConfig = {
   MinimumAutoBalanceUSD: 10,
 };
 const coreConfigFields = [
-  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (USD; USC ×100)", "number"],
+  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (USD ekuivalen; USC/IDC ×100)", "number"],
   [
     "ModePerdagangan",
     "Mode perdagangan",
@@ -244,7 +244,7 @@ function currency(
   displayRate = 18000,
   isCentAccount = false
 ) {
-  const centsAccount = isCentAccount || /USC|CENT/i.test(accountCurrency);
+  const centsAccount = isCentAccount || /USC|IDC|CENT/i.test(accountCurrency);
   const usdValue = centsAccount ? value / 100 : value;
   if (mode === "CENT")
     return `${new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usdValue * 100)} USC`;
