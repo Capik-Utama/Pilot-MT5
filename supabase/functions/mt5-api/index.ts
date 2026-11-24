@@ -558,7 +558,9 @@ async function handleEa(req: Request, path: string) {
     return respond(200, { ok: true, serverTime: now });
   }
 
-  if (path === "/commands/next" && req.method === "GET") {
+  // The EA polls this endpoint with POST so it can send its local interval
+  // preferences in the request body. Keep GET compatibility for older EAs.
+  if (path === "/commands/next" && ["GET", "POST"].includes(req.method)) {
     const now = new Date();
     const { data: commands, error } = await admin.from("mt5_commands").select("id,owner_id,account_id,action,status,expires_at,payload")
       .eq("account_id", account.id).in("status", ["queued", "delivered"])
