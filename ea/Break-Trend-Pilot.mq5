@@ -10,6 +10,8 @@
 
 #include <Trade\Trade.mqh>
 
+const string PilotApiBaseUrl = "https://personal-database.my.id/api/mt5";
+
 // --- ENUMERATIONS ---
 enum ENUM_DISPLAY_CURRENCY { CURR_USD, CURR_USC, CURR_IDR };
 
@@ -52,6 +54,13 @@ input int    InpStartMinute   = 5;
 input int    InpEndHour       = 23;
 input int    InpEndMinute     = 0;
 
+input group "== Koneksi MT5 Pilot =="
+input bool EnablePilotRemote = true;
+input string EAConnectionToken = "";
+input group "== Interval Komunikasi MT5 Pilot =="
+input int InputPengirimanInfoKePilotMs = 1000;
+input int InputPengecekanPerintahPilotMs = 1000;
+
 // --- GLOBAL VARIABLES ---
 CTrade         trade;
 double         maxDrawdownBase   = 0.0; 
@@ -68,6 +77,29 @@ bool isAutoTradingActive = true;
 bool targetDailyReached = false;
 bool hasActivePositionInCycle = false;
 bool globalTPReached = false; 
+
+// Runtime values below can be updated by the Pilot command queue without
+// changing the immutable MT5 Inputs dialog values.
+int    BT_GridDistance = 0;
+int    BT_MaxLevels = 0;
+double BT_StartLot = 0.0;
+double BT_LotMultiplier = 0.0;
+double BT_MinBalanceUSD = 0.0;
+double BT_BasketTP_USD = 0.0;
+double BT_BasketSL_USD = 0.0;
+double BT_TargetProfitUSD = 0.0;
+bool   BT_UseTrailing = false;
+double BT_TrailingStartUSD = 0.0;
+double BT_TrailingStepUSD = 0.0;
+double BT_USDIDRRate = 0.0;
+ulong  BT_MagicNumber = 0;
+int PilotTelemetryIntervalMs = 500;
+int PilotPollingIntervalMs = 1000;
+uint LastPilotTelemetryAt = 0;
+uint LastPilotPollAt = 0;
+int LastPilotLatencyMs = 0;
+bool PilotModeSynced = false;
+
 int lastTradeDay = -1;
 datetime resetHistoryTime = 0;
 
@@ -94,12 +126,27 @@ void SaveGridState();
 bool LoadGridState();
 void ClearSavedGridState();
 
+void PilotOnTimer();
+void PilotSendTelemetry();
+void PilotPollCommands();
+int PilotHttp(const string method, const string route, const string body, string &response);
+bool PilotAck(const string commandId, const string status, const string message);
+string PilotJsonEscape(const string value);
+string PilotJsonString(const string json, const string key);
+double PilotJsonNumber(const string json, const string key, const double fallback);
+string PilotJsonObject(const string json, const string key);
+string PilotConfigJson();
+bool PilotApplyConfig(const string json);
+string PilotConfigStateFile();
+void PilotSaveConfigState();
+void PilotRestoreConfigState();
+
 //+------------------------------------------------------------------+
 //| PERSISTENCE VIRTUAL GRID VIA GLOBAL VARIABLES                    |
 //+------------------------------------------------------------------+
 string GetStateKeyPrefix()
 {
-   return "BT_" + _Symbol + "_" + IntegerToString((int)InpMagicNumber) + "_";
+   return "BT_" + _Symbol + "_" + IntegerToString((int)BT_MagicNumber) + "_";
 }
 
 void SaveGridState()
@@ -137,7 +184,7 @@ bool LoadGridState()
    {
       string idx = IntegerToString(i) + "_";
       gridLevels[i].price  = GlobalVariableCheck(prefix + idx + "Price")  ? GlobalVariableGet(prefix + idx + "Price")  : 0.0;
-      gridLevels[i].lot    = GlobalVariableCheck(prefix + idx + "Lot")    ? GlobalVariableGet(prefix + idx + "Lot")    : InpStartLot;
+      gridLevels[i].lot    = GlobalVariableCheck(prefix + idx + "Lot")    ? GlobalVariableGet(prefix + idx + "Lot")    : BT_StartLot;
       gridLevels[i].isBuy  = GlobalVariableCheck(prefix + idx + "IsBuy")  ? (GlobalVariableGet(prefix + idx + "IsBuy") > 0.5) : true;
       gridLevels[i].active = GlobalVariableCheck(prefix + idx + "Active") ? (GlobalVariableGet(prefix + idx + "Active") > 0.5) : false;
 
@@ -232,13 +279,13 @@ bool IsCentAccount()
 
 double GetMinBalanceInBase()
 {
-   if(InpMinBalanceUSD <= 0.0) return 0.0;
-   return IsCentAccount() ? (InpMinBalanceUSD * 100.0) : InpMinBalanceUSD;
+   if(BT_MinBalanceUSD <= 0.0) return 0.0;
+   return IsCentAccount() ? (BT_MinBalanceUSD * 100.0) : BT_MinBalanceUSD;
 }
 
 bool IsBalanceSufficient()
 {
-   if(InpMinBalanceUSD <= 0.0) return true;
+   if(BT_MinBalanceUSD <= 0.0) return true;
    double currentBalance = AccountInfoDouble(ACCOUNT_BALANCE);
    return (currentBalance >= GetMinBalanceInBase());
 }
@@ -262,7 +309,21 @@ bool EnforceMinimumBalanceLock()
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   trade.SetExpertMagicNumber(InpMagicNumber);
+
+   BT_GridDistance = InpGridDistance;
+   BT_MaxLevels = InpMaxLevels;
+   BT_StartLot = InpStartLot;
+   BT_LotMultiplier = InpLotMultiplier;
+   BT_MinBalanceUSD = InpMinBalanceUSD;
+   BT_BasketTP_USD = InpBasketTP_USD;
+   BT_BasketSL_USD = InpBasketSL_USD;
+   BT_TargetProfitUSD = InpTargetProfitUSD;
+   BT_UseTrailing = InpUseTrailing;
+   BT_TrailingStartUSD = InpTrailingStartUSD;
+   BT_TrailingStepUSD = InpTrailingStepUSD;
+   BT_USDIDRRate = InpUSDIDRRate;
+   BT_MagicNumber = InpMagicNumber;
+   trade.SetExpertMagicNumber(BT_MagicNumber);
    CheckFillingMode();
    
    maxDrawdownBase   = 0.0;
@@ -282,8 +343,12 @@ int OnInit()
    else if(InpDisplayCurrency == CURR_USD) CurrentCurrencyMode = 0;
    else CurrentCurrencyMode = 2;
    
-   InpUsdToIdr = InpUSDIDRRate;
-   isAutoTradingActive = true;
+   InpUsdToIdr = BT_USDIDRRate;
+   PilotRestoreConfigState();
+   isAutoTradingActive = !EnablePilotRemote;
+   PilotModeSynced = !EnablePilotRemote;
+   if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
+   if(EnablePilotRemote && EAConnectionToken == "") Print("MT5 Pilot: isi EAConnectionToken dan izinkan https://personal-database.my.id di WebRequest.");
 
    bool restored = LoadGridState();
    if(restored)
@@ -305,6 +370,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    if(reason == REASON_REMOVE)
    {
       ClearSavedGridState();
@@ -327,7 +393,7 @@ double GetTotalPositionsProfitInBase()
    for (int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
-      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
+      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == BT_MagicNumber)
       {
          rawProfit += PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP); 
       }
@@ -366,7 +432,7 @@ double GetClosedProfitInBase()
       {
          if(HistoryDealGetInteger(dealTicket, DEAL_ENTRY) == DEAL_ENTRY_IN)
          {
-            if(HistoryDealGetInteger(dealTicket, DEAL_MAGIC) == InpMagicNumber &&
+            if(HistoryDealGetInteger(dealTicket, DEAL_MAGIC) == BT_MagicNumber &&
                HistoryDealGetString(dealTicket, DEAL_SYMBOL) == _Symbol)
             {
                ulong posID = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
@@ -394,7 +460,7 @@ double GetClosedProfitInBase()
             ulong magic = HistoryDealGetInteger(dealTicket, DEAL_MAGIC);
             ulong posID = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
             
-            bool isEADeal = (magic == InpMagicNumber);
+            bool isEADeal = (magic == BT_MagicNumber);
             
             if(!isEADeal && posID > 0)
             {
@@ -458,16 +524,16 @@ bool ProcessGlobalTP_SL()
       return false;
    }
 
-   if (InpUseTrailing && InpTrailingStartUSD > 0 && InpTrailingStepUSD > 0)
+   if (BT_UseTrailing && BT_TrailingStartUSD > 0 && BT_TrailingStepUSD > 0)
    {
-      if (totalFloatingProfit >= InpTrailingStartUSD)
+      if (totalFloatingProfit >= BT_TrailingStartUSD)
       {
          if (totalFloatingProfit > highWatermarkBase)
          {
             highWatermarkBase = totalFloatingProfit;
          }
          
-         if (highWatermarkBase - totalFloatingProfit >= InpTrailingStepUSD)
+         if (highWatermarkBase - totalFloatingProfit >= BT_TrailingStepUSD)
          {
             globalTPReached = true;
             CloseAllAndReset(true);
@@ -476,14 +542,14 @@ bool ProcessGlobalTP_SL()
       }
    }
 
-   if (InpBasketTP_USD > 0 && totalFloatingProfit >= InpBasketTP_USD)
+   if (BT_BasketTP_USD > 0 && totalFloatingProfit >= BT_BasketTP_USD)
    {
       globalTPReached = true;
       CloseAllAndReset(true);
       return true;
    }
 
-   if (InpBasketSL_USD > 0 && totalFloatingProfit <= -MathAbs(InpBasketSL_USD))
+   if (BT_BasketSL_USD > 0 && totalFloatingProfit <= -MathAbs(BT_BasketSL_USD))
    {
       globalTPReached = false;
       CloseAllAndReset(false);
@@ -493,11 +559,17 @@ bool ProcessGlobalTP_SL()
    return false;
 }
 
+void OnTimer()
+{
+   PilotOnTimer();
+}
+
 //+------------------------------------------------------------------+
 //| EXPERT TICK FUNCTION                                             |
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   PilotOnTimer();
    MqlDateTime dtCurrent;
    TimeToStruct(TimeCurrent(), dtCurrent);
    if (dtCurrent.day != lastTradeDay)
@@ -576,7 +648,7 @@ void OnTick()
          SaveGridState();
       }
 
-      if (InpTargetProfitUSD > 0 && todayTotalProfitBase >= InpTargetProfitUSD)
+      if (BT_TargetProfitUSD > 0 && todayTotalProfitBase >= BT_TargetProfitUSD)
       {
          targetDailyReached = true;
          globalTPReached = true;
@@ -615,7 +687,7 @@ void ClosePositionAsync(ulong ticket)
    request.symbol       = PositionGetString(POSITION_SYMBOL);
    request.volume       = PositionGetDouble(POSITION_VOLUME);
    request.deviation    = 50;
-   request.magic        = InpMagicNumber;
+   request.magic        = BT_MagicNumber;
    request.type_filling = (ENUM_ORDER_TYPE_FILLING)globalFillingMode;
    
    long posType = PositionGetInteger(POSITION_TYPE);
@@ -640,7 +712,7 @@ void CloseAllAndReset(bool isGlobalTP)
    for (int i = totalPos - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
-      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
+      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == BT_MagicNumber)
       {
          ClosePositionAsync(ticket);
       }
@@ -675,7 +747,7 @@ void ClosePositionsByDirection(ENUM_POSITION_TYPE posType)
    for (int i = totalPos - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
-      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
+      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == BT_MagicNumber)
       {
          if(PositionGetInteger(POSITION_TYPE) == posType)
          {
@@ -703,15 +775,15 @@ void PlaceInitialGrid()
    double maxLot  = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
 
-   ArrayResize(gridLevels, InpMaxLevels * 2);
+   ArrayResize(gridLevels, BT_MaxLevels * 2);
    int index = 0;
 
-   for (int i = 1; i <= InpMaxLevels; i++)
+   for (int i = 1; i <= BT_MaxLevels; i++)
    {
-      double buyStopPrice  = NormalizeDouble(ask + (i * InpGridDistance * point), _Digits);
-      double sellStopPrice = NormalizeDouble(bid - (i * InpGridDistance * point), _Digits);
+      double buyStopPrice  = NormalizeDouble(ask + (i * BT_GridDistance * point), _Digits);
+      double sellStopPrice = NormalizeDouble(bid - (i * BT_GridDistance * point), _Digits);
       
-      double currentLot = InpStartLot * MathPow(InpLotMultiplier, i - 1);
+      double currentLot = BT_StartLot * MathPow(BT_LotMultiplier, i - 1);
       
       if(currentLot < minLot) currentLot = minLot;
       if(currentLot > maxLot) currentLot = maxLot;
@@ -857,9 +929,9 @@ void RefreshDashboardUI()
    EnforceMinimumBalanceLock();
    UpdateCurrencyButtonsUI();
 
-   string minBalText = "Saldo Minimal: " + (InpMinBalanceUSD > 0 ? FormatCurrency(GetMinBalanceInBase()) : "DISABLED");
-   string slText = "Basket SL: " + (InpBasketSL_USD > 0 ? FormatCurrency(InpBasketSL_USD) : "DISABLED");
-   string tpText = "Basket TP: " + (InpBasketTP_USD > 0 ? FormatCurrency(InpBasketTP_USD) : "DISABLED");
+   string minBalText = "Saldo Minimal: " + (BT_MinBalanceUSD > 0 ? FormatCurrency(GetMinBalanceInBase()) : "DISABLED");
+   string slText = "Basket SL: " + (BT_BasketSL_USD > 0 ? FormatCurrency(BT_BasketSL_USD) : "DISABLED");
+   string tpText = "Basket TP: " + (BT_BasketTP_USD > 0 ? FormatCurrency(BT_BasketTP_USD) : "DISABLED");
 
    ObjectSetString(0, UIPrefix + "MinBalance", OBJPROP_TEXT, minBalText);
    ObjectSetInteger(0, UIPrefix + "MinBalance", OBJPROP_COLOR, clrDodgerBlue);
@@ -932,7 +1004,7 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
             isAutoTradingActive = true;
          } else {
             isAutoTradingActive = false;
-            Print("Tombol AUTO dikunci: Saldo akun kurang dari batas minimum (", DoubleToString(InpMinBalanceUSD, 2), " USD/USC).");
+            Print("Tombol AUTO dikunci: Saldo akun kurang dari batas minimum (", DoubleToString(BT_MinBalanceUSD, 2), " USD/USC).");
          }
       }
       else if(sparam == UIPrefix + "BtnManual") isAutoTradingActive = false;
@@ -945,6 +1017,135 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
    }
 }
 
+
+
+//+------------------------------------------------------------------+
+//| MT5 PILOT COMMUNICATION                                          |
+//+------------------------------------------------------------------+
+int PilotHttp(const string method, const string route, const string body, string &response)
+{
+   if(StringLen(EAConnectionToken) < 40) return -1;
+   char data[]; char result[]; string resultHeaders;
+   if(body != "") { int copied=StringToCharArray(body,data,0,WHOLE_ARRAY,CP_UTF8); if(copied>0) ArrayResize(data,copied-1); }
+   string headers="Content-Type: application/json\r\nAuthorization: Bearer "+EAConnectionToken+"\r\n";
+   string base=PilotApiBaseUrl;
+   while(StringLen(base)>0 && StringGetCharacter(base,StringLen(base)-1)==47) base=StringSubstr(base,0,StringLen(base)-1);
+   ResetLastError();
+   int code=WebRequest(method,base+route,headers,3000,data,result,resultHeaders);
+   response=CharArrayToString(result,0,-1,CP_UTF8);
+   if(code<0 && GetLastError()!=4014) PrintFormat("MT5 Pilot: WebRequest gagal, error=%d.",GetLastError());
+   return code;
+}
+string PilotJsonEscape(const string value)
+{
+   string out=""; for(int i=0;i<StringLen(value);i++){ ushort c=(ushort)StringGetCharacter(value,i); if(c==34)out+="\\\""; else if(c==92)out+="\\\\"; else if(c==10)out+="\\n"; else if(c==13)out+="\\r"; else if(c==9)out+="\\t"; else if(c>=32)out+=ShortToString(c); } return out;
+}
+string PilotJsonString(const string json,const string key)
+{
+   string n="\""+key+"\""; int p=StringFind(json,n); if(p<0)return ""; p=StringFind(json,":",p+StringLen(n)); if(p<0)return ""; p++; while(p<StringLen(json)&&(StringGetCharacter(json,p)==32||StringGetCharacter(json,p)==9))p++; if(p>=StringLen(json)||StringGetCharacter(json,p)!=34)return ""; p++; string v=""; bool esc=false; for(int i=p;i<StringLen(json);i++){ushort c=(ushort)StringGetCharacter(json,i); if(esc){if(c==34||c==92||c==47)v+=ShortToString(c); else if(c==110)v+="\n"; else if(c==114)v+="\r"; else if(c==116)v+="\t"; esc=false;} else if(c==92)esc=true; else if(c==34)return v; else v+=ShortToString(c);} return "";
+}
+double PilotJsonNumber(const string json,const string key,const double fallback)
+{
+   string n="\""+key+"\""; int p=StringFind(json,n); if(p<0)return fallback; p=StringFind(json,":",p+StringLen(n)); if(p<0)return fallback; p++; while(p<StringLen(json)&&(StringGetCharacter(json,p)==32||StringGetCharacter(json,p)==9))p++; int e=StringFind(json,",",p); if(e<0)e=StringFind(json,"}",p); if(e<0)return fallback; return StringToDouble(StringSubstr(json,p,e-p));
+}
+string PilotJsonObject(const string json,const string key)
+{
+   string n="\""+key+"\""; int p=StringFind(json,n); if(p<0)return ""; p=StringFind(json,"{",p+StringLen(n)); if(p<0)return ""; int e=StringFind(json,"}",p); if(e<0)return ""; return StringSubstr(json,p,e-p+1);
+}
+string PilotConfigJson()
+{
+   return "{\"ModePerdagangan\":0,\"MataUangTampilan\":"+IntegerToString(CurrentCurrencyMode)+
+      ",\"KursUSD_IDR\":"+DoubleToString(BT_USDIDRRate,8)+",\"MagicBeli\":"+IntegerToString((int)BT_MagicNumber)+
+      ",\"MagicJual\":"+IntegerToString((int)BT_MagicNumber)+",\"LotAwal\":"+DoubleToString(BT_StartLot,8)+
+      ",\"PenggandaLot\":"+DoubleToString(BT_LotMultiplier,8)+",\"LotMaksimal\":1000,\"LangkahLayer\":1,\"JarakGrid\":"+IntegerToString(BT_GridDistance)+
+      ",\"JarakTrailingPending\":0,\"JenisBatasRugi\":0,\"BatasKerugian\":"+DoubleToString(BT_BasketSL_USD,8)+
+      ",\"JedaSetelahSLMenit\":0,\"TargetHarian\":"+DoubleToString(BT_TargetProfitUSD,8)+
+      ",\"SetelahTargetTercapai\":0,\"ModeTrailing\":"+(BT_UseTrailing?"1":"0")+
+      ",\"MulaiTrailingPoin\":0,\"KunciProfitPoin\":0,\"LangkahTrailingPoin\":0,\"MinimumAutoBalanceUSD\":"+DoubleToString(MathMax(BT_MinBalanceUSD,0.01),2)+"}";
+}
+string PilotConfigStateFile()
+{
+   string suffix=StringSubstr(EAConnectionToken,MathMax(0,StringLen(EAConnectionToken)-8));
+   if(suffix=="") suffix="LOCAL";
+   return "BreakTrendPilot_"+IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+"_"+suffix+".json";
+}
+void PilotSaveConfigState()
+{
+   if(!EnablePilotRemote||EAConnectionToken==""||MQLInfoInteger(MQL_TESTER))return;
+   int handle=FileOpen(PilotConfigStateFile(),FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(handle==INVALID_HANDLE)return;
+   FileWriteString(handle,PilotConfigJson()); FileFlush(handle); FileClose(handle);
+}
+void PilotRestoreConfigState()
+{
+   if(!EnablePilotRemote||EAConnectionToken==""||MQLInfoInteger(MQL_TESTER))return;
+   int handle=FileOpen(PilotConfigStateFile(),FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   if(handle==INVALID_HANDLE)return;
+   string state=FileReadString(handle); FileClose(handle);
+   if(state!="")PilotApplyConfig(state);
+}
+bool PilotApplyConfig(const string json)
+{
+   BT_StartLot=PilotJsonNumber(json,"LotAwal",BT_StartLot);
+   BT_LotMultiplier=PilotJsonNumber(json,"PenggandaLot",BT_LotMultiplier);
+   BT_GridDistance=(int)PilotJsonNumber(json,"JarakGrid",BT_GridDistance);
+   BT_BasketSL_USD=PilotJsonNumber(json,"BatasKerugian",BT_BasketSL_USD);
+   BT_TargetProfitUSD=PilotJsonNumber(json,"TargetHarian",BT_TargetProfitUSD);
+   BT_MinBalanceUSD=PilotJsonNumber(json,"MinimumAutoBalanceUSD",BT_MinBalanceUSD);
+   BT_USDIDRRate=PilotJsonNumber(json,"KursUSD_IDR",BT_USDIDRRate);
+   BT_UseTrailing=PilotJsonNumber(json,"ModeTrailing",BT_UseTrailing?1:0)>0.5;
+   int currency=(int)PilotJsonNumber(json,"MataUangTampilan",CurrentCurrencyMode);
+   CurrentCurrencyMode=(currency>=0&&currency<=2)?currency:CurrentCurrencyMode;
+   InpUsdToIdr=BT_USDIDRRate;
+   if(BT_GridDistance<0||BT_StartLot<=0||BT_LotMultiplier<=0||BT_BasketSL_USD<0||BT_TargetProfitUSD<0||BT_MinBalanceUSD<0) return false;
+   EnforceMinimumBalanceLock(); PilotSaveConfigState(); RefreshDashboardUI(); return true;
+}
+bool PilotAck(const string commandId,const string status,const string message)
+{
+   string response=""; string body="{\"status\":\""+status+"\",\"message\":\""+PilotJsonEscape(message)+"\"}";
+   int code=PilotHttp("POST","/commands/"+commandId+"/ack",body,response); return code>=200&&code<300;
+}
+void PilotSendTelemetry()
+{
+   double floating=GetTotalPositionsProfitInBase(); string mode=isAutoTradingActive?"auto":"manual";
+   string status=!IsBalanceSufficient()?"AUTO BLOCKED":(isAutoTradingActive?"ACTIVE":"MANUAL");
+   string body="{\"accountName\":\""+PilotJsonEscape(AccountInfoString(ACCOUNT_NAME))+"\",\"login\":"+IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+
+      ",\"serverName\":\""+PilotJsonEscape(AccountInfoString(ACCOUNT_SERVER))+"\",\"balance\":"+DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE),2)+
+      ",\"equity\":"+DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY),2)+",\"maxDdBuy\":"+DoubleToString(MathAbs(maxDrawdownBase),2)+
+      ",\"maxDdSell\":0,\"basketSlSet\":"+DoubleToString(BT_BasketSL_USD,2)+",\"basketSlType\":\"money\",\"dailyTargetSet\":"+DoubleToString(BT_TargetProfitUSD,2)+
+      ",\"maxFloatBuy\":0,\"maxFloatSell\":0,\"runningFloat\":"+DoubleToString(floating,2)+",\"openPositions\":"+IntegerToString(GetActivePositionCount())+
+      ",\"eaStatus\":\""+status+"\",\"profit\":"+DoubleToString(GetTodayClosedProfitInBase(),2)+",\"floatingProfit\":"+DoubleToString(floating,2)+
+      ",\"running\":"+(isAutoTradingActive?"true":"false")+",\"isCentAccount\":"+(IsCentAccount()?"true":"false")+
+      ",\"displayCurrency\":\""+(CurrentCurrencyMode==1?"CENT":CurrentCurrencyMode==2?"IDR":"USD")+"\",\"displayRate\":"+DoubleToString(BT_USDIDRRate,2)+
+      ",\"eaMode\":\""+mode+"\",\"currency\":\""+PilotJsonEscape(AccountInfoString(ACCOUNT_CURRENCY))+"\",\"latencyMs\":"+IntegerToString(LastPilotLatencyMs)+
+      ",\"eaConfig\":"+PilotConfigJson()+"}";
+   string response=""; uint started=GetTickCount(); int code=PilotHttp("POST","/telemetry",body,response); LastPilotLatencyMs=(int)MathMin(GetTickCount()-started,(uint)60000); if(code>=400)PrintFormat("MT5 Pilot: telemetri ditolak (HTTP %d).",code);
+}
+void PilotPollCommands()
+{
+   string response=""; int code=PilotHttp("POST","/commands/next","{\"telemetryIntervalMs\":1000,\"pollIntervalMs\":1000}",response); if(code!=200)return;
+   string commandId=PilotJsonString(response,"commandId"), action=PilotJsonString(response,"action"), payload=PilotJsonObject(response,"payload");
+   if(!PilotModeSynced){ string serverMode=PilotJsonString(response,"eaMode"); if(serverMode=="auto")isAutoTradingActive=true; else if(serverMode=="manual")isAutoTradingActive=false; PilotModeSynced=true; }
+   if(commandId==""||action=="")return; if(!PilotAck(commandId,"accepted","Perintah diterima EA."))return;
+   bool success=true; string result="";
+   if(action=="config"){success=payload!=""&&PilotApplyConfig(payload);result=success?"Konfigurasi remote diterapkan.":"Payload konfigurasi tidak valid.";}
+   else if(action=="auto"){isAutoTradingActive=IsBalanceSufficient();success=isAutoTradingActive;result=success?"Mode Auto aktif.":"Mode Auto ditolak: saldo minimum tidak terpenuhi.";}
+   else if(action=="manual"){isAutoTradingActive=false;result="Mode Manual aktif.";}
+   else if(action=="close_all"){CloseAllAndReset(false);result="Semua posisi dan grid ditutup.";}
+   else if(action=="close_buy"){ClosePositionsByDirection(POSITION_TYPE_BUY);result="Posisi BUY ditutup.";}
+   else if(action=="close_sell"){ClosePositionsByDirection(POSITION_TYPE_SELL);result="Posisi SELL ditutup.";}
+   else if(action=="reset"){targetDailyReached=false;resetHistoryTime=TimeCurrent();maxDrawdownBase=0;CloseAllAndReset(true);result="State harian dan grid direset.";}
+   else {success=false;result="Aksi tidak didukung Break-Trend.";}
+   RefreshDashboardUI(); PilotAck(commandId,success?"succeeded":"failed",result); Print("MT5 Pilot: ",result);
+}
+void PilotOnTimer()
+{
+   if(!EnablePilotRemote||MQLInfoInteger(MQL_TESTER)||EAConnectionToken=="")return; uint now=GetTickCount();
+   if(!PilotModeSynced&&now-LastPilotPollAt>=(uint)PilotPollingIntervalMs){LastPilotPollAt=now;PilotPollCommands();}
+   if(now-LastPilotTelemetryAt>=(uint)PilotTelemetryIntervalMs){LastPilotTelemetryAt=now;PilotSendTelemetry();}
+   if(now-LastPilotPollAt>=(uint)PilotPollingIntervalMs){LastPilotPollAt=now;PilotPollCommands();}
+}
+
 //+------------------------------------------------------------------+
 //| COUNT UTILITIES                                                  |
 //+------------------------------------------------------------------+
@@ -954,7 +1155,7 @@ int GetActivePositionCount()
    for (int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
-      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber) count++;
+      if (ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == BT_MagicNumber) count++;
    }
    return count;
 }
