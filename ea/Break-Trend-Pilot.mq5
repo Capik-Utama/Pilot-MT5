@@ -494,22 +494,48 @@ double GetTodayClosedProfitInBase()
    return GetClosedProfitInBase();
 }
 
+string FormatGroupedNumber(double value, int decimals)
+{
+   bool negative = value < 0.0;
+   string raw = decimals == 0
+      ? StringFormat("%.0f", MathAbs(value))
+      : StringFormat("%.2f", MathAbs(value));
+   int decimalPos = StringFind(raw, ".");
+   string integerPart = decimalPos >= 0 ? StringSubstr(raw, 0, decimalPos) : raw;
+   string decimalPart = decimalPos >= 0 ? StringSubstr(raw, decimalPos + 1) : "";
+   string grouped = "";
+   int digits = 0;
+   for(int i = StringLen(integerPart) - 1; i >= 0; i--)
+   {
+      if(digits == 3)
+      {
+         grouped = "." + grouped;
+         digits = 0;
+      }
+      grouped = StringSubstr(integerPart, i, 1) + grouped;
+      digits++;
+   }
+   if(negative) grouped = "-" + grouped;
+   if(decimalPart != "") grouped += "," + decimalPart;
+   return grouped;
+}
+
 string FormatCurrency(double amountBase)
 {
    if(CurrentCurrencyMode == 1) 
    {
       double uscVal = IsCentAccount() ? amountBase : (amountBase * 100.0);
-      return StringFormat("%.2f USC", uscVal);
+      return FormatGroupedNumber(uscVal, 2) + " USC";
    }
    else if(CurrentCurrencyMode == 2) 
    {
       double usdVal = IsCentAccount() ? (amountBase / 100.0) : amountBase;
-      return StringFormat("%.0f IDR", usdVal * InpUsdToIdr);
+      return FormatGroupedNumber(usdVal * InpUsdToIdr, 0) + " IDR";
    }
    else 
    {
       double usdVal = IsCentAccount() ? (amountBase / 100.0) : amountBase;
-      return StringFormat("%.2f USD", usdVal);
+      return FormatGroupedNumber(usdVal, 2) + " USD";
    }
 }
 
