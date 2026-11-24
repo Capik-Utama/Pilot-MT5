@@ -29,8 +29,8 @@ input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
 input string EAConnectionToken = "";
 input group "== Interval Komunikasi MT5 Pilot =="
-input int InputPengirimanInfoKePilotMs = 500;
-input int InputPengecekanPerintahPilotMs = 500;
+input int InputPengirimanInfoKePilotMs = 1000;
+input int InputPengecekanPerintahPilotMs = 1000;
 
 input group "=== Grid & Order Settings ==="
 input int      InpGridDistance    = 1000;     // Order Distance (in Points)
