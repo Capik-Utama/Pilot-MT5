@@ -159,6 +159,7 @@ const defaultEaConfig: EaConfig = {
   MulaiTrailingPoin: 1500,
   KunciProfitPoin: 1000,
   LangkahTrailingPoin: 500,
+  MinimumAutoBalanceUSD: 10,
 };
 const coreConfigFields = [
   [
@@ -202,6 +203,7 @@ const coreConfigFields = [
   ["BatasKerugian", "Batas kerugian", "number"],
   ["JedaSetelahSLMenit", "Jeda setelah SL (menit)", "number"],
   ["TargetHarian", "Target harian", "number"],
+  ["MinimumAutoBalanceUSD", "Saldo minimum AUTO (USD; USC ×100)", "number"],
   [
     "SetelahTargetTercapai",
     "Setelah target tercapai",

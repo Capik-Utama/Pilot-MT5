@@ -7,7 +7,8 @@ EA berkomunikasi langsung dengan Express API melalui HTTPS. Token koneksi disimp
 - EA dapat dipasang pada akun yang dipilih. Dashboard tidak mengklasifikasikan akun atau mencegah pemasangan pada jenis akun lain; periksa terminal sebelum memasang.
 - Koneksi baru disetel MANUAL. EA tidak boleh membuka posisi otomatis sampai owner mengaktifkan AUTO secara eksplisit. Uji terlebih dahulu dengan akun demo.
 - Mode tersimpan dipulihkan dari server saat polling. MANUAL menghentikan entry/layer baru; stop loss dan trailing yang sudah aktif tetap berjalan.
-- Saldo minimum untuk AUTO default `1000` dalam mata uang deposit akun. Nilai dapat diubah dari input EA atau editor parameter di kartu dashboard. Jika saldo di bawah ambang, AUTO ditolak/dinonaktifkan pada EA dan tombol dashboard; posisi yang sudah terbuka tidak ditutup otomatis.
+- Saldo minimum AUTO default adalah ekuivalen `USD 10`: `10` pada akun USD atau `1000 USC` pada akun cent. Nilai USD dapat diubah melalui input EA `InputMinimumAutoBalanceUSD` atau editor parameter dashboard; batas akun cent dihitung 100×. AUTO gagal-aman untuk mata uang selain USD/USC atau metadata mata uang/cent yang bertentangan karena konversi FX belum tersedia.
+- AUTO diperiksa saat diaktifkan dari chart/dashboard, saat command diterima, saat mode dipulihkan setelah restart, dan selama AUTO berjalan. Jika saldo jatuh di bawah batas, EA beralih ke MANUAL dan server menolak/menormalkan mode AUTO; entry/layer baru berhenti, tetapi posisi yang sudah terbuka tidak ditutup otomatis dan SL/trailing tetap berjalan.
 - Close Buy, Close Sell, dan Close All beralih ke MANUAL dahulu serta hanya menargetkan simbol chart dan Magic Number Fast-Grid yang dikonfigurasi.
 - API menolak command jika EA offline. Command memiliki masa berlaku dan acknowledgement menunjukkan hasil dari EA.
 - WebRequest MQL5 sinkron dan tidak berjalan di Strategy Tester. Pantau tab Experts/Journal dan riwayat broker.

@@ -13,6 +13,12 @@ import {
   pilotUserAccountAccess,
   users,
 } from "../drizzle/schema";
+import {
+  autoBalanceRejectionMessage,
+  checkMinimumAutoBalance,
+  DEFAULT_MINIMUM_AUTO_BALANCE_USD,
+  MINIMUM_AUTO_BALANCE_USD,
+} from "../shared/mt5-auto-safety";
 
 const ONLINE_WINDOW_MS = 20_000;
 const COMMAND_TTL_MS = 45_000;
@@ -53,6 +59,7 @@ const configKeys = new Set([
   "MulaiTrailingPoin",
   "KunciProfitPoin",
   "LangkahTrailingPoin",
+  "MinimumAutoBalanceUSD",
 ]);
 const configRanges: Record<string, readonly [number, number]> = {
   ModePerdagangan: [0, 2],
@@ -75,6 +82,10 @@ const configRanges: Record<string, readonly [number, number]> = {
   MulaiTrailingPoin: [0, 1000000],
   KunciProfitPoin: [0, 1000000],
   LangkahTrailingPoin: [0, 1000000],
+  MinimumAutoBalanceUSD: [
+    MINIMUM_AUTO_BALANCE_USD.min,
+    MINIMUM_AUTO_BALANCE_USD.max,
+  ],
 };
 const integerConfigKeys = new Set([
   "ModePerdagangan",
@@ -120,8 +131,44 @@ const validConfig = (v: unknown) =>
       );
     }
   );
+const requiredEaConfigKeys = new Set(
+  [...configKeys].filter(key => key !== "MinimumAutoBalanceUSD")
+);
 const validEaConfig = (v: unknown) =>
-  validConfig(v) && Object.keys(v as Obj).length === configKeys.size;
+  validConfig(v) &&
+  [...requiredEaConfigKeys].every(key => Object.hasOwn(v as Obj, key));
+const minimumAutoBalanceUsd = (config: unknown) => {
+  const value = (config as Obj | null)?.MinimumAutoBalanceUSD;
+  return finite(
+    value,
+    MINIMUM_AUTO_BALANCE_USD.min,
+    MINIMUM_AUTO_BALANCE_USD.max
+  )
+    ? value
+    : DEFAULT_MINIMUM_AUTO_BALANCE_USD;
+};
+const autoBalanceError = (account: Obj, minimumUsd?: number): string | null => {
+  if (!account.telemetryReceived)
+    return "AUTO requires balance telemetry before activation.";
+  const lastSeen = date(account.lastSeenAt);
+  if (!lastSeen || Date.now() - lastSeen.getTime() > ONLINE_WINDOW_MS)
+    return "AUTO requires fresh balance telemetry; wait for the next EA update.";
+  const threshold = minimumUsd ?? minimumAutoBalanceUsd(account.eaConfig);
+  const check = checkMinimumAutoBalance(
+    account.balance,
+    account.currency,
+    account.isCentAccount,
+    threshold
+  );
+  return check.allowed
+    ? null
+    : autoBalanceRejectionMessage(
+        check,
+        account.balance,
+        account.currency,
+        account.isCentAccount
+      );
+};
 const body = (req: Request): Obj | null =>
   req.body && typeof req.body === "object" && !Array.isArray(req.body)
     ? req.body
@@ -764,6 +811,9 @@ export function registerMt5ApiRoutes(app: Express) {
           Date.now() - (date(a.lastSeenAt)?.getTime() || 0) > ONLINE_WINDOW_MS
         )
           return fail(res, 409, "EA offline or heartbeat expired.");
+        const restoreAuto =
+          a.eaMode === "auto" &&
+          autoBalanceError(a, minimumAutoBalanceUsd(cfg)) === null;
         const created = await db
           .transaction(async (tx: any) => {
             const locked = await tx
@@ -805,18 +855,25 @@ export function registerMt5ApiRoutes(app: Express) {
             await writeEvent(tx, command, "queued");
             let restore = null;
             if (a.eaMode === "auto") {
-              restore = {
-                id: randomUUID(),
-                ownerId: owner,
-                accountId: a.id,
-                requestedByUserId: user.id,
-                action: "auto",
-                status: "queued",
-                createdAt: now,
-                expiresAt: new Date(Date.now() + COMMAND_TTL_MS),
-              };
-              await tx.insert(mt5Commands).values(restore);
-              await writeEvent(tx, restore, "queued");
+              if (restoreAuto) {
+                restore = {
+                  id: randomUUID(),
+                  ownerId: owner,
+                  accountId: a.id,
+                  requestedByUserId: user.id,
+                  action: "auto",
+                  status: "queued",
+                  createdAt: now,
+                  expiresAt: new Date(Date.now() + COMMAND_TTL_MS),
+                };
+                await tx.insert(mt5Commands).values(restore);
+                await writeEvent(tx, restore, "queued");
+              } else {
+                await tx
+                  .update(mt5Accounts)
+                  .set({ eaMode: "manual", running: false, updatedAt: now })
+                  .where(eq(mt5Accounts.id, a.id));
+              }
             }
             return { command, restoreModeCommand: restore };
           })
@@ -855,6 +912,10 @@ export function registerMt5ApiRoutes(app: Express) {
           Date.now() - (date(a.lastSeenAt)?.getTime() || 0) > ONLINE_WINDOW_MS
         )
           return fail(res, 409, "EA offline or heartbeat expired.");
+        if (action === "auto") {
+          const balanceError = autoBalanceError(a);
+          if (balanceError) return fail(res, 409, balanceError);
+        }
         const c = {
           id: randomUUID(),
           ownerId: owner,
@@ -947,7 +1008,16 @@ export function registerMt5ApiRoutes(app: Express) {
           (b.latencyMs !== undefined && !finite(b.latencyMs, 0, 60000))
         )
           return fail(res, 400, "Invalid telemetry payload.");
+        let telemetryMode: "auto" | "manual" = "manual";
+        let telemetryAutoError: string | null = null;
         await db.transaction(async (tx: any) => {
+          const lockedAccounts = await tx
+            .select()
+            .from(mt5Accounts)
+            .where(eq(mt5Accounts.id, acct.id))
+            .for("update")
+            .limit(1);
+          const currentAccount = lockedAccounts[0] ?? acct;
           let sync = false;
           if (b.eaConfig !== undefined) {
             const pending = await tx
@@ -986,6 +1056,33 @@ export function registerMt5ApiRoutes(app: Express) {
               sync = true;
             }
           }
+          const effectiveConfig =
+            sync && b.eaConfig !== undefined
+              ? {
+                  ...(currentAccount.eaConfig ?? {}),
+                  ...b.eaConfig,
+                  MinimumAutoBalanceUSD:
+                    b.eaConfig.MinimumAutoBalanceUSD ??
+                    currentAccount.eaConfig?.MinimumAutoBalanceUSD ??
+                    DEFAULT_MINIMUM_AUTO_BALANCE_USD,
+                }
+              : currentAccount.eaConfig;
+          const effectiveMinimumUsd = minimumAutoBalanceUsd(effectiveConfig);
+          const balanceCheck = checkMinimumAutoBalance(
+            b.balance,
+            b.currency,
+            b.isCentAccount,
+            effectiveMinimumUsd
+          );
+          telemetryMode =
+            b.eaMode === "auto" && balanceCheck.allowed ? "auto" : "manual";
+          if (b.eaMode === "auto" && telemetryMode === "manual")
+            telemetryAutoError = autoBalanceRejectionMessage(
+              balanceCheck,
+              b.balance,
+              b.currency,
+              b.isCentAccount
+            );
           const update: any = {
             brokerAccountName: b.accountName,
             mt5Login: b.login ?? null,
@@ -1005,9 +1102,11 @@ export function registerMt5ApiRoutes(app: Express) {
             maxFloatSell: b.maxFloatSell,
             runningFloat: b.runningFloat,
             openPositions: b.openPositions ?? 0,
-            eaStatus: b.eaStatus ?? (b.running ? "ACTIVE" : "MANUAL"),
-            running: b.running,
-            eaMode: b.eaMode,
+            eaStatus: telemetryAutoError
+              ? "AUTO BLOCKED"
+              : b.eaStatus ?? (b.running ? "ACTIVE" : "MANUAL"),
+            running: telemetryAutoError ? false : b.running,
+            eaMode: telemetryMode,
             profit: b.profit,
             floatingProfit: b.floatingProfit,
             currency: b.currency,
@@ -1015,13 +1114,26 @@ export function registerMt5ApiRoutes(app: Express) {
             lastSeenAt: new Date(),
             updatedAt: new Date(),
           };
-          if (sync && b.eaConfig !== undefined) update.eaConfig = b.eaConfig;
+          if (sync && b.eaConfig !== undefined)
+            update.eaConfig = {
+              ...b.eaConfig,
+              MinimumAutoBalanceUSD:
+                b.eaConfig.MinimumAutoBalanceUSD ??
+                currentAccount.eaConfig?.MinimumAutoBalanceUSD ??
+                DEFAULT_MINIMUM_AUTO_BALANCE_USD,
+            };
           await tx
             .update(mt5Accounts)
             .set(update)
             .where(eq(mt5Accounts.id, acct.id));
         });
-        return json(res, 200, { ok: true, serverTime: new Date() });
+        return json(res, 200, {
+          ok: true,
+          serverTime: new Date(),
+          eaMode: telemetryMode,
+          autoBlocked: telemetryAutoError !== null,
+          ...(telemetryAutoError ? { error: telemetryAutoError } : {}),
+        });
       }
       if (
         path === "/commands/next" &&
@@ -1061,6 +1173,15 @@ export function registerMt5ApiRoutes(app: Express) {
             acct.intervalsConfigured = true;
           }
         }
+        let balanceError = autoBalanceError(acct);
+        if (acct.eaMode === "auto" && balanceError) {
+          await db
+            .update(mt5Accounts)
+            .set({ eaMode: "manual", running: false, updatedAt: new Date() })
+            .where(eq(mt5Accounts.id, acct.id));
+          acct.eaMode = "manual";
+          acct.running = false;
+        }
         const now = new Date(),
           list = await db
             .select()
@@ -1098,10 +1219,43 @@ export function registerMt5ApiRoutes(app: Express) {
             await writeEvent(tx, current[0], "expired", msg);
           });
         }
+        if (balanceError) {
+          for (const pendingAuto of list.filter(
+            x =>
+              x.action === "auto" &&
+              ["queued", "delivered"].includes(x.status) &&
+              (date(x.expiresAt)?.getTime() || 0) > now.getTime()
+          )) {
+            await db.transaction(async (tx: any) => {
+              const current = await tx
+                .select()
+                .from(mt5Commands)
+                .where(
+                  and(
+                    eq(mt5Commands.id, pendingAuto.id),
+                    inArray(mt5Commands.status, ["queued", "delivered"])
+                  )
+                )
+                .for("update")
+                .limit(1);
+              if (!current.length) return;
+              await tx
+                .update(mt5Commands)
+                .set({
+                  status: "failed",
+                  completedAt: now,
+                  resultMessage: balanceError,
+                })
+                .where(eq(mt5Commands.id, pendingAuto.id));
+              await writeEvent(tx, current[0], "failed", balanceError);
+            });
+          }
+        }
         const c = list.find(
           x =>
             ["queued", "delivered"].includes(x.status) &&
-            (date(x.expiresAt)?.getTime() || 0) > now.getTime()
+            (date(x.expiresAt)?.getTime() || 0) > now.getTime() &&
+            !(balanceError && x.action === "auto")
         );
         if (!c)
           return json(res, 200, {
@@ -1211,16 +1365,35 @@ export function registerMt5ApiRoutes(app: Express) {
             status: c.status,
             message: "Waiting for EA telemetry to verify configuration.",
           });
-        const now = new Date(),
+        const now = new Date();
+        let finalStatus = status as "accepted" | "succeeded" | "failed";
+        let finalMessage = message;
+        let mode: "auto" | "manual" | null = null;
+        await db.transaction(async (tx: any) => {
+          if (c.action === "auto" && finalStatus === "succeeded") {
+            const currentAccounts = await tx
+              .select()
+              .from(mt5Accounts)
+              .where(eq(mt5Accounts.id, acct.id))
+              .for("update")
+              .limit(1);
+            const balanceError = currentAccounts.length
+              ? autoBalanceError(currentAccounts[0])
+              : "Account not found.";
+            if (balanceError) {
+              finalStatus = "failed";
+              finalMessage = balanceError;
+            }
+          }
           mode =
-            status === "succeeded" && c.action === "auto"
+            c.action === "auto" && finalStatus === "succeeded"
               ? "auto"
-              : ["manual", "close_buy", "close_sell", "close_all"].includes(
+              : (c.action === "auto" && finalStatus === "failed") ||
+                  (["manual", "close_buy", "close_sell", "close_all"].includes(
                     c.action
-                  ) && ["succeeded", "failed"].includes(status)
+                  ) && ["succeeded", "failed"].includes(finalStatus))
                 ? "manual"
                 : null;
-        await db.transaction(async (tx: any) => {
           if (mode)
             await tx
               .update(mt5Accounts)
@@ -1229,16 +1402,20 @@ export function registerMt5ApiRoutes(app: Express) {
           await tx
             .update(mt5Commands)
             .set({
-              status,
-              resultMessage: message,
-              ...(["succeeded", "failed"].includes(status)
+              status: finalStatus,
+              resultMessage: finalMessage,
+              ...(["succeeded", "failed"].includes(finalStatus)
                 ? { completedAt: now }
                 : {}),
             })
             .where(eq(mt5Commands.id, c.id));
-          await writeEvent(tx, c, status, message);
+          await writeEvent(tx, c, finalStatus, finalMessage);
         });
-        return json(res, 200, { ok: true, status });
+        return json(res, 200, {
+          ok: true,
+          status: finalStatus,
+          ...(finalMessage ? { message: finalMessage } : {}),
+        });
       }
       return fail(res, 404, "EA route not found.");
     } catch (e) {

@@ -43,6 +43,7 @@ input int       InputJarakGrid        = 2000;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
+input double InputMinimumAutoBalanceUSD = 10.0; // Minimum ekuivalen USD; akun USC memakai 100x.
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
@@ -78,6 +79,7 @@ ENUM_TS_MODE ModeTrailing = InputModeTrailing;
 int MulaiTrailingPoin = InputMulaiTrailingPoin;
 int KunciProfitPoin = InputKunciProfitPoin;
 int LangkahTrailingPoin = InputLangkahTrailingPoin;
+double MinimumAutoBalanceUSD = InputMinimumAutoBalanceUSD;
 
 CTrade trade;
 double VSL_BuyPrice = 0, VSL_SellPrice = 0;
@@ -123,6 +125,9 @@ void CheckAndLayer();
 bool HasOpenPositions();
 double CalculateNextLot(double currentLot, double multiplier);
 bool IsCentAccount();
+bool PilotAutoBalanceAllows(string &reason);
+bool PilotTryEnableAuto(string &reason);
+bool PilotEnforceAutoBalance();
 string FormatCurrency(double amount);
 void UpdateFloatingStats();
 void PilotOnTimer();
@@ -180,6 +185,11 @@ int OnInit() {
    MulaiTrailingPoin = InputMulaiTrailingPoin;
    KunciProfitPoin = InputKunciProfitPoin;
    LangkahTrailingPoin = InputLangkahTrailingPoin;
+   MinimumAutoBalanceUSD = InputMinimumAutoBalanceUSD;
+   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000.0) {
+      MinimumAutoBalanceUSD = 10.0;
+      Print("MT5 Pilot: input minimum saldo AUTO tidak valid; memakai default USD 10.");
+   }
    InputConfigSnapshot = PilotConfigJson(true);
    ResetTime = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
    LastDayReset = ResetTime;
@@ -193,6 +203,13 @@ int OnInit() {
 
    isAutoTradingActive = !EnablePilotRemote; // Remote stays MANUAL until the server mode is read.
    PilotModeSynced = !EnablePilotRemote;
+   if(isAutoTradingActive) {
+      string autoBlockReason = "";
+      if(!PilotAutoBalanceAllows(autoBlockReason)) {
+         isAutoTradingActive = false;
+         Print("MT5 Pilot: AUTO lokal diblokir. ", autoBlockReason);
+      }
+   }
    CreateDashboard();
    PilotRestoreConfigState();
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
@@ -234,6 +251,64 @@ string FormatCurrency(double amount) {
    } else {
       return StringFormat("%.2f USD", usdAmount);
    }
+}
+
+bool PilotAutoBalanceAllows(string &reason) {
+   reason = "";
+   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000.0) {
+      reason = "parameter minimum AUTO harus berupa nilai USD positif yang valid.";
+      return false;
+   }
+
+   string currency = AccountInfoString(ACCOUNT_CURRENCY);
+   StringToUpper(currency);
+   bool currencyIsCent = StringFind(currency, "USC") >= 0 || StringFind(currency, "CENT") >= 0;
+   if(currency == "USD" && IsCentAccount()) {
+      reason = "metadata akun cent tidak cocok dengan mata uang USD; pengaman AUTO menolak aktivasi.";
+      return false;
+   }
+   if(!currencyIsCent && currency != "USD") {
+      reason = StringFormat("mata uang akun %s belum didukung; pengaman AUTO hanya dapat memastikan USD atau USC.", currency);
+      return false;
+   }
+
+   bool centUnits = currencyIsCent;
+   double requiredBalance = MinimumAutoBalanceUSD * (centUnits ? 100.0 : 1.0);
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   if(!MathIsValidNumber(balance)) {
+      reason = "saldo akun belum valid.";
+      return false;
+   }
+   if(balance < requiredBalance) {
+      reason = StringFormat("saldo %.2f %s di bawah minimum AUTO %.2f %s (ekuivalen USD %.2f).",
+         balance, centUnits ? "USC" : "USD", requiredBalance, centUnits ? "USC" : "USD", MinimumAutoBalanceUSD);
+      return false;
+   }
+   return true;
+}
+
+bool PilotTryEnableAuto(string &reason) {
+   if(!PilotAutoBalanceAllows(reason)) {
+      isAutoTradingActive = false;
+      PilotModeSynced = true;
+      RefreshDashboardUI();
+      return false;
+   }
+   isAutoTradingActive = true;
+   PilotModeSynced = true;
+   RefreshDashboardUI();
+   return true;
+}
+
+bool PilotEnforceAutoBalance() {
+   if(!isAutoTradingActive) return true;
+   string reason = "";
+   if(PilotAutoBalanceAllows(reason)) return true;
+   isAutoTradingActive = false;
+   PilotModeSynced = true;
+   RefreshDashboardUI();
+   Print("MT5 Pilot: AUTO dinonaktifkan tanpa menutup posisi yang sudah terbuka. ", reason);
+   return false;
 }
 
 void CreateUIButton(string name, string text, int x, int y, int xSize, int ySize, color bgColor, color txtColor=clrWhite, int fontSize=9) {
@@ -455,8 +530,9 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
          ObjectSetInteger(0, UIPrefix + "BtnSell", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnAuto") {
-         isAutoTradingActive = true;
-         PilotModeSynced = true;
+         string reason = "";
+         if(!PilotTryEnableAuto(reason))
+            Print("MT5 Pilot: AUTO lokal ditolak. ", reason);
          ObjectSetInteger(0, UIPrefix + "BtnAuto", OBJPROP_STATE, false);
       }
       else if(sparam == UIPrefix + "BtnManual") {
@@ -487,6 +563,7 @@ void OnTimer() {
 
 void PilotOnTimer() {
    if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "" || PilotApiBaseUrl == "") return;
+   PilotEnforceAutoBalance();
    uint now = GetTickCount();
    bool pollAttempted = false;
    // On startup/re-init, read the server's last acknowledged mode before the first telemetry.
@@ -631,7 +708,8 @@ string PilotConfigJson(const bool fromInputs) {
       ",\"ModeTrailing\":" + IntegerToString(fromInputs ? (int)InputModeTrailing : (int)ModeTrailing) +
       ",\"MulaiTrailingPoin\":" + IntegerToString(fromInputs ? InputMulaiTrailingPoin : MulaiTrailingPoin) +
       ",\"KunciProfitPoin\":" + IntegerToString(fromInputs ? InputKunciProfitPoin : KunciProfitPoin) +
-      ",\"LangkahTrailingPoin\":" + IntegerToString(fromInputs ? InputLangkahTrailingPoin : LangkahTrailingPoin) + "}";
+      ",\"LangkahTrailingPoin\":" + IntegerToString(fromInputs ? InputLangkahTrailingPoin : LangkahTrailingPoin) +
+      ",\"MinimumAutoBalanceUSD\":" + DoubleToString(fromInputs ? InputMinimumAutoBalanceUSD : MinimumAutoBalanceUSD, 2) + "}";
 }
 
 string PilotConfigStateFile() {
@@ -691,6 +769,7 @@ bool PilotRestoreConfigState() {
    if(PilotJsonNumber(savedInputs, "MulaiTrailingPoin", -1) != InputMulaiTrailingPoin) MulaiTrailingPoin = InputMulaiTrailingPoin;
    if(PilotJsonNumber(savedInputs, "KunciProfitPoin", -1) != InputKunciProfitPoin) KunciProfitPoin = InputKunciProfitPoin;
    if(PilotJsonNumber(savedInputs, "LangkahTrailingPoin", -1) != InputLangkahTrailingPoin) LangkahTrailingPoin = InputLangkahTrailingPoin;
+   if(PilotJsonNumber(savedInputs, "MinimumAutoBalanceUSD", -1) != InputMinimumAutoBalanceUSD) MinimumAutoBalanceUSD = InputMinimumAutoBalanceUSD;
 
    if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
@@ -702,6 +781,9 @@ bool PilotRestoreConfigState() {
 }
 
 bool PilotApplyConfig(const string json) {
+   double configuredMinimumUsd = PilotJsonNumber(json, "MinimumAutoBalanceUSD", MinimumAutoBalanceUSD);
+   if(!MathIsValidNumber(configuredMinimumUsd) || configuredMinimumUsd < 0.01 || configuredMinimumUsd > 1000000000.0)
+      return false;
    ModePerdagangan = (ENUM_TRADE_MODE)PilotJsonNumber(json, "ModePerdagangan", ModePerdagangan);
    MataUangTampilan = (ENUM_DISPLAY_CURRENCY)PilotJsonNumber(json, "MataUangTampilan", MataUangTampilan);
    KursUSD_IDR = PilotJsonNumber(json, "KursUSD_IDR", KursUSD_IDR);
@@ -723,10 +805,12 @@ bool PilotApplyConfig(const string json) {
    MulaiTrailingPoin = (int)PilotJsonNumber(json, "MulaiTrailingPoin", MulaiTrailingPoin);
    KunciProfitPoin = (int)PilotJsonNumber(json, "KunciProfitPoin", KunciProfitPoin);
    LangkahTrailingPoin = (int)PilotJsonNumber(json, "LangkahTrailingPoin", LangkahTrailingPoin);
+   MinimumAutoBalanceUSD = configuredMinimumUsd;
    if(MataUangTampilan == MATA_CENT) CurrentCurrencyMode = 1;
    else if(MataUangTampilan == MATA_IDR) CurrentCurrencyMode = 2;
    else CurrentCurrencyMode = 0;
    InpUsdToIdr = KursUSD_IDR;
+   PilotEnforceAutoBalance();
    PilotSaveConfigState();
    RefreshDashboardUI();
    return true;
@@ -736,7 +820,9 @@ bool PilotAck(const string commandId, const string status, const string message)
    string response = "";
    string body = "{\"status\":\"" + status + "\",\"message\":\"" + PilotJsonEscape(message) + "\"}";
    int code = PilotHttp("POST", "/commands/" + commandId + "/ack", body, response);
-   return (code >= 200 && code < 300);
+   if(code < 200 || code >= 300) return false;
+   if(status == "succeeded" && PilotJsonString(response, "status") == "failed") return false;
+   return true;
 }
 
 double PilotFloatingProfit() {
@@ -909,10 +995,18 @@ void PilotPollCommands() {
    if(!PilotModeSynced && !pendingModeOverride) {
       string serverMode = PilotJsonString(response, "eaMode");
       if(serverMode != "auto" && serverMode != "manual") return;
-      isAutoTradingActive = serverMode == "auto";
+      bool restoredAuto = false;
+      if(serverMode == "auto") {
+         string reason = "";
+         restoredAuto = PilotTryEnableAuto(reason);
+         if(!restoredAuto)
+            Print("MT5 Pilot: pemulihan AUTO dari server ditolak. ", reason);
+      } else {
+         isAutoTradingActive = false;
+      }
       PilotModeSynced = true;
       RefreshDashboardUI();
-      Print("MT5 Pilot: mode remote dipulihkan dari server: ", serverMode);
+      Print("MT5 Pilot: mode remote dipulihkan dari server: ", restoredAuto ? "auto" : "manual");
    }
    if(commandId == "" || action == "") return;
    string dedupeKey = "MTP_" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + "_" + commandId;
@@ -933,10 +1027,9 @@ void PilotPollCommands() {
       success = true;
       result = "Mode Manual aktif. Entry baru berhenti; pengaman SL/trailing tetap berjalan.";
    } else if(action == "auto") {
-      isAutoTradingActive = true;
-      PilotModeSynced = true;
-      success = true;
-      result = "Mode Auto aktif.";
+      string reason = "";
+      success = PilotTryEnableAuto(reason);
+      result = success ? "Mode Auto aktif." : "Mode Auto ditolak. " + reason;
    } else if(action == "buy" || action == "sell") {
       bool isBuy = action == "buy";
       success = OpenOrder(isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, LotAwal, isBuy ? MagicBeli : MagicJual);
@@ -978,10 +1071,18 @@ void PilotPollCommands() {
       result = "Aksi tidak dikenal; tidak ada order dikirim.";
    }
    RefreshDashboardUI();
-   PilotAck(commandId, success ? "succeeded" : "failed", result);
+   bool ackConfirmed = PilotAck(commandId, success ? "succeeded" : "failed", result);
+   if(action == "auto" && success && !ackConfirmed) {
+      isAutoTradingActive = false;
+      PilotModeSynced = true;
+      success = false;
+      result = "API menolak atau tidak mengonfirmasi AUTO; EA kembali ke MANUAL.";
+      RefreshDashboardUI();
+   }
    Print("MT5 Pilot: ", result);
 }
 void OnTick() {
+   PilotEnforceAutoBalance();
    datetime currentDay = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
 
    if(currentDay > LastDayReset) {
@@ -1055,6 +1156,7 @@ bool HasOpenPositions() {
 // has been completely closed while the other side is still running,
 // immediately start a new cycle for the closed direction.
 bool CheckDirectionReEntry() {
+   if(!PilotEnforceAutoBalance() || !isAutoTradingActive) return false;
    int buyCount = 0;
    int sellCount = 0;
    bool reentered = false;
@@ -1104,6 +1206,7 @@ double CalculateNextLot(double currentLot, double multiplier) {
 }
 
 void CheckInitialEntry() {
+   if(!PilotEnforceAutoBalance() || !isAutoTradingActive) return;
    if(HasOpenPositions()) return;
 
    if(ModePerdagangan == MODE_BELI_JUAL || ModePerdagangan == MODE_BELI_SAJA)
@@ -1114,6 +1217,7 @@ void CheckInitialEntry() {
 }
 
 void CheckAndLayer() {
+   if(!PilotEnforceAutoBalance() || !isAutoTradingActive) return;
    // Trailing-pending grid logic:
    // JarakGrid is the full grid distance and JarakTrailingPending is the
    // retracement distance. The pending mechanism starts at
