@@ -107,7 +107,7 @@ export const mt5Accounts = pgTable(
     latencyMs: integer("latency_ms"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     pollIntervalMs: integer("poll_interval_ms").default(1000).notNull(),
-    telemetryIntervalMs: integer("telemetry_interval_ms").default(500).notNull(),
+    telemetryIntervalMs: integer("telemetry_interval_ms").default(1000).notNull(),
     intervalsConfigured: boolean("intervals_configured").default(false).notNull(),
     eaConfig: jsonb("ea_config").$type<Record<string, number> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true })

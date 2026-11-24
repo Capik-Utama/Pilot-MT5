@@ -128,6 +128,8 @@ type NetworkTrafficSample = {
 };
 const EMPTY_CARDS_REFRESH_MS = 5_000;
 const CARD_METRICS_REFRESH_MS = 500;
+const DEFAULT_TELEMETRY_INTERVAL_MS = 1_000;
+const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const actionLabel: Record<Action, string> = {
   auto: "Auto",
   manual: "Manual",
@@ -145,24 +147,23 @@ const defaultEaConfig: EaConfig = {
   MagicBeli: 2864384,
   MagicJual: 2864385,
   LotAwal: 0.01,
-  PenggandaLot: 1.2,
-  LotMaksimal: 12,
-  LangkahLayer: 1,
-  JarakGrid: 2000,
+  PenggandaLot: 1.5,
+  LotMaksimal: 15,
+  LangkahLayer: 5,
+  JarakGrid: 1500,
   JarakTrailingPending: 500,
+  MinimumAutoBalanceUSD: 10,
   JenisBatasRugi: 0,
-  BatasKerugian: 30000,
-  JedaSetelahSLMenit: 30,
+  BatasKerugian: 10000,
+  JedaSetelahSLMenit: 15,
   TargetHarian: 100000,
   SetelahTargetTercapai: 0,
   ModeTrailing: 0,
   MulaiTrailingPoin: 1500,
   KunciProfitPoin: 1000,
   LangkahTrailingPoin: 500,
-  MinimumAutoBalanceUSD: 10,
 };
 const coreConfigFields = [
-  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (unit akun)", "number"],
   [
     "ModePerdagangan",
     "Mode perdagangan",
@@ -192,6 +193,7 @@ const coreConfigFields = [
   ["LangkahLayer", "Langkah layer", "number"],
   ["JarakGrid", "Jarak grid (poin)", "number"],
   ["JarakTrailingPending", "Jarak trailing pending", "number"],
+  ["MinimumAutoBalanceUSD", "Saldo minimum AUTO (unit akun)", "number"],
   [
     "JenisBatasRugi",
     "Jenis batas rugi",
@@ -466,7 +468,9 @@ export default function Home() {
   const [editingAccountLabel, setEditingAccountLabel] = useState("");
   const [editingConfig, setEditingConfig] = useState<EaConfig>(defaultEaConfig);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [editingTelemetryIntervalMs, setEditingTelemetryIntervalMs] = useState(500);
+  const [editingTelemetryIntervalMs, setEditingTelemetryIntervalMs] = useState(
+    DEFAULT_TELEMETRY_INTERVAL_MS
+  );
   const [editingPollIntervalMs, setEditingPollIntervalMs] = useState(1000);
   const [savingPollInterval, setSavingPollInterval] = useState(false);
   const [savingAccountLabel, setSavingAccountLabel] = useState(false);
@@ -690,7 +694,9 @@ ${serializedBody ?? ""}`).byteLength;
         Math.min(
           ...accounts
             .filter(account => account.telemetry_received)
-            .map(account => account.telemetry_interval_ms ?? 500)
+            .map(account =>
+              account.telemetry_interval_ms ?? DEFAULT_TELEMETRY_INTERVAL_MS
+            )
         )
       )
     : CARD_METRICS_REFRESH_MS;
@@ -1122,8 +1128,12 @@ ${serializedBody ?? ""}`).byteLength;
     if (!canWrite) return;
     setEditingAccount(account);
     setEditingAccountLabel(account.label);
-    setEditingTelemetryIntervalMs(account.telemetry_interval_ms ?? 500);
-    setEditingPollIntervalMs(account.poll_interval_ms ?? 1000);
+    setEditingTelemetryIntervalMs(
+      account.telemetry_interval_ms ?? DEFAULT_TELEMETRY_INTERVAL_MS
+    );
+    setEditingPollIntervalMs(
+      account.poll_interval_ms ?? DEFAULT_POLL_INTERVAL_MS
+    );
     setDeleteConfirmation("");
     const savedConfig = account.ea_config ?? {};
     setEditingConfig(
@@ -2189,7 +2199,7 @@ ${serializedBody ?? ""}`).byteLength;
               <div>
                 <strong>Pengiriman informasi ke Pilot</strong>
                 <p>
-                  Seberapa sering EA mengirim telemetry. Default 500 ms; lebih
+                  Seberapa sering EA mengirim telemetry. Default 1000 ms; lebih
                   cepat berarti lebih banyak request.
                 </p>
               </div>
@@ -2202,8 +2212,8 @@ ${serializedBody ?? ""}`).byteLength;
                   }
                   disabled={savingPollInterval || savingConfig}
                 >
-                  <option value={500}>Cepat · 500 ms (default)</option>
-                  <option value={1000}>Normal · 1 detik</option>
+                  <option value={500}>Cepat · 500 ms</option>
+                  <option value={1000}>Normal · 1 detik (default)</option>
                   <option value={2000}>Hemat · 2 detik</option>
                 </select>
               </div>
@@ -2236,7 +2246,8 @@ ${serializedBody ?? ""}`).byteLength;
                     (editingPollIntervalMs ===
                       (editingAccount.poll_interval_ms ?? 1000) &&
                       editingTelemetryIntervalMs ===
-                        (editingAccount.telemetry_interval_ms ?? 500))
+                        (editingAccount.telemetry_interval_ms ??
+                          DEFAULT_TELEMETRY_INTERVAL_MS))
                   }
                   onClick={() => void savePollingInterval()}
                 >

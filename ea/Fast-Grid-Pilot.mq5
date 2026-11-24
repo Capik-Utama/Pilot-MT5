@@ -168,7 +168,7 @@ int OnInit() {
    PilotInputIntervalsPending = PilotIntervalInputsChanged();
    PilotShouldStoreIntervalInputs = !PilotIntervalInputsStored() || PilotInputIntervalsPending;
    if(PilotTelemetryIntervalMs != InputPengirimanInfoKePilotMs)
-      Print("MT5 Pilot: interval telemetry hanya menerima 500, 1000, atau 2000 ms; memakai 500 ms.");
+      Print("MT5 Pilot: interval telemetry hanya menerima 500, 1000, atau 2000 ms; memakai 1000 ms.");
    if(PilotPollingIntervalMs != InputPengecekanPerintahPilotMs)
       Print("MT5 Pilot: interval polling hanya menerima 500, 1000, atau 2000 ms; memakai 1000 ms.");
    LotAwal = InputLotAwal;
@@ -962,7 +962,7 @@ bool PilotCloseMagic(const int magic, int &closedCount, string &details) {
 
 int PilotNormalizeTelemetryInterval(const int value) {
    if(value == 500 || value == 1000 || value == 2000) return value;
-   return 500;
+   return 1000;
 }
 
 int PilotNormalizePollingInterval(const int value) {
@@ -985,7 +985,7 @@ bool PilotIntervalInputsStored() {
 bool PilotIntervalInputsChanged() {
    string key = PilotIntervalInputKey();
    if(!GlobalVariableCheck(key + "_T") || !GlobalVariableCheck(key + "_P"))
-      return PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) != 500 ||
+      return PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) != 1000 ||
          PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs) != 1000;
    return (int)GlobalVariableGet(key + "_T") != PilotNormalizeTelemetryInterval(InputPengirimanInfoKePilotMs) ||
       (int)GlobalVariableGet(key + "_P") != PilotNormalizePollingInterval(InputPengecekanPerintahPilotMs);

@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS public.mt5_accounts (
   last_seen_at timestamptz,
   poll_interval_ms integer NOT NULL DEFAULT 1000
     CHECK (poll_interval_ms IN (500, 1000, 2000)),
-  telemetry_interval_ms integer NOT NULL DEFAULT 500
+  telemetry_interval_ms integer NOT NULL DEFAULT 1000
     CHECK (telemetry_interval_ms IN (500, 1000, 2000)),
   intervals_configured boolean NOT NULL DEFAULT false,
   ea_config jsonb,

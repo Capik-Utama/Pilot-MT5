@@ -27,7 +27,7 @@ SET poll_interval_ms = 1000
 WHERE poll_interval_ms IS NULL;
 
 UPDATE public.mt5_accounts
-SET telemetry_interval_ms = 500
+SET telemetry_interval_ms = 1000
 WHERE telemetry_interval_ms IS NULL;
 
 UPDATE public.mt5_accounts
@@ -37,7 +37,7 @@ WHERE intervals_configured IS NULL;
 ALTER TABLE public.mt5_accounts
   ALTER COLUMN poll_interval_ms SET DEFAULT 1000,
   ALTER COLUMN poll_interval_ms SET NOT NULL,
-  ALTER COLUMN telemetry_interval_ms SET DEFAULT 500,
+  ALTER COLUMN telemetry_interval_ms SET DEFAULT 1000,
   ALTER COLUMN telemetry_interval_ms SET NOT NULL,
   ALTER COLUMN intervals_configured SET DEFAULT false,
   ALTER COLUMN intervals_configured SET NOT NULL;
