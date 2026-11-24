@@ -18,11 +18,22 @@ describe("minimum AUTO balance", () => {
     expect(checkMinimumAutoBalance(1001, "USC", true).allowed).toBe(true);
   });
 
+  it("uses 100 IDC per USD-equivalent unit like USC", () => {
+    expect(checkMinimumAutoBalance(999, "IDC", false).allowed).toBe(false);
+    expect(checkMinimumAutoBalance(1000, "IDC", false)).toMatchObject({
+      allowed: true,
+      unit: "IDC",
+      requiredBalance: 1000,
+    });
+  });
+
   it("applies a configured USD-equivalent minimum to both account types", () => {
     expect(checkMinimumAutoBalance(24.99, "USD", false, 25).allowed).toBe(false);
     expect(checkMinimumAutoBalance(25, "USD", false, 25).allowed).toBe(true);
     expect(checkMinimumAutoBalance(2499, "USC", true, 25).allowed).toBe(false);
     expect(checkMinimumAutoBalance(2500, "USC", true, 25).allowed).toBe(true);
+    expect(checkMinimumAutoBalance(2499, "IDC", false, 25).allowed).toBe(false);
+    expect(checkMinimumAutoBalance(2500, "IDC", false, 25).allowed).toBe(true);
   });
 
   it("fails closed for unsupported or contradictory account currency metadata", () => {

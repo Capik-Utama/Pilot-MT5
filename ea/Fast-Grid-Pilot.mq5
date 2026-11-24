@@ -44,7 +44,7 @@ input int       InputJarakGrid        = 1500;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
-input double InputMinimumAutoBalanceUSD = 1000; // Minimum ekuivalen USD; akun USC memakai 100x.
+input double InputMinimumAutoBalanceUSD = 1000; // Minimum ekuivalen USD; akun USC/IDC memakai 100x.
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
@@ -287,26 +287,28 @@ bool PilotAutoBalanceAllows(string &reason) {
 
    string currency = AccountInfoString(ACCOUNT_CURRENCY);
    StringToUpper(currency);
-   bool currencyIsCent = StringFind(currency, "USC") >= 0 || StringFind(currency, "CENT") >= 0;
+   bool currencyIsIdrCent = currency == "IDC";
+   bool currencyIsCent = currencyIsIdrCent || StringFind(currency, "USC") >= 0 || StringFind(currency, "CENT") >= 0;
    if(currency == "USD" && IsCentAccount()) {
       reason = "metadata akun cent tidak cocok dengan mata uang USD; pengaman AUTO menolak aktivasi.";
       return false;
    }
    if(!currencyIsCent && currency != "USD") {
-      reason = StringFormat("mata uang akun %s belum didukung; pengaman AUTO hanya dapat memastikan USD atau USC.", currency);
+      reason = StringFormat("mata uang akun %s belum didukung; pengaman AUTO hanya dapat memastikan USD, USC, atau IDC.", currency);
       return false;
    }
 
    bool centUnits = currencyIsCent;
    double requiredBalance = MinimumAutoBalanceUSD * (centUnits ? 100.0 : 1.0);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   string balanceUnit = currencyIsIdrCent ? "IDC" : (centUnits ? "USC" : "USD");
    if(!MathIsValidNumber(balance)) {
       reason = "saldo akun belum valid.";
       return false;
    }
    if(balance < requiredBalance) {
       reason = StringFormat("saldo %.2f %s di bawah minimum AUTO %.2f %s (ekuivalen USD %.2f).",
-         balance, centUnits ? "USC" : "USD", requiredBalance, centUnits ? "USC" : "USD", MinimumAutoBalanceUSD);
+         balance, balanceUnit, requiredBalance, balanceUnit, MinimumAutoBalanceUSD);
       return false;
    }
    return true;

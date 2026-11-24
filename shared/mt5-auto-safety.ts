@@ -1,7 +1,7 @@
 export const DEFAULT_MINIMUM_AUTO_BALANCE_USD = 10;
 export const MINIMUM_AUTO_BALANCE_USD = { min: 0.01, max: 1_000_000_000 } as const;
 
-export type AutoBalanceUnit = "USD" | "USC";
+export type AutoBalanceUnit = "USD" | "USC" | "IDC";
 export type AutoBalanceRejectionReason =
   | "below_minimum"
   | "unsupported_currency"
@@ -18,7 +18,7 @@ export type AutoBalanceCheck = {
 
 /**
  * Compare the raw MT5 deposit balance with a USD-equivalent AUTO minimum.
- * USD accounts use the configured amount directly; USC/cent accounts use 100x.
+ * USD accounts use the configured amount directly; USC/IDC cent accounts use 100x.
  * Unknown currencies and contradictory cent metadata fail closed because this
  * project does not have a reliable FX conversion for them.
  */
@@ -52,8 +52,11 @@ export function checkMinimumAutoBalance(
   }
 
   const normalizedCurrency = currency.trim().toUpperCase();
+  const isIdrCentAccount = normalizedCurrency === "IDC";
   const currencyIsCent =
-    normalizedCurrency.includes("USC") || normalizedCurrency.includes("CENT");
+    isIdrCentAccount ||
+    normalizedCurrency.includes("USC") ||
+    normalizedCurrency.includes("CENT");
   const isUsdCentAccount =
     normalizedCurrency === "USD" && isCentAccount === true;
 
@@ -63,7 +66,7 @@ export function checkMinimumAutoBalance(
       allowed: balance >= requiredBalance,
       reason: balance >= requiredBalance ? null : "below_minimum",
       requiredBalance,
-      unit: "USC",
+      unit: isIdrCentAccount ? "IDC" : "USC",
       minimumUsd,
     };
   }
@@ -93,7 +96,7 @@ export function autoBalanceRejectionMessage(
   isCentAccount: boolean
 ): string {
   if (check.reason === "unsupported_currency") {
-    return `AUTO requires an account denominated in USD or USC; currency "${currency}"${isCentAccount ? " conflicts with cent-account detection" : " is unsupported"}.`;
+    return `AUTO requires an account denominated in USD or a supported cent currency (USC/IDC); currency "${currency}"${isCentAccount ? " conflicts with cent-account detection" : " is unsupported"}.`;
   }
   if (check.reason === "invalid_minimum") {
     return "AUTO minimum balance must be a valid positive USD amount.";

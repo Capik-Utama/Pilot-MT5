@@ -16,7 +16,7 @@ Autentikasi identitas menggunakan Supabase Auth. API Express memeriksa role dan 
 4. Izinkan hanya origin HTTPS API pada WebRequest MT5.
 5. Uji pada akun demo; periksa simbol, mode, lot, batas risiko dan konfigurasi sebelum mempertimbangkan akun live.
 
-Koneksi EA remote baru dimulai MANUAL. AUTO hanya dapat dipulihkan setelah telemetry saldo terbaru lolos pemeriksaan minimum. Default batasnya ekuivalen USD 10: 10 pada akun USD atau 1000 USC pada akun cent; parameter USD dapat disesuaikan pada input EA atau editor parameter dashboard. Mata uang selain USD/USC atau metadata cent yang bertentangan memblokir AUTO sampai unit saldo dapat dipastikan. Jika saldo turun di bawah batas selama AUTO aktif, EA beralih ke MANUAL; posisi terbuka tidak ditutup oleh guard ini dan stop loss/trailing tetap berjalan. Uji dahulu di akun demo. Selama perubahan ini tidak ada order nyata yang dikirim.
+Koneksi EA remote baru dimulai MANUAL. AUTO hanya dapat dipulihkan setelah telemetry saldo terbaru lolos pemeriksaan minimum. Default batasnya ekuivalen USD 10: 10 pada akun USD atau 1000 USC/IDC pada akun cent (100 unit cent per USD-equivalent); parameter USD dapat disesuaikan pada input EA atau editor parameter dashboard. Mata uang selain USD, USC, atau IDC, serta metadata cent USD yang bertentangan, memblokir AUTO sampai unit saldo dapat dipastikan. Jika saldo turun di bawah batas selama AUTO aktif, EA beralih ke MANUAL; posisi terbuka tidak ditutup oleh guard ini dan stop loss/trailing tetap berjalan. Uji dahulu di akun demo. Selama perubahan ini tidak ada order nyata yang dikirim.
 
 ## Environment dan keamanan
 
