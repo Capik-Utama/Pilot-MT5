@@ -29,18 +29,18 @@ input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
 input string EAConnectionToken = "";
 input group "== Interval Komunikasi MT5 Pilot =="
-input int InputPengirimanInfoKePilotMs = 1000;
-input int InputPengecekanPerintahPilotMs = 1000;
+input int InputPengirimanInfoKePilotMs = 500;
+input int InputPengecekanPerintahPilotMs = 500;
 
 input group "=== Grid & Order Settings ==="
-input int      InpGridDistance    = 500;     // Order Distance (in Points)
+input int      InpGridDistance    = 1000;     // Order Distance (in Points)
 input int      InpMaxLevels       = 50;     // Max Grid Levels per side
 input double   InpStartLot        = 0.03;   // Starting Lot Size
 input double   InpLotMultiplier   = 1.2;    // Martingale Lot Multiplier
 input ulong    InpMagicNumber     = 888123; // Magic Number
 
 input group "=== Global Basket Money Management ==="
-input double   InpMinBalanceUSD   = 0.0;     // Saldo Minimum (dalam USD/USC, 0 = Disabled)
+input double   InpMinBalanceUSD   = 100;     // Saldo Minimum (dalam USD/USC, 0 = Disabled)
 input double   InpBasketTP_USD    = 2000.0;  // Target TP Global Basket (dalam USD/USC, 0 = Disabled)
 input double   InpBasketSL_USD    = 10000.0; // Target SL Global Basket / Max DD (dalam USD/USC, 0 = Disabled)
 input double   InpTargetProfitUSD = 2000;    // Target Profit Harian (in USD/USC, 0 = Disabled)
@@ -52,7 +52,7 @@ input double   InpTrailingStepUSD = 1.0;    // Jarak Step Trailing (USD/USC)
 
 input group "=== Pengaturan Mata Uang Panel ==="
 input ENUM_DISPLAY_CURRENCY InpDisplayCurrency = CURR_IDR; // Default mata uang panel
-input double    InpUSDIDRRate     = 17000.0; // Kurs USD ke IDR
+input double    InpUSDIDRRate     = 18000.0; // Kurs USD ke IDR
 
 input group "== Pengaturan Waktu (SERVER TIME) =="
 input bool   InpUseTimer      = false;
