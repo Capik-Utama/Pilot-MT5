@@ -16,11 +16,11 @@ enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string PilotApiBaseUrl = ""; // Salin base URL API dari dashboard MT5 Pilot.
+input string PilotApiBaseUrl = https://personal-database.my.id/api/mt5
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
 
 input group "== Interval Komunikasi MT5 Pilot =="
-input int InputPengirimanInfoKePilotMs = 500;
+input int InputPengirimanInfoKePilotMs = 1000;
 input int InputPengecekanPerintahPilotMs = 1000;
 
 input group "== Mode Perdagangan =="
@@ -36,19 +36,19 @@ input int     InputMagicJual   = 2864385;
 
 input group "== Pengaturan Lot & Pengganda =="
 input double    InputLotAwal         = 0.01;
-input double    InputPenggandaLot   = 1.2;
-input double    InputLotMaksimal          = 12;
-input int       InputLangkahLayer       = 1;
-input int       InputJarakGrid        = 2000;
+input double    InputPenggandaLot   = 1.5;
+input double    InputLotMaksimal          = 15;
+input int       InputLangkahLayer       = 5;
+input int       InputJarakGrid        = 1500;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
-input double InputMinimumAutoBalanceUSD = 10.0; // Minimum ekuivalen USD; akun USC memakai 100x.
+input double InputMinimumAutoBalanceUSD = 1000; // Minimum ekuivalen USD; akun USC memakai 100x.
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
-input double    InputBatasKerugian    = 30000.0;
-input int       InputJedaSetelahSLMenit = 30;
+input double    InputBatasKerugian    = 10000.0;
+input int       InputJedaSetelahSLMenit = 15;
 input double    InputTargetHarian = 100000.0;
 input ENUM_AFTER_LOGIC InputSetelahTargetTercapai = SETELAH_STOP_HARI_INI;
 
