@@ -25,6 +25,13 @@ struct SGridLevel
 };
 
 // --- INPUT PARAMETERS ---
+input group "== Koneksi MT5 Pilot =="
+input bool EnablePilotRemote = true;
+input string EAConnectionToken = "";
+input group "== Interval Komunikasi MT5 Pilot =="
+input int InputPengirimanInfoKePilotMs = 1000;
+input int InputPengecekanPerintahPilotMs = 1000;
+
 input group "=== Grid & Order Settings ==="
 input int      InpGridDistance    = 500;     // Order Distance (in Points)
 input int      InpMaxLevels       = 50;     // Max Grid Levels per side
@@ -53,13 +60,6 @@ input int    InpStartHour     = 0;
 input int    InpStartMinute   = 5;
 input int    InpEndHour       = 23;
 input int    InpEndMinute     = 0;
-
-input group "== Koneksi MT5 Pilot =="
-input bool EnablePilotRemote = true;
-input string EAConnectionToken = "";
-input group "== Interval Komunikasi MT5 Pilot =="
-input int InputPengirimanInfoKePilotMs = 1000;
-input int InputPengecekanPerintahPilotMs = 1000;
 
 // --- GLOBAL VARIABLES ---
 CTrade         trade;
