@@ -14,9 +14,10 @@ enum ENUM_AFTER_LOGIC { SETELAH_STOP_HARI_INI, SETELAH_LANJUT };
 enum ENUM_TS_MODE { MODE_GLOBAL_PER_ARAH, MODE_GLOBAL_SEMUA_ARAH };
 enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
+const string PilotApiBaseUrl = "https://personal-database.my.id/api/mt5";
+
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string PilotApiBaseUrl = ""; // Tempel API yang dibuat dashboard. Jangan bagikan.
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
 
 input group "== Interval Komunikasi MT5 Pilot =="
@@ -213,8 +214,8 @@ int OnInit() {
    CreateDashboard();
    PilotRestoreConfigState();
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
-   if(EnablePilotRemote && (EAConnectionToken == "" || PilotApiBaseUrl == ""))
-      Print("Fast-Grid Pilot: isi PilotApiBaseUrl dan EAConnectionToken dari dashboard agar telemetri aktif.");
+   if(EnablePilotRemote && EAConnectionToken == "")
+      Print("Fast-Grid Pilot: isi EAConnectionToken dari dashboard dan izinkan https://personal-database.my.id di Options > Expert Advisors agar telemetri aktif.");
    return(INIT_SUCCEEDED);
 }
 
@@ -586,7 +587,7 @@ void OnTimer() {
 }
 
 void PilotOnTimer() {
-   if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "" || PilotApiBaseUrl == "") return;
+   if(!EnablePilotRemote || MQLInfoInteger(MQL_TESTER) || EAConnectionToken == "") return;
    PilotEnforceAutoBalance();
    uint now = GetTickCount();
    bool pollAttempted = false;
@@ -627,7 +628,7 @@ string PilotJsonEscape(const string value) {
 }
 
 int PilotHttp(const string method, const string route, const string body, string &response) {
-   if(StringLen(EAConnectionToken) < 40 || PilotApiBaseUrl == "") return -1;
+   if(StringLen(EAConnectionToken) < 40) return -1;
    char data[];
    if(body != "") {
       int copied = StringToCharArray(body, data, 0, WHOLE_ARRAY, CP_UTF8);
