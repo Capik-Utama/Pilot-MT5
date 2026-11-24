@@ -494,30 +494,36 @@ double GetTodayClosedProfitInBase()
    return GetClosedProfitInBase();
 }
 
-string FormatGroupedNumber(double value, int decimals)
+string FormatWithDot(double val, int digits)
 {
-   bool negative = value < 0.0;
-   string raw = decimals == 0
-      ? StringFormat("%.0f", MathAbs(value))
-      : StringFormat("%.2f", MathAbs(value));
-   int decimalPos = StringFind(raw, ".");
-   string integerPart = decimalPos >= 0 ? StringSubstr(raw, 0, decimalPos) : raw;
-   string decimalPart = decimalPos >= 0 ? StringSubstr(raw, decimalPos + 1) : "";
-   string grouped = "";
-   int digits = 0;
-   for(int i = StringLen(integerPart) - 1; i >= 0; i--)
+   bool isNeg = (val < 0.0);
+   double absVal = MathAbs(val);
+   string raw = DoubleToString(absVal, digits);
+
+   string intPart = raw;
+   string decPart = "";
+   int dotPos = StringFind(raw, ".");
+   if(dotPos >= 0)
    {
-      if(digits == 3)
-      {
-         grouped = "." + grouped;
-         digits = 0;
-      }
-      grouped = StringSubstr(integerPart, i, 1) + grouped;
-      digits++;
+      intPart = StringSubstr(raw, 0, dotPos);
+      decPart = StringSubstr(raw, dotPos);
    }
-   if(negative) grouped = "-" + grouped;
-   if(decimalPart != "") grouped += "," + decimalPart;
-   return grouped;
+
+   int len = StringLen(intPart);
+   string formattedInt = "";
+   int count = 0;
+   for(int i = len - 1; i >= 0; i--)
+   {
+      formattedInt = StringSubstr(intPart, i, 1) + formattedInt;
+      count++;
+      if(count == 3 && i > 0)
+      {
+         formattedInt = "." + formattedInt;
+         count = 0;
+      }
+   }
+
+   return (isNeg ? "-" : "") + formattedInt + decPart;
 }
 
 string FormatCurrency(double amountBase)
@@ -525,17 +531,17 @@ string FormatCurrency(double amountBase)
    if(CurrentCurrencyMode == 1) 
    {
       double uscVal = IsCentAccount() ? amountBase : (amountBase * 100.0);
-      return FormatGroupedNumber(uscVal, 2) + " USC";
+      return FormatWithDot(uscVal, 2) + " USC";
    }
    else if(CurrentCurrencyMode == 2) 
    {
       double usdVal = IsCentAccount() ? (amountBase / 100.0) : amountBase;
-      return FormatGroupedNumber(usdVal * InpUsdToIdr, 0) + " IDR";
+      return FormatWithDot(usdVal * InpUsdToIdr, 0) + " IDR";
    }
    else 
    {
       double usdVal = IsCentAccount() ? (amountBase / 100.0) : amountBase;
-      return FormatGroupedNumber(usdVal, 2) + " USD";
+      return FormatWithDot(usdVal, 2) + " USD";
    }
 }
 
