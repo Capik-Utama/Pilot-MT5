@@ -25,6 +25,11 @@ describe("minimum AUTO balance", () => {
       unit: "IDC",
       requiredBalance: 1000,
     });
+    expect(checkMinimumAutoBalance(1000, "IDC", true)).toMatchObject({
+      allowed: true,
+      unit: "IDC",
+      requiredBalance: 1000,
+    });
   });
 
   it("applies a configured USD-equivalent minimum to both account types", () => {
