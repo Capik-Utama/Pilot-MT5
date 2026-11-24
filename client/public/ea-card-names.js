@@ -6,7 +6,7 @@
       if (!title) return;
 
       const isBreakTrend = /break\s*[-_]?\s*trend/i.test(identity);
-      const expectedTitle = isBreakTrend ? "*Break-Trend*" : "*Fast-Grid*";
+      const expectedTitle = isBreakTrend ? "*Trend_By_Capik*" : "*Grid_By_Capik*";
       if (title.textContent !== expectedTitle) title.textContent = expectedTitle;
     });
   };
