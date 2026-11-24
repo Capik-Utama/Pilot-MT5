@@ -335,6 +335,22 @@ function AccountTelemetry({
         );
   };
   const basketSlValue = finiteNumber(account.basket_sl_set);
+  const configuredMinimumUsd = finiteNumber(
+    account.ea_config?.MinimumAutoBalanceUSD
+  );
+  const minimumBalanceDisplay =
+    configuredMinimumUsd === null
+      ? "—"
+      : currency(
+          configuredMinimumUsd *
+            (account.is_cent_account || /USC|IDC|CENT/i.test(account.currency)
+              ? 100
+              : 1),
+          account.currency,
+          displayMode,
+          account.display_rate,
+          account.is_cent_account
+        );
   const basketSlDisplay = !account.telemetry_received
     ? "Basket SL Set: —"
     : account.basket_sl_type === "percent"
@@ -345,6 +361,10 @@ function AccountTelemetry({
   return (
     <>
       <div className="pilot-metrics pilot-panel-metrics pilot-config-telemetry">
+        <div className="metric-minimum-balance">
+          <span>Saldo Minimum</span>
+          <strong>{minimumBalanceDisplay}</strong>
+        </div>
         <div className="metric-sl">
           <span>Basket SL Set</span>
           <strong>{basketSlDisplay}</strong>

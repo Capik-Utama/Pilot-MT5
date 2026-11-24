@@ -3474,6 +3474,10 @@ p {
 .pilot-panel-metrics .metric-running.negative > span {
   color: #ffff00;
 }
+.pilot-panel-metrics .metric-minimum-balance > span,
+.pilot-panel-metrics .metric-minimum-balance strong {
+  color: #60a5fa;
+}
 .pilot-panel-metrics .metric-target > span,
 .pilot-panel-metrics .metric-target strong {
   color: #00ff00;
@@ -5397,4 +5401,10 @@ p {
 .pilot-dashboard[data-theme="light"] .pilot-polling-control,
 .pilot-dashboard[data-theme="blue-white"] .pilot-polling-control {
   background: rgba(225, 235, 247, 0.45);
+}
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-minimum-balance > span,
+.pilot-dashboard[data-theme="light"] .pilot-panel-metrics .metric-minimum-balance strong,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-minimum-balance > span,
+.pilot-dashboard[data-theme="blue-white"] .pilot-panel-metrics .metric-minimum-balance strong {
+  color: #1d4ed8;
 }
