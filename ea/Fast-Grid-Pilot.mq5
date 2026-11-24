@@ -16,7 +16,7 @@ enum ENUM_DISPLAY_CURRENCY { MATA_USD, MATA_CENT, MATA_IDR };
 
 input group "== Koneksi MT5 Pilot =="
 input bool EnablePilotRemote = true;
-input string PilotApiBaseUrl = https://personal-database.my.id/api/mt5
+input string PilotApiBaseUrl = ""; // Tempel API yang dibuat dashboard. Jangan bagikan.
 input string EAConnectionToken = ""; // Tempel token yang dibuat dashboard. Jangan bagikan.
 
 input group "== Interval Komunikasi MT5 Pilot =="
