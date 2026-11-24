@@ -302,6 +302,14 @@ function AccountRunningProfit({
         <span>Profit</span>
         <strong>{showMoney(account.profit)}</strong>
       </div>
+      <div className="metric-status">
+        <span>Status</span>
+        <strong>
+          {account.telemetry_received
+            ? account.ea_status || (account.running ? "ACTIVE" : "MANUAL")
+            : "MENUNGGU EA"}
+        </strong>
+      </div>
     </div>
   );
 }
