@@ -327,7 +327,13 @@ function AccountTelemetry({
   account: Account;
   displayMode: DisplayCurrency;
 }) {
-  const isTrendByCapik = account.ea_panel === "trend-by-capik";
+  const config = account.ea_config ?? {};
+  const looksLikeTrendByCapik =
+    config.MagicBeli !== undefined &&
+    config.MagicBeli === config.MagicJual &&
+    config.JarakTrailingPending === 0;
+  const isTrendByCapik =
+    account.ea_panel === "trend-by-capik" || looksLikeTrendByCapik;
   const isCentAccount =
     account.is_cent_account || /USC|IDC|CENT/i.test(account.currency);
   const showMoney = (value: unknown) => {
