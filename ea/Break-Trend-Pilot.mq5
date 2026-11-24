@@ -345,8 +345,10 @@ int OnInit()
    
    InpUsdToIdr = BT_USDIDRRate;
    PilotRestoreConfigState();
-   isAutoTradingActive = !EnablePilotRemote;
-   PilotModeSynced = !EnablePilotRemote;
+   // Break-Trend starts in AUTO after reload; remote commands can still
+   // switch it to MANUAL or AUTO afterward.
+   isAutoTradingActive = true;
+   PilotModeSynced = true;
    if(EnablePilotRemote && !MQLInfoInteger(MQL_TESTER)) EventSetMillisecondTimer(250);
    if(EnablePilotRemote && EAConnectionToken == "") Print("MT5 Pilot: isi EAConnectionToken dan izinkan https://personal-database.my.id di WebRequest.");
 
