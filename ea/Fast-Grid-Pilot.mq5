@@ -241,15 +241,39 @@ bool IsCentAccount() {
    return false;
 }
 
+string FormatNumberId(double amount, int decimalPlaces) {
+   long scale = 1;
+   for(int i = 0; i < decimalPlaces; i++) scale *= 10;
+
+   long roundedAmount = (long)MathRound(MathAbs(amount) * scale);
+   long wholePart = roundedAmount / scale;
+   long fractionPart = roundedAmount % scale;
+   string wholeText = StringFormat("%I64d", wholePart);
+   string groupedText = "";
+   int wholeLength = StringLen(wholeText);
+   for(int i = 0; i < wholeLength; i++) {
+      if(i > 0 && (wholeLength - i) % 3 == 0) groupedText += ".";
+      groupedText += StringSubstr(wholeText, i, 1);
+   }
+
+   string result = (amount < 0.0 ? "-" : "") + groupedText;
+   if(decimalPlaces > 0) {
+      string fractionText = StringFormat("%I64d", fractionPart);
+      while(StringLen(fractionText) < decimalPlaces) fractionText = "0" + fractionText;
+      result += "," + fractionText;
+   }
+   return result;
+}
+
 string FormatCurrency(double amount) {
    double usdAmount = IsCentAccount() ? (amount / 100.0) : amount;
 
    if(CurrentCurrencyMode == 1) {
-      return StringFormat("%.2f USC", usdAmount * 100.0);
+      return FormatNumberId(usdAmount * 100.0, 2) + " USC";
    } else if(CurrentCurrencyMode == 2) {
-      return StringFormat("%.0f IDR", usdAmount * InpUsdToIdr);
+      return FormatNumberId(usdAmount * InpUsdToIdr, 0) + " IDR";
    } else {
-      return StringFormat("%.2f USD", usdAmount);
+      return FormatNumberId(usdAmount, 2) + " USD";
    }
 }
 
