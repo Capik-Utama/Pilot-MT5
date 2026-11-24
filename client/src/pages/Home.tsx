@@ -162,7 +162,7 @@ const defaultEaConfig: EaConfig = {
   MinimumAutoBalanceUSD: 10,
 };
 const coreConfigFields = [
-  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (USD ekuivalen; USC/IDC ×100)", "number"],
+  ["MinimumAutoBalanceUSD", "Saldo Minimum AUTO (unit akun)", "number"],
   [
     "ModePerdagangan",
     "Mode perdagangan",
@@ -342,10 +342,7 @@ function AccountTelemetry({
     configuredMinimumUsd === null
       ? "—"
       : currency(
-          configuredMinimumUsd *
-            (account.is_cent_account || /USC|IDC|CENT/i.test(account.currency)
-              ? 100
-              : 1),
+          configuredMinimumUsd,
           account.currency,
           displayMode,
           account.display_rate,

@@ -1,5 +1,5 @@
-export const DEFAULT_MINIMUM_AUTO_BALANCE_USD = 10;
-export const MINIMUM_AUTO_BALANCE_USD = { min: 0.01, max: 1_000_000_000 } as const;
+export const DEFAULT_MINIMUM_AUTO_BALANCE = 10;
+export const MINIMUM_AUTO_BALANCE = { min: 0.01, max: 1_000_000_000_000 } as const;
 
 export type AutoBalanceUnit = "USD" | "USC" | "IDC";
 export type AutoBalanceRejectionReason =
@@ -13,32 +13,32 @@ export type AutoBalanceCheck = {
   reason: AutoBalanceRejectionReason | null;
   requiredBalance: number | null;
   unit: AutoBalanceUnit | null;
-  minimumUsd: number;
+  minimumBalance: number;
 };
 
 /**
- * Compare the raw MT5 deposit balance with a USD-equivalent AUTO minimum.
- * USD accounts use the configured amount directly; USC/IDC cent accounts use 100x.
- * Unknown currencies and contradictory cent metadata fail closed because this
- * project does not have a reliable FX conversion for them.
+ * Compare the raw MT5 balance with a minimum expressed in the same account
+ * units as Basket SL and Daily Target. No cent conversion is applied here:
+ * an account balance of 200,000,000 is compared with a minimum of 200,000,000
+ * in the same way as other money settings. Currency conversion is display-only.
  */
 export function checkMinimumAutoBalance(
   balance: number,
   currency: string,
   isCentAccount: boolean,
-  minimumUsd = DEFAULT_MINIMUM_AUTO_BALANCE_USD
+  minimumBalance = DEFAULT_MINIMUM_AUTO_BALANCE
 ): AutoBalanceCheck {
   if (
-    !Number.isFinite(minimumUsd) ||
-    minimumUsd < MINIMUM_AUTO_BALANCE_USD.min ||
-    minimumUsd > MINIMUM_AUTO_BALANCE_USD.max
+    !Number.isFinite(minimumBalance) ||
+    minimumBalance < MINIMUM_AUTO_BALANCE.min ||
+    minimumBalance > MINIMUM_AUTO_BALANCE.max
   ) {
     return {
       allowed: false,
       reason: "invalid_minimum",
       requiredBalance: null,
       unit: null,
-      minimumUsd,
+      minimumBalance,
     };
   }
   if (!Number.isFinite(balance)) {
@@ -47,7 +47,7 @@ export function checkMinimumAutoBalance(
       reason: "invalid_balance",
       requiredBalance: null,
       unit: null,
-      minimumUsd,
+      minimumBalance,
     };
   }
 
@@ -57,26 +57,32 @@ export function checkMinimumAutoBalance(
     isIdrCentAccount ||
     normalizedCurrency.includes("USC") ||
     normalizedCurrency.includes("CENT");
-  const isUsdCentAccount =
-    normalizedCurrency === "USD" && isCentAccount === true;
 
-  if (currencyIsCent || isUsdCentAccount) {
-    const requiredBalance = minimumUsd * 100;
+  if (normalizedCurrency === "USD" && isCentAccount === true) {
     return {
-      allowed: balance >= requiredBalance,
-      reason: balance >= requiredBalance ? null : "below_minimum",
-      requiredBalance,
+      allowed: false,
+      reason: "unsupported_currency",
+      requiredBalance: null,
+      unit: null,
+      minimumBalance,
+    };
+  }
+  if (currencyIsCent) {
+    return {
+      allowed: balance >= minimumBalance,
+      reason: balance >= minimumBalance ? null : "below_minimum",
+      requiredBalance: minimumBalance,
       unit: isIdrCentAccount ? "IDC" : "USC",
-      minimumUsd,
+      minimumBalance,
     };
   }
   if (normalizedCurrency === "USD" && isCentAccount === false) {
     return {
-      allowed: balance >= minimumUsd,
-      reason: balance >= minimumUsd ? null : "below_minimum",
-      requiredBalance: minimumUsd,
+      allowed: balance >= minimumBalance,
+      reason: balance >= minimumBalance ? null : "below_minimum",
+      requiredBalance: minimumBalance,
       unit: "USD",
-      minimumUsd,
+      minimumBalance,
     };
   }
 
@@ -85,7 +91,7 @@ export function checkMinimumAutoBalance(
     reason: "unsupported_currency",
     requiredBalance: null,
     unit: null,
-    minimumUsd,
+    minimumBalance,
   };
 }
 
@@ -99,10 +105,10 @@ export function autoBalanceRejectionMessage(
     return `AUTO requires an account denominated in USD or a supported cent currency (USC/IDC); currency "${currency}"${isCentAccount ? " conflicts with cent-account detection" : " is unsupported"}.`;
   }
   if (check.reason === "invalid_minimum") {
-    return "AUTO minimum balance must be a valid positive USD amount.";
+    return "AUTO minimum balance must be a valid positive account-unit amount.";
   }
   if (check.reason === "invalid_balance") {
     return "AUTO requires valid balance telemetry before activation.";
   }
-  return `AUTO requires at least ${check.requiredBalance?.toFixed(2)} ${check.unit} (USD ${check.minimumUsd.toFixed(2)} equivalent); current balance is ${balance.toFixed(2)} ${check.unit}.`;
+  return `AUTO requires at least ${check.requiredBalance?.toFixed(2)} ${check.unit}; current balance is ${balance.toFixed(2)} ${check.unit}.`;
 }

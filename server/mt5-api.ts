@@ -16,8 +16,8 @@ import {
 import {
   autoBalanceRejectionMessage,
   checkMinimumAutoBalance,
-  DEFAULT_MINIMUM_AUTO_BALANCE_USD,
-  MINIMUM_AUTO_BALANCE_USD,
+  DEFAULT_MINIMUM_AUTO_BALANCE,
+  MINIMUM_AUTO_BALANCE,
 } from "../shared/mt5-auto-safety";
 
 const ONLINE_WINDOW_MS = 20_000;
@@ -83,8 +83,8 @@ const configRanges: Record<string, readonly [number, number]> = {
   KunciProfitPoin: [0, 1000000],
   LangkahTrailingPoin: [0, 1000000],
   MinimumAutoBalanceUSD: [
-    MINIMUM_AUTO_BALANCE_USD.min,
-    MINIMUM_AUTO_BALANCE_USD.max,
+    MINIMUM_AUTO_BALANCE.min,
+    MINIMUM_AUTO_BALANCE.max,
   ],
 };
 const integerConfigKeys = new Set([
@@ -137,23 +137,23 @@ const requiredEaConfigKeys = new Set(
 const validEaConfig = (v: unknown) =>
   validConfig(v) &&
   [...requiredEaConfigKeys].every(key => Object.hasOwn(v as Obj, key));
-const minimumAutoBalanceUsd = (config: unknown) => {
+const minimumAutoBalance = (config: unknown) => {
   const value = (config as Obj | null)?.MinimumAutoBalanceUSD;
   return finite(
     value,
-    MINIMUM_AUTO_BALANCE_USD.min,
-    MINIMUM_AUTO_BALANCE_USD.max
+    MINIMUM_AUTO_BALANCE.min,
+    MINIMUM_AUTO_BALANCE.max
   )
     ? value
-    : DEFAULT_MINIMUM_AUTO_BALANCE_USD;
+    : DEFAULT_MINIMUM_AUTO_BALANCE;
 };
-const autoBalanceError = (account: Obj, minimumUsd?: number): string | null => {
+const autoBalanceError = (account: Obj, minimumBalance?: number): string | null => {
   if (!account.telemetryReceived)
     return "AUTO requires balance telemetry before activation.";
   const lastSeen = date(account.lastSeenAt);
   if (!lastSeen || Date.now() - lastSeen.getTime() > ONLINE_WINDOW_MS)
     return "AUTO requires fresh balance telemetry; wait for the next EA update.";
-  const threshold = minimumUsd ?? minimumAutoBalanceUsd(account.eaConfig);
+  const threshold = minimumBalance ?? minimumAutoBalance(account.eaConfig);
   const check = checkMinimumAutoBalance(
     account.balance,
     account.currency,
@@ -813,7 +813,7 @@ export function registerMt5ApiRoutes(app: Express) {
           return fail(res, 409, "EA offline or heartbeat expired.");
         const restoreAuto =
           a.eaMode === "auto" &&
-          autoBalanceError(a, minimumAutoBalanceUsd(cfg)) === null;
+          autoBalanceError(a, minimumAutoBalance(cfg)) === null;
         const created = await db
           .transaction(async (tx: any) => {
             const locked = await tx
@@ -1064,15 +1064,15 @@ export function registerMt5ApiRoutes(app: Express) {
                   MinimumAutoBalanceUSD:
                     b.eaConfig.MinimumAutoBalanceUSD ??
                     currentAccount.eaConfig?.MinimumAutoBalanceUSD ??
-                    DEFAULT_MINIMUM_AUTO_BALANCE_USD,
+                    DEFAULT_MINIMUM_AUTO_BALANCE,
                 }
               : currentAccount.eaConfig;
-          const effectiveMinimumUsd = minimumAutoBalanceUsd(effectiveConfig);
+          const effectiveMinimumBalance = minimumAutoBalance(effectiveConfig);
           const balanceCheck = checkMinimumAutoBalance(
             b.balance,
             b.currency,
             b.isCentAccount,
-            effectiveMinimumUsd
+            effectiveMinimumBalance
           );
           telemetryMode =
             b.eaMode === "auto" && balanceCheck.allowed ? "auto" : "manual";
@@ -1120,7 +1120,7 @@ export function registerMt5ApiRoutes(app: Express) {
               MinimumAutoBalanceUSD:
                 b.eaConfig.MinimumAutoBalanceUSD ??
                 currentAccount.eaConfig?.MinimumAutoBalanceUSD ??
-                DEFAULT_MINIMUM_AUTO_BALANCE_USD,
+                DEFAULT_MINIMUM_AUTO_BALANCE,
             };
           await tx
             .update(mt5Accounts)

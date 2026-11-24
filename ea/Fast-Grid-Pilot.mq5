@@ -44,7 +44,7 @@ input int       InputJarakGrid        = 1500;
 input int       InputJarakTrailingPending = 500;
 
 input group "== Pengaman Perdagangan =="
-input double InputMinimumAutoBalanceUSD = 10.0; // Minimum ekuivalen USD; akun USC/IDC memakai 100x.
+input double InputMinimumAutoBalanceUSD = 10.0; // Nilai minimum dalam unit akun, sama seperti Basket SL/Daily Target.
 
 input group "== Penutupan (Stop Loss & Target Harian) =="
 input ENUM_CL_TYPE InputJenisBatasRugi   = CL_NILAI_UANG;
@@ -187,9 +187,9 @@ int OnInit() {
    KunciProfitPoin = InputKunciProfitPoin;
    LangkahTrailingPoin = InputLangkahTrailingPoin;
    MinimumAutoBalanceUSD = InputMinimumAutoBalanceUSD;
-   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000.0) {
+   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000000.0) {
       MinimumAutoBalanceUSD = 10.0;
-      Print("MT5 Pilot: input minimum saldo AUTO tidak valid; memakai default USD 10.");
+      Print("MT5 Pilot: input minimum saldo AUTO tidak valid; memakai default 10 unit akun.");
    }
    InputConfigSnapshot = PilotConfigJson(true);
    ResetTime = (datetime)SeriesInfoInteger(_Symbol, PERIOD_D1, SERIES_LASTBAR_DATE);
@@ -244,7 +244,7 @@ bool IsCentAccount() {
 }
 
 double MinimumAutoBalanceAccountUnits() {
-   return MinimumAutoBalanceUSD * (IsCentAccount() ? 100.0 : 1.0);
+   return MinimumAutoBalanceUSD;
 }
 
 string FormatNumberId(double amount, int decimalPlaces) {
@@ -285,8 +285,8 @@ string FormatCurrency(double amount) {
 
 bool PilotAutoBalanceAllows(string &reason) {
    reason = "";
-   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000.0) {
-      reason = "parameter minimum AUTO harus berupa nilai USD positif yang valid.";
+   if(!MathIsValidNumber(MinimumAutoBalanceUSD) || MinimumAutoBalanceUSD < 0.01 || MinimumAutoBalanceUSD > 1000000000000.0) {
+      reason = "parameter minimum AUTO harus berupa nilai unit akun positif yang valid.";
       return false;
    }
 
@@ -312,8 +312,8 @@ bool PilotAutoBalanceAllows(string &reason) {
       return false;
    }
    if(balance < requiredBalance) {
-      reason = StringFormat("saldo %.2f %s di bawah minimum AUTO %.2f %s (ekuivalen USD %.2f).",
-         balance, balanceUnit, requiredBalance, balanceUnit, MinimumAutoBalanceUSD);
+      reason = StringFormat("saldo %.2f %s di bawah minimum AUTO %.2f %s.",
+         balance, balanceUnit, requiredBalance, balanceUnit);
       return false;
    }
    return true;
