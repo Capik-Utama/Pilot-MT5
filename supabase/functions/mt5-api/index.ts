@@ -31,6 +31,12 @@ function validEaConfig(value: unknown): value is Json {
   return entries.length === configKeys.size && entries.every(([key, item]) =>
     configKeys.has(key) && typeof item === "number" && Number.isFinite(item));
 }
+function panelFromEaConfig(value: unknown) {
+  const config = value as Json | null;
+  return config && config.MagicBeli === config.MagicJual && config.JarakTrailingPending === 0
+    ? "trend-by-capik"
+    : "grid-by-capik";
+}
 const activeStatuses = ["queued", "delivered", "accepted"];
 
 type Json = Record<string, unknown>;
@@ -539,7 +545,7 @@ async function handleEa(req: Request, path: string) {
       equity: body.equity,
       max_dd_buy: body.maxDdBuy,
       max_dd_sell: body.maxDdSell,
-      ea_panel: body.eaPanel ?? account.ea_panel ?? "grid-by-capik",
+      ea_panel: body.eaPanel ?? (body.eaConfig !== undefined ? panelFromEaConfig(body.eaConfig) : account.ea_panel ?? "grid-by-capik"),
       minimum_balance_set: body.minimumBalanceSet ?? account.minimum_balance_set ?? 0,
       basket_sl_set: body.basketSlSet,
       basket_sl_type: body.basketSlType,

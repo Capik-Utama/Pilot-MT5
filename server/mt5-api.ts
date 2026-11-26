@@ -137,6 +137,14 @@ const requiredEaConfigKeys = new Set(
 const validEaConfig = (v: unknown) =>
   validConfig(v) &&
   [...requiredEaConfigKeys].every(key => Object.hasOwn(v as Obj, key));
+const panelFromEaConfig = (config: unknown) => {
+  const value = config as Obj | null;
+  return value &&
+    value.MagicBeli === value.MagicJual &&
+    value.JarakTrailingPending === 0
+    ? "trend-by-capik"
+    : "grid-by-capik";
+};
 const minimumAutoBalance = (config: unknown) => {
   const value = (config as Obj | null)?.MinimumAutoBalanceUSD;
   return finite(
@@ -1109,7 +1117,11 @@ export function registerMt5ApiRoutes(app: Express) {
             equity: b.equity,
             maxDdBuy: b.maxDdBuy,
             maxDdSell: b.maxDdSell,
-            eaPanel: b.eaPanel ?? currentAccount.eaPanel ?? "grid-by-capik",
+            eaPanel:
+              b.eaPanel ??
+              (b.eaConfig !== undefined
+                ? panelFromEaConfig(b.eaConfig)
+                : currentAccount.eaPanel ?? "grid-by-capik"),
             minimumBalanceSet:
               b.minimumBalanceSet ?? currentAccount.minimumBalanceSet ?? 0,
             basketSlSet: b.basketSlSet,

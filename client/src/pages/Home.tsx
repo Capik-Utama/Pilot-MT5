@@ -91,6 +91,15 @@ type Account = {
     expires_at: string;
   }[];
 };
+function eaCardTitle(account: Account) {
+  const config = account.ea_config ?? {};
+  const isTrendByCapik =
+    account.ea_panel === "trend-by-capik" ||
+    (config.MagicBeli !== undefined &&
+      config.MagicBeli === config.MagicJual &&
+      config.JarakTrailingPending === 0);
+  return isTrendByCapik ? "*Trend_By_Capik*" : "*Grid_By_Capik*";
+}
 type CardMetric = Pick<
   Account,
   "id" | "running_float" | "profit" | "telemetry_received"
@@ -1936,7 +1945,7 @@ ${serializedBody ?? ""}`).byteLength;
                       </span>
                     </div>
                     <article className="pilot-account-card">
-                      <div className="pilot-account-header">
+                    <div className="pilot-account-header">
                         {canWrite ? (
                           <button
                             type="button"
@@ -1945,13 +1954,13 @@ ${serializedBody ?? ""}`).byteLength;
                             title="Edit seluruh parameter EA"
                           >
                             <span>
-                              <h3>*Grid_By_Capik*</h3>
+                              <h3>{eaCardTitle(account)}</h3>
                             </span>
                           </button>
                         ) : (
                           <div className="pilot-account-title pilot-edit-title pilot-staff-card-title">
                             <span>
-                              <h3>*Grid_By_Capik*</h3>
+                              <h3>{eaCardTitle(account)}</h3>
                             </span>
                           </div>
                         )}
